@@ -67,7 +67,11 @@ cert=$("$keytool" -list -v -keystore "$ks" -storetype PKCS12 -storepass:env CLAC
 [[ $cert =~ ^([0-9A-F]{2}:){31}[0-9A-F]{2}$ ]] ||
   { echo "Could not open $ks with that password (or read its certificate)." >&2; exit 1; }
 
-current=$(gh variable get RELEASE_CERT_SHA256 --repo "$repo" 2>/dev/null) || current=
+# `variable list` succeeds with no entry when the pin is absent; any failure (network, auth, server) stops here, so an
+# unreadable pin is never mistaken for a missing one.
+current=$(gh variable list --repo "$repo" --json name,value \
+  --jq '.[] | select(.name == "RELEASE_CERT_SHA256") | .value') ||
+  { echo "Could not read the repository variables from GitHub. Nothing was uploaded." >&2; exit 1; }
 if [[ -n $current && $current != "$cert" ]]; then
   cat >&2 <<EOF
 GitHub already expects a different release certificate:
