@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- toolbar key; the name is looked up by the key name, see getStringResourceOrName -->
+    <string name="check" tools:keep="@string/check">Check</string>
+
+    <!-- panel over the keyboard -->
+    <string name="assist_voice_title">Voice typing</string>
+    <string name="assist_check_title">Check</string>
+    <string name="assist_listening">Listening</string>
+    <string name="assist_transcribing">Writing it down</string>
+    <string name="assist_cleaning">Cleaning up the text</string>
+    <string name="assist_checking">Checking</string>
+    <string name="assist_check_result">Corrected text</string>
+    <string name="assist_stop">Stop</string>
+    <string name="assist_cancel">Cancel</string>
+    <string name="assist_accept">Accept</string>
+    <string name="assist_close">Close</string>
+    <string name="assist_open_settings">Settings</string>
+
+    <!-- messages in the panel -->
+    <string name="assist_no_speech">No speech heard.</string>
+    <string name="assist_mic_unavailable">The microphone is not available.</string>
+    <string name="assist_unsupported_language">This is not set up for %1$s yet. English and Spanish work.</string>
+    <string name="assist_speech_model_missing">The speech model is missing. Add it in Settings under Voice typing.</string>
+    <string name="assist_grammar_model_missing">The grammar model is missing. Add it in Settings under Grammar check.</string>
+    <string name="assist_model_broken">A model file could not be loaded. Import it again in Settings.</string>
+    <string name="assist_failed">Something went wrong: %1$s</string>
+    <string name="assist_check_none">No mistakes found.</string>
+    <string name="assist_check_empty">There is no text to check.</string>
+    <string name="assist_check_too_long">This is too long to check. Select a part of it.</string>
+    <string name="assist_check_private">Check is off in password and private fields.</string>
+    <string name="assist_check_changed">The text changed while checking. Press Check again.</string>
+    <string name="assist_check_unreadable">This field does not let the keyboard read its text, so it cannot be checked.</string>
+    <string name="assist_panel_hidden">Voice typing needs the keyboard keys to be showing. Turn off "show only toolbar" and try again.</string>
+    <string name="assist_check_unreliable">Could not check this text. Try a shorter piece.</string>
+
+    <!-- settings -->
+    <string name="settings_screen_voice_typing">Voice typing</string>
+    <string name="settings_screen_grammar_check">Grammar check</string>
+    <string name="assist_settings_models">Models</string>
+    <string name="assist_model_installed">Installed, %1$s</string>
+    <string name="assist_model_missing">Not installed</string>
+    <string name="assist_model_broken_status">Could not be loaded. Import it again.</string>
+    <string name="assist_import_model">Import model file</string>
+    <string name="assist_import_model_summary">Choose a model file from your storage. The file is copied into the keyboard and checked against the exact reference file; no permission is needed.</string>
+    <string name="assist_import_done">Imported %1$s</string>
+    <string name="assist_import_unknown">This file is not one of the models listed here.</string>
+    <string name="assist_import_not_a_model">This file is not a valid model.</string>
+    <string name="assist_import_wrong_size">This file has the wrong size. It may be incomplete.</string>
+    <string name="assist_import_wrong_content">This is not the exact model file this keyboard uses (its checksum differs). Download it again from the source listed in the README.</string>
+    <string name="assist_licenses">Open-source licences</string>
+    <string name="assist_licenses_summary">whisper.cpp, llama.cpp and ggml (MIT)</string>
+    <string name="assist_import_no_space">There is not enough free storage.</string>
+    <string name="assist_import_error">The file could not be read.</string>
+    <string name="assist_importing">Importing</string>
+    <string name="assist_voice_summary">Tap the Voice key on the toolbar, speak, then tap Stop. Everything stays on your phone.</string>
+    <string name="assist_voice_languages">Languages: English and Spanish, following the current keyboard language.</string>
+    <string name="assist_s1_mini_switch">Clean up English text</string>
+    <string name="assist_s1_mini_summary">Removes fillers and fixes self-corrections, punctuation and numbers.</string>
+    <string name="assist_s1_mini_credit">The English clean-up uses S1-mini by Superwhisper.</string>
+    <string name="assist_s1_styling">Writing style</string>
+    <string name="assist_style_casual">Casual</string>
+    <string name="assist_style_semi_casual">Semi-casual</string>
+    <string name="assist_style_semi_formal">Semi-formal</string>
+    <string name="assist_style_formal">Formal</string>
+    <string name="assist_grammar_summary">Tap the Check key on the toolbar. It checks the selected text, or the whole field, and shows the corrections before anything changes.</string>
+    <string name="assist_grammar_private">Check never reads password fields or private fields.</string>
+</resources>

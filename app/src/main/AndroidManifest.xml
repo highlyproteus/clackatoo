@@ -13,15 +13,26 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Clackatoo: voice typing. Asked for the first time the Voice key is used; audio stays in memory. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!--
+      Clackatoo: deliberately NOT defaultToDeviceProtectedStorage and not directBootAware on the application. Both are
+      ignored for an app installed from an APK, but a system app (a ROM that preinstalls this keyboard) gets them, and then its
+      clipboard history, pinned clips, learned words and models would sit in device-protected storage, readable before the
+      first unlock. Only the LatinIME service is direct-boot aware, as in the sideloaded setup HeliBoard is written for:
+      what typing before the first unlock needs (settings, layouts, fonts) goes through DeviceProtectedUtils, everything else
+      stays in credential-protected storage and is not there until the user has unlocked.
+    -->
     <application android:label="@string/english_ime_name"
             android:name="helium314.keyboard.latin.App"
             android:icon="@mipmap/ic_launcher"
             android:roundIcon="@mipmap/ic_launcher_round"
             android:supportsRtl="true"
             android:allowBackup="true"
-            android:defaultToDeviceProtectedStorage="true"
-            android:directBootAware="true"
+            android:fullBackupContent="@xml/backup_rules"
+            android:dataExtractionRules="@xml/data_extraction_rules"
             android:enableOnBackInvokedCallback="true"
             android:localeConfig="@xml/locales_config"
             tools:remove="android:appComponentFactory"
@@ -49,6 +60,14 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
             <meta-data android:name="android.view.textservice.scs"
                     android:resource="@xml/spellchecker" />
         </service>
+
+        <!-- Clackatoo: runs whisper.cpp and llama.cpp in an isolated process (own throw-away UID, no permissions, no access
+             to the keyboard's files): a malformed model file cannot reach the keyboard's data and cannot crash the keyboard.
+             Models arrive as file descriptors, never as paths. -->
+        <service android:name="helium314.keyboard.clackatoo.assist.MlService"
+                android:process=":ml"
+                android:isolatedProcess="true"
+                android:exported="false" />
 
         <!-- Activities -->
         <activity android:name="helium314.keyboard.settings.SettingsActivity"
@@ -89,6 +108,11 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
         <activity android:name="helium314.keyboard.keyboard.emoji.EmojiSearchActivity" android:exported="false"
             android:theme="@style/TransparentActivityTheme" android:excludeFromRecents="true" android:noHistory="true"
             android:windowSoftInputMode="adjustResize|stateAlwaysVisible" android:configChanges="orientation|screenSize"/>
+
+        <!-- Clackatoo: shows the system microphone permission dialog on first use of the Voice key -->
+        <activity android:name="helium314.keyboard.clackatoo.assist.VoicePermissionActivity" android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/TransparentActivityTheme" android:excludeFromRecents="true" android:noHistory="true"/>
 
         <!-- Broadcast receivers -->
         <receiver android:name="SystemBroadcastReceiver"

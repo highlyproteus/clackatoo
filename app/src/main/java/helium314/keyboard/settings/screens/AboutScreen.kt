@@ -168,7 +168,7 @@ fun createAboutSettings(context: Context) = listOf(
             description = it.description,
             onClick = {
                 val intent = Intent()
-                intent.data = Links.GITHUB.toUri()
+                intent.data = Links.SOURCE.toUri()
                 intent.action = Intent.ACTION_VIEW
                 ctx.startActivity(intent)
             },

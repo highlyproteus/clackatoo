@@ -12,6 +12,7 @@ import android.graphics.drawable.Drawable;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import helium314.keyboard.clackatoo.ClackatooStyle;
 
 import helium314.keyboard.keyboard.Key;
 import helium314.keyboard.keyboard.Keyboard;
@@ -49,7 +50,8 @@ public final class MoreSuggestions extends Keyboard {
                 final int maxWidth, final int minWidth, final int maxRow, final Paint paint,
                 final Context context) {
             clearKeys();
-            mDivider = ContextCompat.getDrawable(context, R.drawable.more_suggestions_divider);
+            final Drawable squareDivider = ClackatooStyle.squareDrawable(context, R.drawable.more_suggestions_divider_clackatoo);
+            mDivider = squareDivider != null ? squareDivider : ContextCompat.getDrawable(context, R.drawable.more_suggestions_divider);
             mDividerWidth = mDivider == null ? 0 : mDivider.getIntrinsicWidth();
             final float padding = context.getResources().getDimension(R.dimen.config_more_suggestions_key_horizontal_padding);
 

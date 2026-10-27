@@ -17,6 +17,7 @@ import android.view.inputmethod.EditorInfo
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.keyboard.KeyboardTypeface
 import helium314.keyboard.compat.ClipboardManagerCompat
 import helium314.keyboard.event.Event
@@ -68,7 +69,6 @@ class ClipboardHistoryManager(
     }
 
     // todo for later
-    //  setting whether to store sensitive clip data?
     //  care about other clip items than first?
     private fun fetchPrimaryClip() {
         if (tempPrimaryClip) return // avoid updating history
@@ -76,6 +76,8 @@ class ClipboardHistoryManager(
         if (clipData.itemCount == 0) return
         val clipItem = clipData.getItemAt(0) ?: return
         val description = clipData.description ?: return
+        // Clackatoo: a clip the source marked sensitive (a password manager's copy) never goes into the history
+        if (!ClipboardPolicy.mayStore(ClipboardManagerCompat.getClipSensitivity(description))) return
         val timeStamp = ClipboardManagerCompat.getClipTimestamp(clipData)
 
         if (description.hasMimeType("text/*")) {
@@ -244,6 +246,8 @@ class ClipboardHistoryManager(
         textView.setTextColor(colors.get(ColorType.KEY_TEXT))
         clipIcon?.let { colors.setColor(it, ColorType.CLIPBOARD_SUGGESTION_ICON) }
         colors.setColor(closeButton, ColorType.REMOVE_SUGGESTION_ICON)
+        // Clackatoo style: no pill shape
+        ClackatooStyle.squareDrawable(latinIME, R.drawable.clipboard_suggestion_background_clackatoo)?.let { binding.root.background = it }
         colors.setBackground(binding.root, ColorType.CLIPBOARD_SUGGESTION_BACKGROUND)
 
         clipboardSuggestionView = binding.root

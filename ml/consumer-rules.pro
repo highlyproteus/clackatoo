@@ -1,0 +1,1 @@
+-keep class helium314.keyboard.clackatoo.ml.NativeMl { native <methods>; }

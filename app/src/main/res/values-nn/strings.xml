@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="spell_checker_service_name">HeliBoard stavekontroll</string>
-    <string name="ime_settings">HeliBoard innstillingar</string>
-    <string name="android_spell_checker_settings">HeliBoard innstillingar for stavekontroll</string>
+    <string name="spell_checker_service_name">Clackatoo stavekontroll</string>
+    <string name="ime_settings">Clackatoo innstillingar</string>
+    <string name="android_spell_checker_settings">Clackatoo innstillingar for stavekontroll</string>
     <string name="vibrate_on_keypress">Vibrer når du trykkjer ein tast</string>
     <string name="vibrate_in_dnd_mode">Vibrer i «ikkje forstyrr»-modus</string>
     <string name="sound_on_keypress">Lyd ved tastetrykk</string>

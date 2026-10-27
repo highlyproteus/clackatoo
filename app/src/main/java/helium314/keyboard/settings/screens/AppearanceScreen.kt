@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.KeyboardTheme
+import helium314.keyboard.keyboard.KeyboardTypeface
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.settings.Defaults
@@ -62,7 +63,8 @@ fun AppearanceScreen(
         Settings.PREF_ICON_STYLE,
         Settings.PREF_ACCENT_SHIFTED_ICON,
         Settings.PREF_CUSTOM_ICON_NAMES,
-        Settings.PREF_THEME_KEY_BORDERS,
+        if (prefs.getString(Settings.PREF_THEME_STYLE, Defaults.PREF_THEME_STYLE) != KeyboardTheme.STYLE_CLACKATOO)
+            Settings.PREF_THEME_KEY_BORDERS else null, // the Clackatoo style always has key borders
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             Settings.PREF_THEME_DAY_NIGHT else null,
         Settings.PREF_THEME_COLORS,
@@ -78,7 +80,7 @@ fun AppearanceScreen(
             || prefs.getBoolean(Settings.PREF_ENABLE_SPLIT_KEYBOARD_FOLDED_LANDSCAPE, Defaults.PREF_ENABLE_SPLIT_KEYBOARD)
             )
             Settings.PREF_SPLIT_SPACER_SCALE_PREFIX else null,
-        if (prefs.getBoolean(Settings.PREF_THEME_KEY_BORDERS, Defaults.PREF_THEME_KEY_BORDERS))
+        if (KeyboardTheme.hasKeyBorders(prefs))
             Settings.PREF_KEY_GAP_SCALE_PREFIX else null,
         Settings.PREF_KEYBOARD_HEIGHT_SCALE_PREFIX,
         Settings.PREF_BOTTOM_ROW_SCALE_PREFIX,
@@ -121,6 +123,7 @@ fun createAppearanceSettings(context: Context) = listOf(
                     prefs.edit { remove(Settings.PREF_THEME_COLORS_NIGHT) }
             }
             KeyboardIconsSet.needsReload = true // only relevant for Settings.PREF_CUSTOM_ICON_NAMES
+            KeyboardTypeface.clearCache() // the Clackatoo style brings its own font
             KeyboardSwitcher.getInstance().setThemeNeedsReload()
         }
     },

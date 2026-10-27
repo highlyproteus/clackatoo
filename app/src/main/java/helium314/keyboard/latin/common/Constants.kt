@@ -7,7 +7,9 @@ object Links {
     const val DICTIONARY_NORMAL_SUFFIX = "dictionaries/"
     const val DICTIONARY_EMOJI_CLDR_SUFFIX = "emoji_cldr_signal_dictionaries/"
     const val GITHUB = "https://github.com/HeliBorg/HeliBoard"
-    const val LICENSE = "$GITHUB/blob/main/LICENSE"
+    // Clackatoo: the About screen's source link and licence point to this fork; the wiki and community links stay HeliBoard's
+    const val SOURCE = "https://github.com/highlyproteus/clackatoo"
+    const val LICENSE = "$SOURCE/blob/main/LICENSE"
     const val WIKI_URL = "$GITHUB/wiki"
     const val LAYOUT_WIKI_URL = "$WIKI_URL/2.-Layouts"
     const val CUSTOM_LAYOUTS = "$GITHUB/discussions/categories/custom-layout"

@@ -32,6 +32,9 @@ import helium314.keyboard.latin.utils.brightenOrDarken
 import helium314.keyboard.latin.utils.darken
 import helium314.keyboard.latin.utils.isBrightColor
 import helium314.keyboard.latin.utils.isDarkColor
+import helium314.keyboard.clackatoo.ClackatooPalette
+import helium314.keyboard.clackatoo.ClackatooStyle
+import helium314.keyboard.keyboard.KeyboardTheme.Companion.STYLE_CLACKATOO
 import java.util.EnumMap
 import androidx.core.graphics.drawable.toDrawable
 import helium314.keyboard.latin.settings.Defaults
@@ -44,6 +47,8 @@ interface Colors {
     val themeStyle: String
     /** used in parser to decide background of ZWNJ key */
     val hasKeyBorders: Boolean
+    /** colour of the thin border around keys, only used by the Clackatoo style */
+    val keyBorder: Int get() = brightenOrDarken(get(KEY_BACKGROUND), true)
     val accentShiftedIcon: Boolean get() =
         Settings.getCurrentContext().prefs().getBoolean(Settings.PREF_ACCENT_SHIFTED_ICON, Defaults.PREF_ACCENT_SHIFTED_ICON)
 
@@ -65,6 +70,12 @@ interface Colors {
 
     /** returns a colored drawable selected from [attr], which must contain using R.styleable.KeyboardView_* */
     fun selectAndColorDrawable(attr: TypedArray, color: ColorType): Drawable {
+        if (themeStyle == STYLE_CLACKATOO) {
+            ClackatooStyle.keyBackground(attr.resources, this, color)?.let {
+                setColor(it, color)
+                return it
+            }
+        }
         val drawable = when (color) {
             KEY_BACKGROUND, MORE_SUGGESTIONS_WORD_BACKGROUND, ACTION_KEY_POPUP_KEYS_BACKGROUND, POPUP_KEYS_BACKGROUND ->
                 attr.getDrawable(R.styleable.KeyboardView_keyBackground)
@@ -381,7 +392,23 @@ class DefaultColors (
     private val spaceBarText: Int = keyHintText,
     private val gesture: Int = accent,
     private var keyboardBackground: Drawable? = null,
+    /** border of keys in the Clackatoo style, derived from the key colour if null */
+    keyBorderColor: Int? = null,
+    // The next parameters are for the Clackatoo colours (ClackatooStyle.colors); the defaults keep the behaviour of every other theme.
+    /** if set, a pressed key is its colour mixed with this one, instead of brighter or darker */
+    private val pressedMix: Int? = null,
+    /** colour of the action key (Enter), [accent] by default */
+    private val actionKeyBackground: Int = accent,
+    /** colour of the glyph or label of the action key, white (or dark grey on a bright [actionKeyBackground]) by default */
+    private val actionKeyIcon: Int? = null,
+    /** text colour of the suggestion that will be auto-corrected, [suggestionText] by default */
+    private val autoCorrectText: Int = suggestionText,
+    /** background of popups and key previews, a variant of [background] by default */
+    popupBackground: Int? = null,
+    /** returns true if the colours (which may come from the system) are not what they were when this was created */
+    private val changeCheck: ((Context) -> Boolean)? = null,
 ) : Colors {
+    override val keyBorder: Int = keyBorderColor ?: brightenOrDarken(keyBackground, true)
     private val navBar: Int
     /** brightened or darkened variant of [background], to be used if exact background color would be
      *  bad contrast, e.g. popup keys popup or no border space bar */
@@ -389,6 +416,9 @@ class DefaultColors (
     /** further brightened or darkened variant of [adjustedBackground] */
     private val doubleAdjustedBackground: Int
     private val adjustedSuggestionText = brightenOrDarken(suggestionText, true)
+
+    /** pressed variant of [color]; the key colour mixed with the accent in the Clackatoo colours */
+    private fun pressed(color: Int) = pressedMix?.let { ColorUtils.blendARGB(color, it, ClackatooPalette.PRESSED_SHARE) } ?: brightenOrDarken(color, true)
 
     private val backgroundFilter = colorFilter(background)
     private val adjustedBackgroundFilter: ColorFilter
@@ -415,13 +445,13 @@ class DefaultColors (
 
     init {
         if (isDarkColor(background)) {
-            adjustedBackground = brighten(background)
+            adjustedBackground = popupBackground ?: brighten(background)
             doubleAdjustedBackground = brighten(adjustedBackground)
         } else {
-            adjustedBackground = darken(background)
+            adjustedBackground = popupBackground ?: darken(background)
             doubleAdjustedBackground = darken(adjustedBackground)
         }
-        adjustedBackgroundStateList = pressedStateList(doubleAdjustedBackground, adjustedBackground)
+        adjustedBackgroundStateList = pressedStateList(if (pressedMix != null) pressed(adjustedBackground) else doubleAdjustedBackground, adjustedBackground)
 
         val stripBackground: Int
         val pressedStripElementBackground: Int
@@ -449,34 +479,38 @@ class DefaultColors (
 
         adjustedBackgroundFilter = colorFilter(adjustedBackground)
         if (hasKeyBorders) {
-            backgroundStateList = pressedStateList(brightenOrDarken(background, true), background)
+            backgroundStateList = pressedStateList(pressed(background), background)
             keyStateList = if (themeStyle == STYLE_HOLO) pressedStateList(keyBackground, keyBackground)
-                else pressedStateList(brightenOrDarken(keyBackground, true), keyBackground)
-            functionalKeyStateList = pressedStateList(brightenOrDarken(functionalKey, true), functionalKey)
+                else pressedStateList(pressed(keyBackground), keyBackground)
+            functionalKeyStateList = pressedStateList(pressed(functionalKey), functionalKey)
             actionKeyStateList = if (themeStyle == STYLE_HOLO) functionalKeyStateList
-                else pressedStateList(brightenOrDarken(accent, true), accent)
+                else pressedStateList(pressed(actionKeyBackground), actionKeyBackground)
             spaceBarStateList = if (themeStyle == STYLE_HOLO) pressedStateList(spaceBar, spaceBar)
-                else pressedStateList(brightenOrDarken(spaceBar, true), spaceBar)
+                else pressedStateList(pressed(spaceBar), spaceBar)
         } else {
             // need to set color to background if key borders are disabled, or there will be ugly keys
             backgroundStateList = pressedStateList(brightenOrDarken(background, true), background)
             keyStateList = pressedStateList(keyBackground, Color.TRANSPARENT)
             functionalKeyStateList = keyStateList
             actionKeyStateList = if (themeStyle == STYLE_HOLO) functionalKeyStateList
-                else pressedStateList(brightenOrDarken(accent, true), accent)
+                else pressedStateList(brightenOrDarken(actionKeyBackground, true), actionKeyBackground)
             spaceBarStateList = pressedStateList(brightenOrDarken(spaceBar, true), spaceBar)
         }
         keyTextFilter = colorFilter(keyText)
         actionKeyIconColorFilter = when {
             themeStyle == STYLE_HOLO -> keyTextFilter
+            actionKeyIcon != null -> colorFilter(actionKeyIcon)
             // the white icon may not have enough contrast, and can't be adjusted by the user
-            isBrightColor(accent) -> colorFilter(Color.DKGRAY)
+            isBrightColor(actionKeyBackground) -> colorFilter(Color.DKGRAY)
             else -> null
         }
     }
 
+    override fun haveColorsChanged(context: Context) = changeCheck?.invoke(context) ?: false
+
     override fun get(color: ColorType): Int = when (color) {
-        TOOL_BAR_KEY_ENABLED_BACKGROUND, EMOJI_CATEGORY_SELECTED, ACTION_KEY_BACKGROUND, CLIPBOARD_PIN -> accent
+        TOOL_BAR_KEY_ENABLED_BACKGROUND, EMOJI_CATEGORY_SELECTED, CLIPBOARD_PIN -> accent
+        ACTION_KEY_BACKGROUND -> actionKeyBackground
         SHIFT_KEY_ICON -> if (accentShiftedIcon) accent else keyText
         AUTOFILL_BACKGROUND_CHIP -> if (themeStyle == STYLE_MATERIAL && !hasKeyBorders) background else adjustedBackground
         GESTURE_PREVIEW, POPUP_KEYS_BACKGROUND, MORE_SUGGESTIONS_BACKGROUND, KEY_PREVIEW_BACKGROUND -> adjustedBackground
@@ -490,12 +524,13 @@ class DefaultColors (
         SPACE_BAR_BACKGROUND -> spaceBar
         MORE_SUGGESTIONS_WORD_BACKGROUND, MAIN_BACKGROUND -> background
         KEY_BACKGROUND -> keyBackground
-        ACTION_KEY_POPUP_KEYS_BACKGROUND -> if (themeStyle == STYLE_HOLO) adjustedBackground else accent
+        ACTION_KEY_POPUP_KEYS_BACKGROUND -> if (themeStyle == STYLE_HOLO) adjustedBackground else actionKeyBackground
         STRIP_BACKGROUND -> if (!hasKeyBorders && themeStyle == STYLE_MATERIAL) adjustedBackground else background
         NAVIGATION_BAR -> navBar
-        SUGGESTION_AUTO_CORRECT, EMOJI_CATEGORY, TOOL_BAR_KEY, TOOL_BAR_EXPAND_KEY, ONE_HANDED_MODE_BUTTON -> suggestionText
+        SUGGESTION_AUTO_CORRECT -> autoCorrectText
+        EMOJI_CATEGORY, TOOL_BAR_KEY, TOOL_BAR_EXPAND_KEY, ONE_HANDED_MODE_BUTTON -> suggestionText
         MORE_SUGGESTIONS_HINT, SUGGESTED_WORD, SUGGESTION_TYPED_WORD, SUGGESTION_VALID_WORD -> adjustedSuggestionText
-        ACTION_KEY_ICON -> Color.WHITE
+        ACTION_KEY_ICON -> actionKeyIcon ?: Color.WHITE
     }
 
     override fun setColor(drawable: Drawable, color: ColorType) {

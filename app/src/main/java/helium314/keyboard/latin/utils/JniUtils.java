@@ -11,6 +11,7 @@ import android.app.Application;
 import android.os.Build;
 import android.text.TextUtils;
 
+import helium314.keyboard.clackatoo.UserLibraryPolicy;
 import helium314.keyboard.latin.App;
 import helium314.keyboard.latin.BuildConfig;
 import helium314.keyboard.latin.settings.Settings;
@@ -63,7 +64,7 @@ public final class JniUtils {
         } catch (Exception e) {
             userSuppliedLibrary = null;
         }
-        if (!BuildConfig.BUILD_TYPE.equals("nouserlib") && userSuppliedLibrary != null) {
+        if (UserLibraryPolicy.isAllowed() && userSuppliedLibrary != null) { // Clackatoo: false in every build type
             String wantedChecksum = expectedDefaultChecksum();
             try {
                 if (app != null) {

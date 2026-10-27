@@ -42,6 +42,8 @@ fun MainSettingsScreen(
     onClickLanguage: () -> Unit,
     onClickLayouts: () -> Unit,
     onClickDictionaries: () -> Unit,
+    onClickVoiceTyping: () -> Unit,
+    onClickGrammarCheck: () -> Unit,
     onClickBack: () -> Unit,
 ) {
     SearchSettingsScreen(
@@ -89,6 +91,16 @@ fun MainSettingsScreen(
                         icon = R.drawable.ic_settings_gesture
                     ) { NextScreenIcon() }
                 Preference(
+                    name = stringResource(R.string.settings_screen_voice_typing),
+                    onClick = onClickVoiceTyping,
+                    icon = R.drawable.sym_keyboard_voice_lxx
+                ) { NextScreenIcon() }
+                Preference(
+                    name = stringResource(R.string.settings_screen_grammar_check),
+                    onClick = onClickGrammarCheck,
+                    icon = R.drawable.ic_grammar_check
+                ) { NextScreenIcon() }
+                Preference(
                     name = stringResource(R.string.settings_screen_correction),
                     onClick = onClickTextCorrection,
                     icon = R.drawable.ic_settings_correction
@@ -124,7 +136,7 @@ private fun PreviewScreen() {
     initPreview(LocalContext.current)
     Theme(previewDark) {
         Surface {
-            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

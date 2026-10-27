@@ -101,7 +101,7 @@ fun ColorsScreen(
     val shownColors = if (moreColors == 2) {
         val fallbackColors = KeyboardTheme.readUserColorTheme(
             prefs.getString(Settings.PREF_THEME_STYLE, Defaults.PREF_THEME_STYLE)!!,
-            prefs.getBoolean(Settings.PREF_THEME_KEY_BORDERS, Defaults.PREF_THEME_KEY_BORDERS),
+            KeyboardTheme.hasKeyBorders(prefs),
         userColors, ctx, isNight, null
         )
         val allColors = KeyboardTheme.readUserAllColors(prefs, newThemeName.text, fallbackColors)
@@ -267,7 +267,7 @@ val colorPrefsAndResIds = listOf(
 
 private fun getColorPrefsToHideInitially(prefs: SharedPreferences): List<String> {
     return listOf(KeyboardTheme.COLOR_SUGGESTION_TEXT, KeyboardTheme.COLOR_SPACEBAR_TEXT, KeyboardTheme.COLOR_GESTURE) +
-            if (prefs.getBoolean(Settings.PREF_THEME_KEY_BORDERS, false)) listOf(KeyboardTheme.COLOR_SPACEBAR_TEXT)
+            if (KeyboardTheme.hasKeyBorders(prefs)) listOf(KeyboardTheme.COLOR_SPACEBAR_TEXT)
             else listOf(KeyboardTheme.COLOR_FUNCTIONAL_KEYS)
 }
 

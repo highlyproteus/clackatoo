@@ -23,6 +23,8 @@ import helium314.keyboard.settings.screens.ColorsScreen
 import helium314.keyboard.settings.screens.DebugScreen
 import helium314.keyboard.settings.screens.DictionaryScreen
 import helium314.keyboard.settings.screens.GestureTypingScreen
+import helium314.keyboard.settings.screens.GrammarCheckScreen
+import helium314.keyboard.settings.screens.VoiceTypingScreen
 import helium314.keyboard.settings.screens.LanguageScreen
 import helium314.keyboard.settings.screens.MainSettingsScreen
 import helium314.keyboard.settings.screens.PersonalDictionariesScreen
@@ -78,8 +80,16 @@ fun SettingsNavHost(
                 onClickLanguage = { navController.navigate(SettingsDestination.Languages) },
                 onClickLayouts = { navController.navigate(SettingsDestination.Layouts) },
                 onClickDictionaries = { navController.navigate(SettingsDestination.Dictionaries) },
+                onClickVoiceTyping = { navController.navigate(SettingsDestination.VoiceTyping) },
+                onClickGrammarCheck = { navController.navigate(SettingsDestination.GrammarCheck) },
                 onClickBack = ::goBack,
             )
+        }
+        composable(SettingsDestination.VoiceTyping) {
+            VoiceTypingScreen(onClickBack = ::goBack)
+        }
+        composable(SettingsDestination.GrammarCheck) {
+            GrammarCheckScreen(onClickBack = ::goBack)
         }
         composable(SettingsDestination.About) {
             AboutScreen(onClickBack = ::goBack)
@@ -164,6 +174,8 @@ object SettingsDestination {
     const val Subtype = "subtype/"
     const val Layouts = "layouts"
     const val Dictionaries = "dictionaries"
+    const val VoiceTyping = "voice_typing"
+    const val GrammarCheck = "grammar_check"
     val navTarget = MutableStateFlow(Settings)
 
     private val navScope = CoroutineScope(Dispatchers.Default)

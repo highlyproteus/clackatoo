@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Creates Clackatoo's release signing key and gives it to GitHub Actions. Run it once, yourself, in a terminal.
+#
+#   tools/make-release-key
+#
+# - Asks for a password, creates the key in ~/.config/clackatoo/release.p12 (CLACKATOO_KEY_DIR overrides the folder).
+# - Stores the key and password as the repository secrets CLACKATOO_KEYSTORE_BASE64 and CLACKATOO_KEYSTORE_PASSWORD,
+#   and the certificate's SHA-256 as the variable RELEASE_CERT_SHA256 (the release workflow refuses any other key).
+# - Prints the certificate SHA-256, which is what AppVerifier checks.
+#
+# Back up release.p12 and its password. Without them no update can be signed, and every phone would have to
+# uninstall Clackatoo (losing its settings and learned words) to move to a new key.
+# Needs a JDK (keytool) and gh signed in as highlyproteus.
+set -euo pipefail
+
+repo=highlyproteus/clackatoo
+dir=${CLACKATOO_KEY_DIR:-$HOME/.config/clackatoo}
+ks=$dir/release.p12
+
+[[ -t 0 ]] || { echo "Run this in an interactive terminal." >&2; exit 1; }
+if [[ -e $ks ]]; then
+  echo "$ks already exists. Releases must keep using it; this script never replaces a key." >&2
+  exit 1
+fi
+
+if [[ -n ${JAVA_HOME:-} && -x $JAVA_HOME/bin/keytool ]]; then
+  keytool=$JAVA_HOME/bin/keytool
+elif [[ -x /usr/libexec/java_home ]] && home=$(/usr/libexec/java_home 2>/dev/null); then
+  keytool=$home/bin/keytool
+elif command -v keytool >/dev/null && keytool -help >/dev/null 2>&1; then
+  keytool=$(command -v keytool)
+else
+  echo "No JDK found (keytool). Install one (for example Temurin 21) and run this again." >&2
+  exit 1
+fi
+
+GH_TOKEN=$(gh auth token --user highlyproteus) || { echo "gh is not signed in as highlyproteus." >&2; exit 1; }
+export GH_TOKEN
+gh repo view "$repo" --json name >/dev/null
+
+read -rsp "Choose a password for the release key (at least 12 characters): " pw; echo
+read -rsp "Type it again: " pw2; echo
+[[ $pw == "$pw2" ]] || { echo "The passwords differ." >&2; exit 1; }
+(( ${#pw} >= 12 )) || { echo "Use at least 12 characters." >&2; exit 1; }
+export CLACKATOO_KEY_PASSWORD=$pw
+unset pw pw2
+
+mkdir -p "$dir"
+chmod 700 "$dir"
+umask 077
+"$keytool" -genkeypair -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD \
+  -alias clackatoo -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Clackatoo" >/dev/null
+
+cert=$("$keytool" -list -v -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD -alias clackatoo |
+  sed -n 's/^[[:space:]]*SHA256: //p')
+[[ $cert =~ ^([0-9A-F]{2}:){31}[0-9A-F]{2}$ ]] || { echo "Could not read the certificate SHA-256." >&2; exit 1; }
+
+base64 <"$ks" | tr -d '\n' | gh secret set CLACKATOO_KEYSTORE_BASE64 --repo "$repo"
+printf '%s' "$CLACKATOO_KEY_PASSWORD" | gh secret set CLACKATOO_KEYSTORE_PASSWORD --repo "$repo"
+gh variable set RELEASE_CERT_SHA256 --repo "$repo" --body "$cert"
+
+cat <<EOF
+
+Done. GitHub Actions can now sign releases.
+
+Key:         $ks
+Certificate: $cert
+
+Back up the key file and its password somewhere safe (not in the repository).
+EOF

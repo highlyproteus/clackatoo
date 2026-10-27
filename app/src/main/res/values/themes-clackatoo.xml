@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SPDX-License-Identifier: GPL-3.0-only
+
+    The Clackatoo style: square keys with a thin border (drawn by ClackatooKeyDrawable, so the key drawables
+    of the parent styles are not used), square panels and popups. Everything else, e.g. the icons,
+    is inherited from the Rounded style.
+-->
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <style name="KeyboardTheme.Clackatoo_Base" parent="KeyboardTheme.Rounded_Base_Border">
+        <item name="keyboardStyle">@style/Keyboard.Clackatoo_Base</item>
+        <item name="mainKeyboardViewStyle">@style/MainKeyboardView.Clackatoo_Base</item>
+        <item name="popupKeysKeyboardStyle">@style/PopupKeysKeyboard.Clackatoo_Base</item>
+        <item name="popupKeysKeyboardViewStyle">@style/PopupKeysKeyboardView.Clackatoo_Base</item>
+        <item name="suggestionWordStyle">@style/SuggestionWord.Clackatoo_Base</item>
+    </style>
+
+    <style name="SuggestionWord.Clackatoo_Base" parent="SuggestionWord.Rounded_Base">
+        <item name="android:background">@drawable/btn_suggestion_clackatoo</item>
+    </style>
+
+    <style name="Keyboard.Clackatoo_Base" parent="Keyboard">
+        <!-- This should be aligned with KeyboardTheme.THEME_ID_* -->
+        <item name="themeId">ClackatooBase</item>
+    </style>
+
+    <style name="MainKeyboardView.Clackatoo_Base" parent="MainKeyboardView.Rounded_Base_Border">
+        <item name="keyPreviewBackground">@drawable/keyboard_key_feedback_clackatoo</item>
+    </style>
+
+    <style name="PopupKeysKeyboard.Clackatoo_Base" parent="Keyboard.Clackatoo_Base">
+        <item name="keyboardTopPadding">0%p</item>
+        <item name="keyboardBottomPadding">0%p</item>
+        <item name="keyboardLeftPadding">0%p</item>
+        <item name="keyboardRightPadding">0%p</item>
+        <item name="horizontalGap">0%p</item>
+        <item name="touchPositionCorrectionData">@null</item>
+    </style>
+
+    <style name="PopupKeysKeyboardView.Clackatoo_Base" parent="PopupKeysKeyboardView.Rounded_Base_Border">
+        <item name="android:background">@drawable/keyboard_popup_panel_background_clackatoo</item>
+    </style>
+</resources>

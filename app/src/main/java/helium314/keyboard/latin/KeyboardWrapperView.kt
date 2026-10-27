@@ -159,6 +159,8 @@ class KeyboardWrapperView @JvmOverloads constructor(
         fun View.setLayout(yPosition: Int) {
             layout(buttonXLeft, yPosition - buttonHeight / 2, buttonXRight, yPosition + buttonHeight / 2)
         }
+        // Clackatoo: the voice typing / grammar check panel covers the whole keyboard area
+        findViewById<View>(R.id.assist_panel)?.layout(0, 0, width, keyboardView.measuredHeight)
         stopOneHandedModeBtn.setLayout((keyboardView.measuredHeight * 0.2f).toInt())
         switchOneHandedModeBtn.setLayout((keyboardView.measuredHeight * 0.5f).toInt())
         resizeOneHandedModeBtn.setLayout((keyboardView.measuredHeight * 0.8f).toInt())

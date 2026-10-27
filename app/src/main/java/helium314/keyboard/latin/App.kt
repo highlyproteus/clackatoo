@@ -3,6 +3,7 @@ package helium314.keyboard.latin
 
 import android.app.Application
 import android.os.Build
+import helium314.keyboard.clackatoo.assist.isModelProcess
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
 import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.Defaults
@@ -20,6 +21,8 @@ import kotlinx.coroutines.launch
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Clackatoo: the model process (voice typing, grammar check) needs none of the keyboard's startup work
+        if (isModelProcess()) return
         DebugFlags.init(this)
         FoldableUtils.init(this)
         Settings.init(this)

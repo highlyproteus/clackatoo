@@ -33,6 +33,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import helium314.keyboard.event.Event;
+import helium314.keyboard.clackatoo.assist.AssistPanelView;
 import helium314.keyboard.keyboard.clipboard.ClipboardHistoryView;
 import helium314.keyboard.keyboard.emoji.EmojiPalettesView;
 import helium314.keyboard.keyboard.internal.KeyboardState;
@@ -46,6 +47,8 @@ import helium314.keyboard.latin.LatinIME;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
+import helium314.keyboard.clackatoo.ClackatooStyle;
+import helium314.keyboard.latin.common.Colors;
 import helium314.keyboard.latin.settings.Settings;
 import helium314.keyboard.latin.settings.SettingsKt;
 import helium314.keyboard.latin.settings.SettingsValues;
@@ -92,6 +95,9 @@ public final class KeyboardSwitcher {
     private int mCurrentOrientation;
     private int mCurrentDpi;
     private boolean mThemeNeedsReload;
+    // the colours the current input view was built with: settings may be reloaded without rebuilding the views,
+    // so they are what has to be compared with the system's colours
+    @Nullable private Colors mViewColors;
 
     @SuppressLint("StaticFieldLeak") // this is a keyboard, we want to keep it alive in background
     private static final KeyboardSwitcher sInstance = new KeyboardSwitcher();
@@ -138,7 +144,7 @@ public final class KeyboardSwitcher {
                 || mCurrentOrientation != res.getConfiguration().orientation
                 || (mCurrentUiMode & Configuration.UI_MODE_NIGHT_MASK) != (res.getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 || !mThemeContext.getResources().equals(res)
-                || Settings.getValues().mColors.haveColorsChanged(context)) {
+                || (mViewColors != null ? mViewColors : Settings.getValues().mColors).haveColorsChanged(context)) {
             mThemeNeedsReload = false;
             mKeyboardTheme = keyboardTheme;
             mThemeContext = new ContextThemeWrapper(context, keyboardTheme.mStyleId);
@@ -547,14 +553,23 @@ public final class KeyboardSwitcher {
             Settings.getInstance().loadSettings(displayContext, Settings.getValues().mLocale, Settings.getValues().mInputAttributes);
 
         updateKeyboardThemeAndContextThemeWrapper(displayContext, KeyboardTheme.getKeyboardTheme(displayContext));
+        mViewColors = Settings.getValues().mColors;
         mCurrentInputView = (InputView)LayoutInflater.from(mThemeContext).inflate(R.layout.input_view, null);
         mMainKeyboardFrame = mCurrentInputView.findViewById(R.id.main_keyboard_frame);
         mEmojiPalettesView = mCurrentInputView.findViewById(R.id.emoji_palettes_view);
         mClipboardHistoryView = mCurrentInputView.findViewById(R.id.clipboard_history_view);
         mFakeToastView = mCurrentInputView.findViewById(R.id.fakeToast);
+        if (ClackatooStyle.isActive(displayContext))
+            ClackatooStyle.styleToast(mFakeToastView, Settings.getValues().mColors);
 
         mKeyboardViewWrapper = mCurrentInputView.findViewById(R.id.keyboard_view_wrapper);
         mKeyboardViewWrapper.setKeyboardActionListener(mLatinIME.mKeyboardActionListener);
+        // Clackatoo: panel for voice typing and the grammar check, drawn over the keys
+        final AssistPanelView assistPanel = new AssistPanelView(mThemeContext);
+        assistPanel.setId(R.id.assist_panel);
+        mKeyboardViewWrapper.addView(assistPanel, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mLatinIME.getAssist().attachPanel(assistPanel);
         mKeyboardView = mCurrentInputView.findViewById(R.id.keyboard_view);
         mKeyboardView.setHardwareAcceleratedDrawingEnabled(isHardwareAcceleratedDrawingEnabled);
         mKeyboardView.setKeyboardActionListener(mLatinIME.mKeyboardActionListener);

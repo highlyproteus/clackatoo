@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Typeface
 import android.widget.TextView
 import androidx.compose.ui.text.font.FontFamily
+import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.latin.common.isEmoji
 import helium314.keyboard.latin.settings.Settings
 
@@ -14,6 +15,8 @@ object KeyboardTypeface {
 
     private var cachedCustomTypeface: Typeface? = null
     private var cachedCustomFontFamily: FontFamily? = null
+    // set while the font in use is Clackatoo's Inter Regular (no font of the user): then bold is Inter Medium
+    private var cachedClackatooMedium: Typeface? = null
     @Volatile
     private var customTypefaceLoaded = false
 
@@ -21,10 +24,11 @@ object KeyboardTypeface {
     @Volatile
     private var emojiTypefaceLoaded = false
 
+    // a font chosen by the user wins over the font of the Clackatoo style
     private fun loadCustomTypeface(context: Context): Typeface? {
-        return runCatching {
-            Typeface.createFromFile(Settings.getCustomFontFile(context))
-        }.getOrNull()
+        runCatching { Typeface.createFromFile(Settings.getCustomFontFile(context)) }.getOrNull()?.let { return it }
+        cachedClackatooMedium = ClackatooStyle.mediumTypeface(context)
+        return ClackatooStyle.defaultTypeface(context)
     }
 
     private fun loadCustomEmojiTypeface(context: Context): Typeface? {
@@ -72,11 +76,10 @@ object KeyboardTypeface {
         defaultTypeface: Typeface = Typeface.DEFAULT,
     ): Typeface {
         val emojiTypeface = emojiTypeface()
-        return if (emojiTypeface != null && text != null && isEmoji(text)) {
-            emojiTypeface
-        } else {
-            customTypeface() ?: defaultTypeface
-        }
+        if (emojiTypeface != null && text != null && isEmoji(text)) return emojiTypeface
+        val custom = customTypeface() ?: return defaultTypeface
+        // Clackatoo's font has a Medium for the places where HeliBoard asks for bold; a font of the user is used as it is
+        return if (defaultTypeface.isBold) cachedClackatooMedium ?: custom else custom
     }
 
     @JvmStatic
@@ -94,6 +97,7 @@ object KeyboardTypeface {
         synchronized(lock) {
             cachedCustomTypeface = null
             cachedCustomFontFamily = null
+            cachedClackatooMedium = null
             customTypefaceLoaded = false
             cachedEmojiTypeface = null
             emojiTypefaceLoaded = false

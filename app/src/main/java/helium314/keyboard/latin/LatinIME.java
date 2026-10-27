@@ -100,6 +100,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import helium314.keyboard.clackatoo.assist.AssistController;
+import helium314.keyboard.clackatoo.assist.DebugWavReceiver;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -137,6 +140,9 @@ public class LatinIME extends InputMethodService implements
             DictionaryFacilitatorProvider.getDictionaryFacilitator(false);
     private final DictionaryFacilitator mOriginalDictionaryFacilitator = mDictionaryFacilitator;
     final InputLogic mInputLogic = new InputLogic(this, this, mDictionaryFacilitator);
+    // Clackatoo: offline voice typing and grammar check
+    private final AssistController mAssist = new AssistController(this);
+    private DebugWavReceiver mDebugWavReceiver;
 
     // TODO: Move these {@link View}s to {@link KeyboardSwitcher}.
     private View mInputView;
@@ -545,6 +551,14 @@ public class LatinIME extends InputMethodService implements
         Log.i(TAG, "Hardware accelerated drawing: " + mIsHardwareAcceleratedDrawingEnabled);
     }
 
+    /** Clackatoo: voice typing and grammar check. */
+    @NonNull
+    public AssistController getAssist() { return mAssist; }
+
+    /** Clackatoo: used by the voice typing and grammar check to read and replace text. */
+    @NonNull
+    public InputLogic getInputLogic() { return mInputLogic; }
+
     @Override
     public void onCreate() {
         mSettings.startListener();
@@ -553,6 +567,7 @@ public class LatinIME extends InputMethodService implements
         AudioAndHapticFeedbackManager.init(this);
         AccessibilityUtils.init(this);
         mStatsUtilsManager.onCreate(this, mDictionaryFacilitator);
+        if (BuildConfig.DEBUG) mDebugWavReceiver = DebugWavReceiver.Companion.register(this, mAssist);
         mDisplayContext = KtxKt.getDisplayContext(this);
         KeyboardSwitcher.init(this);
         super.onCreate();
@@ -705,6 +720,8 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
+        mAssist.onDestroy();
+        if (mDebugWavReceiver != null) unregisterReceiver(mDebugWavReceiver);
         mClipboardHistoryManager.onDestroy();
         mDictionaryFacilitator.closeDictionaries();
         mSettings.onDestroy();
@@ -834,6 +851,7 @@ public class LatinIME extends InputMethodService implements
 
         if (DebugFlags.DEBUG_ENABLED)
             Log.d(TAG, "switching to subtype " + SettingsSubtype.Companion.toSettingsSubtype(subtype));
+        mAssist.onSessionChanged(); // the language changed
         mSubtypeState.onSubtypeChanged(oldSubtype, subtype);
         StatsUtils.onSubtypeChanged(oldSubtype, subtype);
         mRichImm.onSubtypeChanged(subtype);
@@ -853,6 +871,7 @@ public class LatinIME extends InputMethodService implements
 
     private void onStartInputInternal(EditorInfo editorInfo, boolean restarting) {
         super.onStartInput(editorInfo, restarting);
+        mAssist.onSessionChanged(); // a new field: stop recording, drop unfinished voice typing and checks
 
         RichInputMethodSubtype subtypeForApp = editorInfo == null
             ? null :
@@ -1031,6 +1050,7 @@ public class LatinIME extends InputMethodService implements
     @Override
     public void onWindowHidden() {
         super.onWindowHidden();
+        mAssist.onSessionChanged(); // the keyboard is gone: nothing may keep recording
         Log.i(TAG, "onWindowHidden");
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
         if (mainKeyboardView != null) {
@@ -1041,6 +1061,7 @@ public class LatinIME extends InputMethodService implements
 
     void onFinishInputInternal() {
         super.onFinishInput();
+        mAssist.onSessionChanged();
         Log.i(TAG, "onFinishInput");
 
         mDictionaryFacilitator.onFinishInput();
@@ -1052,6 +1073,7 @@ public class LatinIME extends InputMethodService implements
 
     void onFinishInputViewInternal(final boolean finishingInput) {
         super.onFinishInputView(finishingInput);
+        mAssist.onSessionChanged();
         Log.i(TAG, "onFinishInputView");
         cleanupInternalStateForFinishInput();
     }

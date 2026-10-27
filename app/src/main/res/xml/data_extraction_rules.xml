@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Clackatoo: the clipboard history (heliboard.db, with the pinned clips, and the clipboard folder of copied images) is not
+     backed up or transferred: it holds what people copied, passwords included. Neither are the model files (import them
+     again on the new phone; a transferred model would skip the import checks) and the debug WAV folder. The app's files
+     are in credential-protected storage (the manifest does not ask for device-protected storage), domain "file";
+     "device_file" is excluded too in case that changes. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="heliboard.db" />
+        <exclude domain="database" path="heliboard.db-journal" />
+        <exclude domain="database" path="heliboard.db-wal" />
+        <exclude domain="database" path="heliboard.db-shm" />
+        <exclude domain="file" path="clipboard" />
+        <exclude domain="file" path="temp_clip" />
+        <exclude domain="file" path="models" />
+        <exclude domain="file" path="debug" />
+        <exclude domain="device_file" path="clipboard" />
+        <exclude domain="device_file" path="models" />
+        <exclude domain="device_file" path="debug" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="heliboard.db" />
+        <exclude domain="database" path="heliboard.db-journal" />
+        <exclude domain="database" path="heliboard.db-wal" />
+        <exclude domain="database" path="heliboard.db-shm" />
+        <exclude domain="file" path="clipboard" />
+        <exclude domain="file" path="temp_clip" />
+        <exclude domain="file" path="models" />
+        <exclude domain="file" path="debug" />
+        <exclude domain="device_file" path="clipboard" />
+        <exclude domain="device_file" path="models" />
+        <exclude domain="device_file" path="debug" />
+    </device-transfer>
+</data-extraction-rules>

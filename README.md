@@ -1,141 +1,121 @@
-# HeliBoard
-HeliBoard is a privacy-conscious and customizable open-source keyboard, based on AOSP / OpenBoard.
-Does not use internet permission, and thus is 100% offline.
+# Clackatoo
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/helium314.keyboard/)
-[<img src="https://user-images.githubusercontent.com/663460/26973090-f8fdc986-4d14-11e7-995a-e7c5e79ed925.png" alt="Get APK from GitHub" height="80">](https://github.com/HeliBorg/HeliBoard/releases/latest)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height="80">](https://apt.izzysoft.de/fdroid/index/apk/helium314.keyboard)
+Clackatoo is an Android keyboard: a fork of [HeliBoard](https://github.com/HeliBorg/HeliBoard) (v4.2) with its own
+default look, offline voice typing and an offline grammar check. It has no `INTERNET` permission, so nothing you type
+or say leaves the phone. It is free software under GPL-3.0.
 
-## Table of Contents
+- **Looks like your phone.** Square keys with a hairline edge, Inter key labels and the phone's own colours: it follows
+  the system palette and dark theme and recolours itself when they change. All of HeliBoard's styles, colour themes,
+  layouts and dictionaries are still there.
+- **Voice key**: tap, speak, tap Stop. Whisper turns speech into text on the phone (English and Spanish); for English,
+  S1-mini by Superwhisper then cleans it up (fillers, self-corrections, punctuation).
+- **Check key**: checks the selected text, or the whole field, and shows the corrections before anything changes.
+- **Private by design.** No network access; clipboard history skips clips marked sensitive (password managers do) and
+  is left out of backups; the models run in an isolated process with no access to the keyboard's data.
 
-- [Features](#features)
-- [Contributing](#contributing-)
-   * [Reporting Issues](#reporting-issues)
-   * [Translations](#translations)
-   * [To Community](#to-community)
-   * [Code Contribution](CONTRIBUTING.md)
-- [Links](#links)
-- [License](#license)
-- [Credits](#credits)
-  * [Funding](#funding)
+**Modifications notice (GPL-3.0 section 5a):** this is a modified version of HeliBoard v4.2, modified starting on
+2026-10-20. See [NOTICE](NOTICE) for what changed.
 
-# Features
-<ul>
-  <li>Add dictionaries for suggestions and spell check</li>
-  <ul>
-    <li>build your own, or get them  <a href="https://codeberg.org/Helium314/aosp-dictionaries#dictionaries">here</a> (quality may vary)</li>
-    <li>additional dictionaries for emojis or scientific symbols can be used to provide suggestions (similar to "emoji search")</li>
-    <li>note that for Korean layouts, suggestions only work using <a href="https://github.com/openboard-team/openboard/commit/83fca9533c03b9fecc009fc632577226bbd6301f">this dictionary</a>, the tools in the dictionary repository are not able to create working dictionaries</li>
-  </ul>
-  <li>Customize keyboard themes (style, colors and background image)</li>
-  <li>Emoji search (inline and separate, requires <a href="https://codeberg.org/Helium314/aosp-dictionaries">emoji dictionary</a>)</li>
-  <ul>
-    <li>can follow the system's day/night setting on Android 10+ (and on some versions of Android 9)</li>
-    <li>can follow dynamic colors for Android 12+</li>
-  </ul>
-  <li>Customize keyboard <a href="https://github.com/HeliBorg/HeliBoard/blob/main/layouts.md">layouts</a> (only available when disabling <i>use system languages</i>)</li>
-  <li>Customize special layouts, like symbols, number,  or functional key layout</li>
-  <li>Multilingual typing</li>
-  <li>Glide typing (<i>only with closed source library</i> ☹️)</li>
-  <ul>
-    <li>library not included in the app, as there is no compatible open source library available</li>
-    <li>can be extracted from GApps packages ("<i>swypelibs</i>"), or downloaded <a href="https://github.com/erkserkserks/openboard/tree/46fdf2b550035ca69299ce312fa158e7ade36967/app/src/main/jniLibs">here</a> (click on the file and then "raw" or the tiny download button)</li>
-  </ul>
-  <li>Clipboard history</li>
-  <li>One-handed mode</li>
-  <li>Split keyboard</li>
-  <li>Number pad</li>
-  <li>Backup and restore your settings and learned word / history data</li>
-</ul>
+## Install
 
-For [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ), [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features) and more information about the app and features, please visit the [wiki](https://github.com/HeliBorg/HeliBoard/wiki)
+With [Obtainium](https://github.com/ImranR98/Obtainium): **Add App**, paste
+`https://github.com/highlyproteus/clackatoo`, leave everything else as it is, then **Add** and **Install**. Obtainium
+offers each new release as an update. Or download the APK from
+[Releases](https://github.com/highlyproteus/clackatoo/releases).
 
-# Contributing ❤
+Then turn it on: Settings > System > Keyboard > On-screen keyboard > Manage on-screen keyboards, enable Clackatoo and
+make it the default. Android may warn that a keyboard can see what you type; Clackatoo has no network access.
 
-## Reporting Issues
+Every release page lists the package name and signing certificate for [AppVerifier](https://github.com/soupslurpr/AppVerifier).
 
-Whether you encountered a bug, or want to see a new feature in HeliBoard, you can contribute to the project by opening a new issue [here](https://github.com/HeliBorg/HeliBoard/issues). Your help is always welcome!
+### Voice typing and grammar check models
 
-Before opening a new issue, be sure to check the following:
- - **Does the issue already exist?** Make sure a similar issue has not been reported by browsing [existing issues](https://github.com/HeliBorg/HeliBoard/issues?q=). Please search open and closed issues. In case of feature requests you could also check the [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ) and [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features).
- - **Is the issue still relevant?** Make sure your issue is not already fixed in the latest version of HeliBoard.
- - **Is it a single topic?** If you want to suggest multiple things, open multiple issues.
- - **Did you use the issue template?** It is important to make life of our kind contributors easier by avoiding issues that miss key information to their resolution.
- - **Is it written by a human?** Do not use LLMs or similar to generate issues. Having LLMs help with translation or similar is acceptable, but must be disclosed. See also [AI_USAGE.md](AI_USAGE.md)
-Note that issues that that ignore part of the issue template will likely get treated with very low priority, as often they are needlessly hard to read or understand (e.g. huge screenshots, not providing a proper description, or addressing multiple topics). Blatant violation of the guidelines may result in the issue getting closed.
+The models (about 1.2 GB together) are not in the APK. Download the ones you want on the phone and import them in
+Clackatoo's Settings > Voice typing and Settings > Grammar check:
 
-If you're interested, you can read the following useful text about effective bug reporting (a bit longer read): https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
+| Feature | File |
+| --- | --- |
+| Voice typing (needed) | [ggml-small-q5_1.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin) (190 MB) |
+| Voice typing clean-up, English (optional) | [s1-mini-q4_k_m.gguf](https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf) (484 MB) |
+| Grammar check | [Qwen3.5-0.8B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf) (533 MB) |
 
-## Translations
-Translations can be added using [Weblate](https://translate.codeberg.org/projects/heliboard/). You will need an account to update translations and add languages. Add the language you want to translate to in Languages -> Manage translated languages in the top menu bar.
-Updating translations in a PR will not be accepted, as it may cause conflicts with Weblate translations.
+Import accepts only these exact files (each is pinned by size and SHA-256). You can delete the downloads afterwards.
+Details: [ml/README.md](ml/README.md).
 
-Some notes on translations
-* when translating metadata, translating the changelogs is rather useless. It's available as it was requested by translators.
-* the `hidden_features_message` is horrible to translate with Weblate, and serves little benefit as it's just a copy of what's already in the wiki: https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features. It's been made available in the app on user request/contribution.
+## Screenshots
 
-## To Community
-There is the [discussions on GitHub](https://github.com/HeliBorg/HeliBoard/discussions), or if you prefer a more open network there is [Lemmy](https://lemmy.world/c/Heliboard).
-You can share your themes, layouts and dictionaries with other people:
-* Themes can be saved and loaded using the menu on top-right in the _adjust colors_ screen
-  * you can share custom colors in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-colors)
-  * there are theme collections available at [Star-Trowa/heliboard-themes](https://github.com/Star-Trowa/heliboard-themes) and [PickleHik3/droid-tings](https://github.com/PickleHik3/droid-tings)
-* Custom keyboard layouts are text files whose content you can edit, copy and share
-  * this applies to main keyboard layouts and to special layouts adjustable in advanced settings
-  * see [layouts.md](layouts.md) for details
-  * you can share custom layouts in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-layout)
-  * [Roccobot's Layout Maker](https://roccobot.github.io/HeliBoard-RLM/) is a browser-based editor for json layout files
-* Creating dictionaries is a little more work
-  * first you will need a wordlist in the format from [here](https://codeberg.org/Helium314/aosp-dictionaries/src/branch/main/wordlists/sample.combined) and in the repository readme
-    * you can load the wordlist dictionary directly in HeliBoard like you would load a dictionary, but other AOSP keyboard forks will likely need the .dict file
-  * then you need to compile the dictionary using [external tools](https://github.com/remi0s/aosp-dictionary-tools)
-    * when you want to add the dictionary to the [repository](https://codeberg.org/Helium314/aosp-dictionaries/), no need to compile to a .dict file
-  * the resulting file (and ideally the wordlist too) can be shared with other users
-  * note that there will not be any further dictionaries added to this app, but you can add dictionaries to the [dictionaries repository](https://codeberg.org/Helium314/aosp-dictionaries)
+| Dark, blue palette | Dark, amber palette | Light |
+| --- | --- | --- |
+| ![Dark, blue](docs/screenshots/16-follow-phone-dark-baseline.png) | ![Dark, amber](docs/screenshots/17-follow-phone-dark-amber.png) | ![Light](docs/screenshots/18-follow-phone-light-baseline.png) |
 
-## Code Contribution
-See [Contribution Guidelines](CONTRIBUTING.md)
+| Voice | Check | Popup keys |
+| --- | --- | --- |
+| ![Voice panel](docs/screenshots/19-follow-phone-voice-panel.png) | ![Check panel](docs/screenshots/20-follow-phone-check-panel.png) | ![Popup keys](docs/screenshots/21-follow-phone-popup-keys.png) |
 
-# Links
-* Info
-  * [Wiki](https://github.com/HeliBorg/HeliBoard/wiki), including FAQ, help on customizing layouts, and gesture data gathering
-  * [Layout documentation](layouts.md) (more technical info regarding layout customization)
-  * [For creating custom dictionaries](https://codeberg.org/Helium314/aosp-dictionaries#wordlist-information) (see also top of the linked readme)
-* Community
-  * [Lemmy](https://lemmy.world/c/Heliboard)
-  * [Reddit](https://www.reddit.com/r/HeliBoard)
-  * GitHub [discussions](https://github.com/HeliBorg/HeliBoard/discussions)
-* Other
-  * [Translations](https://translate.codeberg.org/projects/heliboard/)
-  * [Dictionaries](https://codeberg.org/Helium314/aosp-dictionaries)
-  * [k3lp](https://codeberg.org/k3lp/k3lp) is a WIP library for keyboard layout parsing that will be implemented in HeliBoard when ready (created by [FlorisBoard](https://github.com/florisboard/florisboard/) maintainers)
-  * [swipe-o-scope](https://codeberg.org/eclexic/swipe-o-scope) for visualizing gesture data as created when using gesture data gathering
+The two dark screenshots were taken one after the other with the keyboard open: the phone's palette changed from blue to
+amber and the keyboard recoloured itself.
 
-# License
+## How the look follows the phone
 
-HeliBoard (as a fork of OpenBoard) is licensed under GNU General Public License v3.0.
+The default colour theme, "Clackatoo (follows the phone)", takes Android's Material 3 role colours:
 
- > Permissions of this strong copyleft license are conditioned on making available complete source code of licensed works and modifications, which include larger works using a licensed work, under the same license. Copyright and license notices must be preserved. Contributors provide an express grant of patent rights.
+| Part | Colour role |
+| --- | --- |
+| Keyboard background, suggestion strip | `surface` |
+| Letter keys, space bar | `surfaceContainerHigh`, with a 1-pixel `onSurface` edge (12% dark, 16% light) |
+| Function keys (shift, delete, symbols), popups | `surfaceContainerHighest` |
+| Key labels, toolbar icons | `onSurface` |
+| Hint letters, secondary text | `onSurfaceVariant` |
+| Pressed or selected keys, the selected suggestion, Voice and Check buttons, the Enter key's edge | `primary` |
 
-See repo's [LICENSE](/LICENSE) file.
+On Android 14 and later these are the system role colours; on Android 12 and 13 the nearest system tones; below
+Android 12 a fixed fallback table. Labels keep at least 4.5:1 contrast against their keys; if an unusual system colour
+would break that, black or white is used. Appearance > Style also offers HeliBoard's Material, Holo and Rounded styles,
+and HeliBoard's colour themes and custom colours work in every style.
 
-Since the app is based on Apache 2.0 licensed AOSP Keyboard, an [Apache 2.0](LICENSE-Apache-2.0) license file is provided.
-The icon is licensed under [Creative Commons BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A [license file](LICENSE-CC-BY-SA-4.0) is also included.
+## Security notes
 
-# Credits
-- Icon by [Fabian OvrWrt](https://github.com/FabianOvrWrt) with contributions from [The Eclectic Dyslexic](https://github.com/the-eclectic-dyslexic)
-- [OpenBoard](https://github.com/openboard-team/openboard)
-- [AOSP Keyboard](https://android.googlesource.com/platform/packages/inputmethods/LatinIME/)
-- [LineageOS](https://review.lineageos.org/admin/repos/LineageOS/android_packages_inputmethods_LatinIME)
-- [Simple Keyboard](https://github.com/rkkr/simple-keyboard)
-- [Indic Keyboard](https://gitlab.com/indicproject/indic-keyboard)
-- [FlorisBoard](https://github.com/florisboard/florisboard/)
-- Our [contributors](https://github.com/HeliBorg/HeliBoard/graphs/contributors)
+- **No user-supplied native library in any build.** HeliBoard can load a gesture-typing library into the keyboard
+  process; Clackatoo turns that off everywhere (`BuildConfig.ALLOW_USER_LIBRARY`), so no outside code runs next to what
+  you type. Releases are the `nouserlib` build. Swipe typing is therefore not available.
+- **Models run isolated.** whisper.cpp and llama.cpp parse model files, so they run in an isolated process
+  (`android:isolatedProcess="true"`): its own throw-away UID, no permissions, no access to the keyboard's files. Models
+  arrive as read-only file descriptors, audio through a pipe, and everything that comes back is treated as untrusted.
+- **The microphone** permission is asked the first time you use the Voice key. Audio stays in memory, and recording
+  stops as soon as the voice panel is hidden. The Voice and Check keys never act on password fields.
+- **Preinstalled as a system app** (in a custom ROM) it also types on the lock screen before the first unlock, while
+  clipboard history, learned words and models stay in credential-protected storage.
 
-## Funding
+## Build
 
-This project is funded through [NGI Mobifree Fund](https://nlnet.nl/mobifree), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) program. Learn more at the [NLnet project page](https://nlnet.nl/project/GestureTyping).
+Requires JDK 21, the Android SDK (platform 37, build-tools 37.0.0), NDK `28.0.13004108` and CMake `3.31.6`.
 
-[<img src="https://nlnet.nl/logo/banner.png" alt="NLnet foundation logo" width="20%" />](https://nlnet.nl)
+```sh
+git submodule update --init --depth 1      # whisper.cpp and llama.cpp
+./gradlew assembleDebugNoMinify            # debug APK, application id io.github.highlyproteus.clackatoo.debug
+./gradlew assembleNouserlib                # the release build (unsigned)
+./gradlew :app:testRunTestsUnitTest        # unit tests
+```
 
-Further the project benefits from donations provided by many users (thank you all!).
+Developer notes are in [AGENTS.md](AGENTS.md).
+
+## Releasing
+
+1. Once: run `tools/make-release-key` in a terminal. It creates the signing key on your computer and stores it as
+   GitHub secrets. Back up the key file and password it shows; every update must be signed with that key.
+2. For each release: raise `versionName` (and `versionCode` by one) in `app/build.gradle.kts`, commit, then tag and push:
+   `git tag v1.0.1 && git push origin main v1.0.1`. The Release workflow builds, signs, checks and publishes the APK.
+
+## Upstream
+
+`main` is HeliBoard v4.2 plus Clackatoo's changes. To bring in a HeliBoard release:
+`git fetch upstream --tags && git merge <tag>` (remote `upstream` is <https://github.com/HeliBorg/HeliBoard>).
+HeliBoard's own README, contributing guide and AI policy are in [docs/](docs/HELIBOARD_README.md); HeliBoard does not
+accept AI-written contributions, so nothing from this repository is sent upstream.
+
+## Licence
+
+GPL-3.0-only, like HeliBoard; see [LICENSE](LICENSE). Parts come from AOSP (Apache-2.0,
+[LICENSE-Apache-2.0](LICENSE-Apache-2.0)) and other upstream sources; their notices are kept in the source files. The
+bundled Inter font is under the SIL Open Font License 1.1 ([third_party/inter/OFL.txt](third_party/inter/OFL.txt)).
+See [NOTICE](NOTICE).

@@ -1,0 +1,143 @@
+Clackatoo
+=========
+
+Clackatoo is a modified version of HeliBoard.
+
+Modifications notice (GPL-3.0 section 5a)
+-----------------------------------------
+
+This program is a modified version of HeliBoard v4.2
+(https://github.com/HeliBorg/HeliBoard, tag v4.2), modified starting on
+2026-10-20. The modifications are recorded in this repository's git history on
+top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
+
+- 2026-10-20: application id, labels and content provider authorities changed
+  (now `io.github.highlyproteus.clackatoo` and "Clackatoo", see 2026-10-27).
+- 2026-10-20: added the "Clackatoo" keyboard style (square keys with a thin
+  border, Tokyo Night colours, JetBrains Mono key labels) and made it the
+  default style and colour theme. New files: the package
+  `helium314.keyboard.clackatoo`, `res/values/themes-clackatoo.xml`, a few
+  `*_clackatoo` drawables, `assets/fonts/JetBrainsMono-Regular.ttf`. Small hooks
+  were added to `KeyboardTheme`, `Colors`, `KeyboardTypeface`, `Defaults`, the
+  appearance and colour settings screens, `SuggestionStripView` and
+  `ClipboardHistoryManager`. HeliBoard's own styles and themes are unchanged.
+- 2026-10-20: added offline voice typing (a Voice key on the toolbar: speech
+  to text with whisper.cpp, English clean-up with S1-mini, text inserted at the
+  cursor) and an offline grammar Check (a Check key on the toolbar: Qwen3.5
+  0.8B proposes corrections that replace the checked text after the user
+  accepts). New files: the package `helium314.keyboard.clackatoo.assist`, the
+  `ml` Gradle module (JNI wrapper and build of whisper.cpp and llama.cpp),
+  `res/values/strings-clackatoo-assist.xml`, `res/xml/backup_rules.xml`,
+  `res/xml/data_extraction_rules.xml`, `assets/licenses/ml-notices.txt`,
+  `settings/screens/AssistScreens.kt`, `ic_grammar_check.xml`. Small hooks were added to `LatinIME`,
+  `KeyboardSwitcher`, `KeyboardActionListenerImpl`, `KeyboardWrapperView`,
+  `App`, `ToolbarUtils`, `KeyCode`, `KeyboardIconsSet`, `InputAttributes`,
+  `Defaults`, the settings navigation and main settings screen, and the
+  manifest (the RECORD_AUDIO permission, an isolated model service and a
+  permission activity). The app has no INTERNET permission.
+- 2026-10-20: security hardening of voice typing and the grammar check after a
+  review: the model service runs as an isolated process and receives models as
+  file descriptors; model files are accepted only if they match the pinned size
+  and SHA-256; model output is sanitised before it is shown or inserted; the
+  grammar check replaces text only if the field is unchanged since it was read;
+  the model folder is excluded from backup and device transfer; the
+  open-source notices of whisper.cpp, llama.cpp and ggml are shown in the
+  settings.
+- 2026-10-20: second security round on voice typing and the grammar check:
+  no build type loads a user-supplied native library any more (the "load
+  gesture typing library" setting is removed from the settings screen); the
+  grammar check reads a field that does not report where its text starts only
+  if the selection matches the keyboard's own; invisible and format characters
+  in model output are removed unless the user's text had them; the Check key,
+  like the Voice key, does nothing while its panel cannot be seen.
+
+- 2026-10-20: the default Clackatoo colours now follow the phone instead of being
+  fixed Tokyo Night: the system's role colours (Android 14+), the nearest system
+  tones (Android 12-13) or a fallback table (below Android 12), in the phone's
+  dark or light theme, for day and night alike. The keyboard rebuilds its views
+  when those colours change. Key labels are Inter (Regular; Medium where
+  HeliBoard uses bold) instead of JetBrains Mono, which is removed with its
+  licence file. Keys have a one-pixel hairline edge; the pressed key, the Enter
+  key, the selected suggestion and the voice/Check panel's main button use the
+  accent. Round shapes of the suggestion strip, the more-suggestions divider, the
+  pinned toolbar key glow and the keyboard's own toast are square (6dp or 4dp).
+  New files: `clackatoo/ClackatooPalette.kt`, `third_party/inter/`,
+  `assets/fonts/Inter-*.ttf`, a few `*_clackatoo` drawables. Small hooks were added
+  to `DefaultColors` (optional parameters; other themes are unchanged),
+  `KeyboardSwitcher`, `KeyboardTypeface`, `SuggestionStripView` and
+  `MoreSuggestions`.
+- 2026-10-22: the keyboard data stays in credential-protected storage when the
+  app is preinstalled as a system app (only the input method service is
+  direct-boot aware); clipboard history skips clips marked sensitive and is
+  excluded from backups; the extracted-dictionary cleanup after an upgrade waits
+  until the user has unlocked; native code is built with -ffile-prefix-map for
+  reproducible builds.
+- 2026-10-27: named Clackatoo: application id `io.github.highlyproteus.clackatoo`
+  (debug builds: `.debug` suffix, label "Clackatoo debug"), app, input method,
+  spell checker and settings labels "Clackatoo" in every language, new launcher
+  icon (a cockatoo keycap), the About screen's source and licence links point to
+  https://github.com/highlyproteus/clackatoo, version 1.0.0. GitHub workflows
+  replaced (unit tests; signed releases), HeliBoard's issue, discussion and
+  pull-request templates removed, HeliBoard's CONTRIBUTING.md and AI_USAGE.md
+  moved to docs/.
+
+Upstream copyright
+------------------
+
+All copyright notices of HeliBoard, OpenBoard, the Android Open Source
+Project and the other upstream authors remain in the source files and in
+LICENSE, LICENSE-Apache-2.0 and LICENSE-CC-BY-SA-4.0. This program is
+licensed under the GNU General Public License, version 3 only, as HeliBoard
+is. The original HeliBoard README is kept in docs/HELIBOARD_README.md.
+
+Third-party material added by Clackatoo
+---------------------------------------
+
+Inter 4.1 (app/src/main/assets/fonts/Inter-Regular.ttf, Inter-Medium.ttf)
+    Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+    Licensed under the SIL Open Font License, Version 1.1. The licence text
+    is in third_party/inter/OFL.txt. The static files are the ones in
+    extras/ttf/ of Inter-4.1.zip, unmodified.
+
+whisper.cpp and llama.cpp (ml/native/, git submodules; built into the app)
+    Copyright (c) 2023-2026 The ggml authors
+    https://github.com/ggml-org/whisper.cpp and https://github.com/ggml-org/llama.cpp
+    Licensed under the MIT licence (LICENSE in each submodule). They share
+    one copy of ggml (the one in llama.cpp), also MIT. The MIT notices are
+    shipped in the app (assets/licenses/ml-notices.txt, shown in Settings >
+    Voice typing and Grammar check > Open-source licences).
+
+Material Design "spellcheck" icon (app/src/main/res/drawable/ic_grammar_check.xml)
+    Copyright Google LLC, Apache License 2.0.
+
+Model files (not part of this repository or the APK; the user imports them, see
+ml/README.md for the reference downloads). Each file is pinned by exact size and SHA-256 in ModelCatalog.kt; the digests are
+listed below.
+    Whisper small, multilingual, 5-bit quantised ggml build (ggml-small-q5_1.bin,
+        190 MB). Weights by OpenAI (https://github.com/openai/whisper),
+        Copyright (c) 2022 OpenAI, MIT licence; ggml conversion and
+        quantisation from https://huggingface.co/ggerganov/whisper.cpp (MIT).
+        Speech to text for English and Spanish.
+        SHA-256 ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+    S1-mini by Superwhisper (s1-mini-q4_k_m.gguf, 484 MB, "462 MiB")
+        https://huggingface.co/superwhisper/s1-mini-GGUF
+        Copyright 2026 Superwhisper, a derivative of Qwen3-0.6B (Copyright 2024
+        Alibaba Cloud). Apache License 2.0 with one additional term: any use or
+        integration must identify the model as "S1-mini" by "Superwhisper", with
+        that exact capitalisation. Clackatoo does so in Settings > Voice
+        typing and here. English-only clean-up of the transcript (fillers,
+        self-corrections, punctuation, numbers); not used for Spanish.
+        SHA-256 3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634
+    Qwen3.5-0.8B, 4-bit GGUF (Qwen3.5-0.8B-Q4_K_M.gguf, 533 MB)
+        Weights by the Qwen team, Alibaba Cloud
+        (https://huggingface.co/Qwen/Qwen3.5-0.8B), Apache License 2.0; GGUF
+        quantisation from https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF.
+        Grammar and spelling check for English and Spanish.
+        SHA-256 bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517
+    Total of the three files: about 1.21 GB.
+
+Test material only (nothing of this is shipped or committed): the English and
+Spanish test recordings were made with the Piper text-to-speech voices
+en_US-lessac-medium and es_ES-davefx-medium (https://github.com/rhasspy/piper-voices).
+The grammar models compared in ml/README.md (Qwen3-0.6B, Qwen3-1.7B, Granite 4.0
+350M; all Apache-2.0) are not used by the app.

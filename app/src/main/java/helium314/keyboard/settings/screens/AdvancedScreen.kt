@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import helium314.keyboard.clackatoo.UserLibraryPolicy
 import helium314.keyboard.keyboard.KeyboardActionListener
 import helium314.keyboard.keyboard.KeyboardLayoutSet
 import helium314.keyboard.keyboard.KeyboardSwitcher
@@ -89,7 +90,7 @@ fun AdvancedSettingsScreen(
         Settings.PREF_EMOJI_MAX_SDK,
         Settings.PREF_URL_DETECTION,
         Settings.PREF_ENABLE_HARDWARE_KEYBOARD,
-        if (BuildConfig.BUILD_TYPE != "nouserlib") SettingsWithoutKey.LOAD_GESTURE_LIB else null
+        if (UserLibraryPolicy.isAllowed()) SettingsWithoutKey.LOAD_GESTURE_LIB else null // Clackatoo: hidden in every build type
     )
     SearchSettingsScreen(
         onClickBack = onClickBack,

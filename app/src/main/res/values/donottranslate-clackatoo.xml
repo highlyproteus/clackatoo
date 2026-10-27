@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- names are looked up by name at runtime, see getStringResourceOrName -->
+    <string name="style_name_Clackatoo" translatable="false" tools:keep="@string/style_name_Clackatoo">Clackatoo</string>
+    <string name="theme_name_clackatoo" translatable="false" tools:keep="@string/theme_name_clackatoo">Clackatoo (follows the phone)</string>
+</resources>

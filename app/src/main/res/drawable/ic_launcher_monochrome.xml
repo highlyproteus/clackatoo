@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Clackatoo themed (monochrome) launcher icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="9.93" android:translateY="13.83" android:scaleX="0.78" android:scaleY="0.78">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M51,47 C45,38 38,31 33,22 C41,26 47,32 52,40 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M53,46 C50,36 47,28 46,17 C52,24 55,33 56,42 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M56,46 C57,37 59,30 63,21 C64,30 62,38 60,46 Z" />
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M37,44 H71 A6,6 0 0 1 77,50 V80 A6,6 0 0 1 71,86 H37 A6,6 0 0 1 31,80 V50 A6,6 0 0 1 37,44 Z M56.6,57 A3.4,3.4 0 1 0 63.4,57 A3.4,3.4 0 1 0 56.6,57 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M71,56 C77,55 82,58 82,64 C82,68 80,71 77,72 C78,69 77,67 74,66 L71,66 Z" />
+    </group>
+</vector>

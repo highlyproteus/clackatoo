@@ -104,6 +104,9 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
 
     override fun onCodeInput(primaryCode: Int, x: Int, y: Int, isKeyRepeat: Boolean) {
         when (primaryCode) {
+            // Clackatoo: built-in offline voice typing and grammar check (no other voice input method is started)
+            KeyCode.VOICE_INPUT -> return latinIME.assist.onVoiceKey()
+            KeyCode.GRAMMAR_CHECK -> return latinIME.assist.onCheckKey()
             KeyCode.TOGGLE_AUTOCORRECT -> return settings.toggleAutoCorrect()
             KeyCode.TOGGLE_INCOGNITO_MODE -> {
                 settings.toggleAlwaysIncognitoMode()

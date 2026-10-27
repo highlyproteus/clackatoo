@@ -1,0 +1,124 @@
+# Builds Clackatoo, signs it with the release key and publishes one APK on a GitHub release.
+#
+# - A tag vX.Y.Z (X.Y.Z = versionName in app/build.gradle.kts) builds, signs and publishes the release.
+# - Run by hand (Actions > Release > Run workflow) it builds and checks an unsigned APK and keeps it as a workflow
+#   artifact; nothing is signed or published.
+#
+# The key comes from the repository secrets CLACKATOO_KEYSTORE_BASE64 and CLACKATOO_KEYSTORE_PASSWORD, and the signed
+# APK must carry the certificate in the repository variable RELEASE_CERT_SHA256. tools/make-release-key sets all three.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NDK: '28.0.13004108'
+  CMAKE: '3.31.6'
+  BUILD_TOOLS: '37.0.0'
+  PACKAGE: io.github.highlyproteus.clackatoo
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Read the version
+        id: version
+        run: |
+          name=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          [ -n "$name" ] || { echo "::error::no versionName in app/build.gradle.kts"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$name" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME but versionName is $name; the tag must be v$name"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Install the NDK, CMake and build tools
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "ndk;$NDK" "cmake;$CMAKE" "build-tools;$BUILD_TOOLS" > /dev/null
+
+      - name: Build
+        run: ./gradlew --no-daemon :app:assembleNouserlib
+
+      - name: Check the APK
+        id: apk
+        run: |
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/nouserlib/*.apk)
+          [ ${#apks[@]} -eq 1 ] || { echo "::error::expected one APK, found: ${apks[*]}"; exit 1; }
+          bt=$ANDROID_HOME/build-tools/$BUILD_TOOLS
+          badging=$("$bt/aapt2" dump badging "${apks[0]}")
+          grep -q "^package: name='$PACKAGE' " <<<"$badging" || { echo "::error::wrong package name"; exit 1; }
+          grep -q "versionName='${{ steps.version.outputs.name }}'" <<<"$badging" || { echo "::error::wrong versionName"; exit 1; }
+          if "$bt/aapt2" dump permissions "${apks[0]}" | grep -q 'android.permission.INTERNET'; then
+            echo "::error::the APK asks for the INTERNET permission"; exit 1
+          fi
+          "$bt/zipalign" -p -f 4 "${apks[0]}" "$RUNNER_TEMP/unsigned.apk"
+          echo "unsigned=$RUNNER_TEMP/unsigned.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the unsigned APK
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: clackatoo-${{ steps.version.outputs.name }}-unsigned
+          path: ${{ steps.apk.outputs.unsigned }}
+
+      - name: Sign
+        if: github.ref_type == 'tag'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CLACKATOO_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CLACKATOO_KEYSTORE_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$EXPECTED_CERT" ] ||
+            { echo "::error::the signing secrets are not set; run tools/make-release-key"; exit 1; }
+          bt=$ANDROID_HOME/build-tools/$BUILD_TOOLS
+          ks=$RUNNER_TEMP/release.p12
+          trap 'rm -f "$ks"' EXIT
+          base64 -d <<<"$KEYSTORE_BASE64" > "$ks"
+          out=clackatoo-${{ steps.version.outputs.name }}.apk
+          "$bt/apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias clackatoo \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
+            --out "$out" "${{ steps.apk.outputs.unsigned }}"
+          rm -f "$out.idsig"
+          cert=$("$bt/apksigner" verify --print-certs "$out" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          want=$(tr -d ': ' <<<"$EXPECTED_CERT" | tr 'A-F' 'a-f')
+          [ "$cert" = "$want" ] || { echo "::error::signed with $cert, expected $want"; exit 1; }
+          echo "APK=$out" >> "$GITHUB_ENV"
+          echo "CERT=$EXPECTED_CERT" >> "$GITHUB_ENV"
+
+      - name: Publish
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(sha256sum "$APK" | cut -d' ' -f1)
+          cat > notes.md <<EOF
+          Verify with AppVerifier (paste both lines):
+
+          \`\`\`
+          $PACKAGE
+          $CERT
+          \`\`\`
+
+          APK SHA-256: \`$sha\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$APK" --title "Clackatoo ${{ steps.version.outputs.name }}" --notes-file notes.md

@@ -57,6 +57,33 @@ fun checkVersionUpgrade(context: Context) {
     val oldVersion = prefs.getInt(Settings.PREF_VERSION_CODE, 0)
     if (oldVersion != BuildConfig.VERSION_CODE)
         AppUpgrade.onUpgrade(context)
+    else
+        runDictionaryCleanup(context, upgrading = false) // a cleanup postponed because the user was locked
+}
+
+private const val PREF_DICTIONARY_CLEANUP_PENDING = "clackatoo_dictionary_cleanup_pending"
+
+/**
+ * Deletes the extracted dictionaries (the user's own stay), or postpones that while the user is locked, when the
+ * credential-protected files folder can't be read (see [DictionaryCleanupPolicy]). The flag lives in device-protected
+ * preferences, so it survives the restart that follows the unlock.
+ */
+private fun runDictionaryCleanup(context: Context, upgrading: Boolean) {
+    val prefs = context.prefs()
+    val pending = prefs.getBoolean(PREF_DICTIONARY_CLEANUP_PENDING, false)
+    when (DictionaryCleanupPolicy.decide(upgrading, pending, userUnlocked = !isUserLocked(context))) {
+        DictionaryCleanupPolicy.Action.Nothing -> {}
+        DictionaryCleanupPolicy.Action.Postpone -> prefs.edit { putBoolean(PREF_DICTIONARY_CLEANUP_PENDING, true) }
+        DictionaryCleanupPolicy.Action.RunNow -> {
+            DictionaryInfoUtils.getCacheDirectories(context).forEach { dir ->
+                dir.listFiles()?.forEach { file ->
+                    if (DictionaryCleanupPolicy.shouldDelete(file.name, USER_DICTIONARY_SUFFIX))
+                        file.delete()
+                }
+            }
+            if (pending) prefs.edit { remove(PREF_DICTIONARY_CLEANUP_PENDING) }
+        }
+    }
 }
 
 fun transferOldPinnedClips(context: Context) {
@@ -89,13 +116,8 @@ private object AppUpgrade {
             prefs.edit { putInt(Settings.PREF_VERSION_CODE, BuildConfig.VERSION_CODE) }
             return
         }
-        // clear extracted dictionaries, in case updated version contains newer ones
-        DictionaryInfoUtils.getCacheDirectories(context).forEach {
-            for (file in it.listFiles()!!) {
-                if (!file.name.endsWith(USER_DICTIONARY_SUFFIX))
-                    file.delete()
-            }
-        }
+        // clear extracted dictionaries, in case updated version contains newer ones (Clackatoo: not while the user is locked)
+        runDictionaryCleanup(context, upgrading = true)
         if (oldVersion <= 1000) { // upgrade old custom layouts name
             val oldShiftSymbolsFile = getCustomLayoutFile("custom.shift_symbols", context)
             if (oldShiftSymbolsFile.exists()) {

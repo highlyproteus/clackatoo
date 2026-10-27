@@ -30,6 +30,7 @@ import android.widget.TextView
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isVisible
 import helium314.keyboard.event.HapticEvent
+import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
@@ -118,7 +119,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     private val toolbarContainer: View = findViewById(R.id.toolbar_container)
     private val pinnedKeys: ViewGroup = findViewById(R.id.pinned_keys)
     private val suggestionsStrip: ViewGroup = findViewById(R.id.suggestions_strip)
-    private val toolbarExpandKey = findViewById<ImageButton>(R.id.suggestions_strip_toolbar_key)
+    private val toolbarExpandKey = findViewById<ImageButton>(R.id.suggestions_strip_toolbar_key).also { key ->
+        // Clackatoo style: no round expand key
+        ClackatooStyle.squareDrawable(context, R.drawable.toolbar_expand_key_background_clackatoo)?.let { key.background = it }
+    }
     private val incognitoIcon = KeyboardIconsSet.instance.getNewDrawable(ToolbarKey.INCOGNITO.name, context)
     private val toolbarArrowIcon = KeyboardIconsSet.instance.getNewDrawable(KeyboardIconsSet.NAME_TOOLBAR_KEY, context)
     private val defaultToolbarBackground: Drawable = toolbarExpandKey.background
@@ -145,9 +149,13 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
 
         // background indicator for pinned keys
         val color = colors.get(ColorType.TOOL_BAR_KEY_ENABLED_BACKGROUND) or -0x1000000 // ignore alpha (in Java this is more readable 0xFF000000)
-        enabledToolKeyBackground.colors = intArrayOf(color, Color.TRANSPARENT)
-        enabledToolKeyBackground.gradientType = GradientDrawable.RADIAL_GRADIENT
-        enabledToolKeyBackground.gradientRadius = resources.getDimensionPixelSize(R.dimen.config_suggestions_strip_height) / 2.1f
+        if (ClackatooStyle.isActive(context)) {
+            ClackatooStyle.styleSquareHighlight(enabledToolKeyBackground, color, resources) // no round glow
+        } else {
+            enabledToolKeyBackground.colors = intArrayOf(color, Color.TRANSPARENT)
+            enabledToolKeyBackground.gradientType = GradientDrawable.RADIAL_GRADIENT
+            enabledToolKeyBackground.gradientRadius = resources.getDimensionPixelSize(R.dimen.config_suggestions_strip_height) / 2.1f
+        }
 
         val mToolbarMode = if (isGone) ToolbarMode.HIDDEN else Settings.getValues().mToolbarMode
         if (mToolbarMode == ToolbarMode.TOOLBAR_KEYS) {
