@@ -114,7 +114,7 @@ jobs:
         run: |
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
           cat > notes.md <<EOF
-          Verify with AppVerifier (paste both lines):
+          AppVerifier verification info:
 
           \`\`\`
           $PACKAGE

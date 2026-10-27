@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Creates Clackatoo's release signing key and gives it to GitHub Actions. Run it once, yourself, in a terminal.
+# Sets up release signing for Clackatoo: creates the release key if it does not exist yet, then gives it to GitHub
+# Actions. Run in an interactive terminal by the maintainer.
 #
 #   tools/make-release-key
 #
-# - Asks for a password, creates the key in ~/.config/clackatoo/release.p12 (CLACKATOO_KEY_DIR overrides the folder).
+# - Without a key: asks for a new password and creates ~/.config/clackatoo/release.p12 (CLACKATOO_KEY_DIR overrides
+#   the folder).
+# - With a key: asks for its password and reuses it. A run that failed after creating the key is finished by running
+#   this again; an existing key is never replaced.
 # - Stores the key and password as the repository secrets CLACKATOO_KEYSTORE_BASE64 and CLACKATOO_KEYSTORE_PASSWORD,
 #   and the certificate's SHA-256 as the variable RELEASE_CERT_SHA256 (the release workflow refuses any other key).
-# - Prints the certificate SHA-256, which is what AppVerifier checks.
+#   Refuses to upload a key whose certificate differs from an RELEASE_CERT_SHA256 that is already set.
+# - Prints the certificate SHA-256, the value AppVerifier checks.
 #
-# Back up release.p12 and its password. Without them no update can be signed, and every phone would have to
-# uninstall Clackatoo (losing its settings and learned words) to move to a new key.
-# Needs a JDK (keytool) and gh signed in as highlyproteus.
+# The key file and its password must be backed up outside the repository. Without them no update can be signed, and
+# installed copies would have to be uninstalled (losing settings and learned words) to move to a new key.
+# Requires a JDK (keytool) and gh signed in as highlyproteus.
 set -euo pipefail
 
 repo=highlyproteus/clackatoo
@@ -18,10 +23,6 @@ dir=${CLACKATOO_KEY_DIR:-$HOME/.config/clackatoo}
 ks=$dir/release.p12
 
 [[ -t 0 ]] || { echo "Run this in an interactive terminal." >&2; exit 1; }
-if [[ -e $ks ]]; then
-  echo "$ks already exists. Releases must keep using it; this script never replaces a key." >&2
-  exit 1
-fi
 
 if [[ -n ${JAVA_HOME:-} && -x $JAVA_HOME/bin/keytool ]]; then
   keytool=$JAVA_HOME/bin/keytool
@@ -38,22 +39,44 @@ GH_TOKEN=$(gh auth token --user highlyproteus) || { echo "gh is not signed in as
 export GH_TOKEN
 gh repo view "$repo" --json name >/dev/null
 
-read -rsp "Choose a password for the release key (at least 12 characters): " pw; echo
-read -rsp "Type it again: " pw2; echo
-[[ $pw == "$pw2" ]] || { echo "The passwords differ." >&2; exit 1; }
-(( ${#pw} >= 12 )) || { echo "Use at least 12 characters." >&2; exit 1; }
-export CLACKATOO_KEY_PASSWORD=$pw
-unset pw pw2
+if [[ -e $ks ]]; then
+  echo "Using the existing key $ks."
+  read -rsp "Password of the release key: " CLACKATOO_KEY_PASSWORD; echo
+  export CLACKATOO_KEY_PASSWORD
+else
+  read -rsp "Choose a password for the release key (at least 12 characters): " pw; echo
+  read -rsp "Type it again: " pw2; echo
+  [[ $pw == "$pw2" ]] || { echo "The passwords differ." >&2; exit 1; }
+  (( ${#pw} >= 12 )) || { echo "Use at least 12 characters." >&2; exit 1; }
+  export CLACKATOO_KEY_PASSWORD=$pw
+  unset pw pw2
 
-mkdir -p "$dir"
-chmod 700 "$dir"
-umask 077
-"$keytool" -genkeypair -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD \
-  -alias clackatoo -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Clackatoo" >/dev/null
+  mkdir -p "$dir"
+  chmod 700 "$dir"
+  (
+    umask 077
+    "$keytool" -genkeypair -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD \
+      -alias clackatoo -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Clackatoo" >/dev/null
+  )
+  echo "Created $ks."
+fi
 
-cert=$("$keytool" -list -v -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD -alias clackatoo |
-  sed -n 's/^[[:space:]]*SHA256: //p')
-[[ $cert =~ ^([0-9A-F]{2}:){31}[0-9A-F]{2}$ ]] || { echo "Could not read the certificate SHA-256." >&2; exit 1; }
+# Also proves that the password opens the key, so a wrong password is never uploaded.
+cert=$("$keytool" -list -v -keystore "$ks" -storetype PKCS12 -storepass:env CLACKATOO_KEY_PASSWORD -alias clackatoo \
+  2>/dev/null | sed -n 's/^[[:space:]]*SHA256: //p') || true
+[[ $cert =~ ^([0-9A-F]{2}:){31}[0-9A-F]{2}$ ]] ||
+  { echo "Could not open $ks with that password (or read its certificate)." >&2; exit 1; }
+
+current=$(gh variable get RELEASE_CERT_SHA256 --repo "$repo" 2>/dev/null) || current=
+if [[ -n $current && $current != "$cert" ]]; then
+  cat >&2 <<EOF
+GitHub already expects a different release certificate:
+  set on GitHub: $current
+  this key:      $cert
+Nothing was uploaded. Releases must stay signed with the key GitHub expects.
+EOF
+  exit 1
+fi
 
 base64 <"$ks" | tr -d '\n' | gh secret set CLACKATOO_KEYSTORE_BASE64 --repo "$repo"
 printf '%s' "$CLACKATOO_KEY_PASSWORD" | gh secret set CLACKATOO_KEYSTORE_PASSWORD --repo "$repo"
@@ -61,10 +84,10 @@ gh variable set RELEASE_CERT_SHA256 --repo "$repo" --body "$cert"
 
 cat <<EOF
 
-Done. GitHub Actions can now sign releases.
+GitHub Actions can now sign releases.
 
 Key:         $ks
 Certificate: $cert
 
-Back up the key file and its password somewhere safe (not in the repository).
+Back up the key file and its password outside the repository.
 EOF
