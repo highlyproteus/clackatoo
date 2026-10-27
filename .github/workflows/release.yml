@@ -99,7 +99,9 @@ jobs:
             --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
             --out "$out" "${{ steps.apk.outputs.unsigned }}"
           rm -f "$out.idsig"
-          cert=$("$bt/apksigner" verify --print-certs "$out" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          # apksigner prints one line per signature scheme ("Signer #1 certificate ..." or "V3.0 Signer: certificate ...")
+          cert=$("$bt/apksigner" verify --print-certs "$out" | sed -n 's/^.*[Ss]igner.*certificate SHA-256 digest: //p' | sort -u)
+          [ -n "$cert" ] && [ "$(wc -l <<<"$cert")" -eq 1 ] || { echo "::error::expected one signing certificate, got: $cert"; exit 1; }
           want=$(tr -d ': ' <<<"$EXPECTED_CERT" | tr 'A-F' 'a-f')
           [ "$cert" = "$want" ] || { echo "::error::signed with $cert, expected $want"; exit 1; }
           echo "APK=$out" >> "$GITHUB_ENV"
