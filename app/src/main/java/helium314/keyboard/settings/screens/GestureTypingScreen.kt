@@ -45,8 +45,6 @@ fun GestureTypingScreen(
         if (gestureEnabled && gestureFloatingPreviewEnabled)
             Settings.PREF_GESTURE_FLOATING_PREVIEW_DYNAMIC else null,
         if (gestureEnabled)
-            Settings.PREF_GESTURE_SPACE_AWARE else null,
-        if (gestureEnabled)
             Settings.PREF_GESTURE_FAST_TYPING_COOLDOWN else null,
         if (gestureEnabled &&
             (prefs.getBoolean(Settings.PREF_GESTURE_PREVIEW_TRAIL, Defaults.PREF_GESTURE_PREVIEW_TRAIL) || gestureFloatingPreviewEnabled))

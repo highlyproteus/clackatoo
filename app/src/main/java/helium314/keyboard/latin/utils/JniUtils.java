@@ -22,7 +22,6 @@ import java.io.File;
 public final class JniUtils {
     private static final String TAG = JniUtils.class.getSimpleName();
     public static final String JNI_LIB_NAME = "jni_latinime";
-    public static final String JNI_LIB_NAME_GOOGLE = "jni_latinimegoogle";
     public static final String JNI_LIB_IMPORT_FILE_NAME = "libjni_latinime.so";
     private static final String CHECKSUM_ARM64 = "b1049983e6ac5cfc6d1c66e38959751044fad213dff0637a6cf1d2a2703e754f";
     private static final String CHECKSUM_ARM32 = "442a2a8bfcb25489564bc9433a916fa4dc0dba9000fe6f6f03f5939b985091e6";
@@ -93,18 +92,11 @@ public final class JniUtils {
         }
 
         if (!sHaveGestureLib) {
-            // try loading google library, will fail unless the library is in system and this is a system app
-            try {
-                System.loadLibrary(JNI_LIB_NAME_GOOGLE);
-                sHaveGestureLib = true;
-            } catch (UnsatisfiedLinkError ul) {
-                Log.w(TAG, "Could not load system glide typing library " + JNI_LIB_NAME_GOOGLE + ": " + ul.getMessage());
-            }
-        }
-        if (!sHaveGestureLib) {
-            // try loading built-in library
+            // The built-in library decodes gestures itself (policyimpl/gesture); Clackatoo never
+            // loads native code it did not build.
             try {
                 System.loadLibrary(JNI_LIB_NAME);
+                sHaveGestureLib = true;
             } catch (UnsatisfiedLinkError ul) {
                 Log.w(TAG, "Could not load native library " + JNI_LIB_NAME, ul);
             }

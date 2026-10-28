@@ -7,7 +7,8 @@ import helium314.keyboard.latin.BuildConfig
 /**
  * Whether the keyboard may load a native library that the user supplied (HeliBoard's "load gesture typing library").
  * In Clackatoo builds it never may, in any build type: such a library runs inside the keyboard process with full access
- * to everything typed, and the only thing it adds (swipe typing) is a non-goal. [BuildConfig.ALLOW_USER_LIBRARY] is
+ * to everything typed, and it is not needed, because swipe typing uses the built-in decoder
+ * (app/src/main/jni/src/suggest/policyimpl/gesture). [BuildConfig.ALLOW_USER_LIBRARY] is
  * false for every build type (app/build.gradle.kts); the check is kept in two places, [helium314.keyboard.latin.utils.JniUtils]
  * (the loading) and the advanced settings screen (the setting that stores the library).
  */
