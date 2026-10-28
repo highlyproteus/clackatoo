@@ -48,6 +48,9 @@ class CallRegistry(private val setCancelFlag: (speech: Boolean, handle: Long, va
         if (id == activeId && activeHandle != 0L) setCancelFlag(activeSpeech, activeHandle, true)
     }
 
+    /** Whether [id] was cancelled and has not ended yet. */
+    fun isCancelled(id: Int): Boolean = synchronized(lock) { cancelled.contains(id) }
+
     /** Request [id] is over: its handle may now be freed, and no cancel can reach it any more. */
     fun end(id: Int) = synchronized(lock) {
         if (id == activeId) {

@@ -25,11 +25,12 @@ object AssistSettings {
 
     fun modelStore(context: Context): ModelStore {
         val prefs = context.prefs()
+        val assets = context.applicationContext.assets
         return ModelStore(File(context.applicationContext.filesDir, MODEL_DIR_NAME), object : BrokenMarks {
             override fun get(fileName: String) = prefs.getString(BROKEN_PREFIX + fileName, null)
             override fun set(fileName: String, value: String?) = prefs.edit {
                 if (value == null) remove(BROKEN_PREFIX + fileName) else putString(BROKEN_PREFIX + fileName, value)
             }
-        })
+        }, openAsset = { assets.open(it) })
     }
 }

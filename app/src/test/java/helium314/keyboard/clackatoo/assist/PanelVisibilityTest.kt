@@ -114,7 +114,7 @@ class PanelVisibilityTest {
 
     private fun controller(recorders: MutableList<FakeRecorder>, ime: LatinIME = mock(LatinIME::class.java)): AssistController {
         val controller = AssistController(ime)
-        controller.recorderFactory = { onLevel, _ -> FakeRecorder(onLevel).also { recorders += it } }
+        controller.recorderFactory = { onLevel, _, _ -> FakeRecorder(onLevel).also { recorders += it } }
         controller.attachPanel(panel)
         return controller
     }
@@ -250,7 +250,7 @@ class PanelVisibilityTest {
     @Test fun `a microphone that does not open leaves nothing listening`() {
         val recorders = ArrayList<FakeRecorder>()
         val controller = controller(recorders)
-        controller.recorderFactory = { onLevel, _ -> FakeRecorder(onLevel).also { it.startResult = false; recorders += it } }
+        controller.recorderFactory = { onLevel, _, _ -> FakeRecorder(onLevel).also { it.startResult = false; recorders += it } }
         assertEquals(AssistController.ListeningStart.MIC_UNAVAILABLE, controller.startListening(panel))
         assertTrue(controller.isIdle)
         assertFalse(panel.isShowing)

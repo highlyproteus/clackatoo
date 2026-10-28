@@ -23,12 +23,15 @@ sealed interface ImportResult {
 
 /**
  * The model files in the app's private storage ([dir]; nothing else is ever loaded). Files get there only through
- * [import] (the file the user picked in the system file picker, validated first) or the documented adb route.
+ * [import] (the file the user picked in the system file picker, validated first), [ensureBundled] (a file of the
+ * APK's assets, validated the same way) or the documented adb route.
  */
 class ModelStore(
     private val dir: File,
     private val marks: BrokenMarks,
     private val catalog: List<ModelSpec> = ModelCatalog.all,
+    /** Opens a file of the APK's assets, for [ensureBundled]. */
+    private val openAsset: (String) -> InputStream = { throw IOException("no assets") },
     private val usableSpace: () -> Long = { dir.usableSpace },
 ) {
     fun file(spec: ModelSpec) = File(dir, spec.fileName)
@@ -60,8 +63,29 @@ class ModelStore(
      * step; on any failure nothing is left behind and the old model stays.
      */
     fun import(displayName: String?, input: InputStream): ImportResult {
-        val spec = catalog.firstOrNull { it.fileName.equals(displayName, ignoreCase = true) }
+        // a bundled model only ever comes from the APK: a file with its name is treated like any unknown file
+        val spec = catalog.firstOrNull { it.fileName.equals(displayName, ignoreCase = true) && it.bundledAsset == null }
             ?: return ImportResult.Rejected(RejectReason.UNKNOWN_FILE_NAME)
+        return install(spec, input)
+    }
+
+    /**
+     * Makes sure the bundled model [spec] (one with a [ModelSpec.bundledAsset]) is in the model folder, copying it from
+     * the APK's assets through the same checked path as [import]. True when it is installed afterwards; on any failure
+     * false, and nothing is left behind.
+     */
+    fun ensureBundled(spec: ModelSpec): Boolean {
+        val asset = spec.bundledAsset ?: return false
+        val file = file(spec)
+        if (status(spec) is ModelStatus.Installed && file.length() == spec.sizeBytes) return true
+        return try {
+            openAsset(asset).use { install(spec, it) } is ImportResult.Imported
+        } catch (_: IOException) {
+            false
+        }
+    }
+
+    private fun install(spec: ModelSpec, input: InputStream): ImportResult {
         if (usableSpace() < spec.sizeBytes) return ImportResult.Rejected(RejectReason.NOT_ENOUGH_SPACE)
         dir.mkdirs()
         var part: File? = null
@@ -135,8 +159,13 @@ object ModelValidator {
     fun validate(spec: ModelSpec, header: ByteArray, size: Long): RejectReason? {
         if (header.size < 8) return RejectReason.NOT_A_MODEL
         val magicOk = when (spec.kind) {
-            ModelKind.SPEECH -> header.copyOfRange(0, 4).contentEquals(WHISPER_MAGIC) && whisperFiltersOk(header)
+            ModelKind.SPEECH -> when (spec.engine) {
+                SpeechEngine.PARAKEET -> header.copyOfRange(0, 4).contentEquals(GGUF_MAGIC) && ggufVersionOk(header)
+                else -> header.copyOfRange(0, 4).contentEquals(WHISPER_MAGIC) && whisperFiltersOk(header)
+            }
             ModelKind.CLEAN_UP, ModelKind.GRAMMAR -> header.copyOfRange(0, 4).contentEquals(GGUF_MAGIC) && ggufVersionOk(header)
+            // exact size and digest only; whisper.cpp checks the file itself when it loads it
+            ModelKind.VAD -> true
         }
         if (!magicOk) return RejectReason.NOT_A_MODEL
         if (size != spec.sizeBytes) return RejectReason.WRONG_SIZE

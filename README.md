@@ -16,8 +16,9 @@ recognition and grammar correction all run on the device.
 
 - **System theming.** Square keys with a hairline edge and Inter labels, coloured from the system's Material 3
   palette. The keyboard follows palette and dark-theme changes without a restart.
-- **Voice typing.** Speech to text with Whisper (English and Spanish). English transcripts are cleaned up by S1-mini by
-  Superwhisper (filler words, self-corrections, punctuation, numbers).
+- **Voice typing.** Speech to text with NVIDIA Parakeet TDT 0.6B v3 or, without it, Whisper (English and Spanish).
+  With Parakeet the words appear in the voice panel while you speak and go into the field when you tap Stop. English
+  transcripts are cleaned up by S1-mini by Superwhisper (filler words, self-corrections, punctuation, numbers).
 - **Grammar check.** Corrects the selection or the whole field with Qwen3.5 0.8B. Changes are shown highlighted and
   applied only when accepted.
 - **Everything from HeliBoard.** Layouts, dictionaries, clipboard history, colour themes and the Material, Holo and
@@ -36,16 +37,18 @@ Each release lists the package name and signing certificate for verification wit
 
 ### Models
 
-The voice and grammar models (about 1.2 GB in total) are not bundled. They are imported from
+The voice and grammar models (about 1.2 GB in total, 1.9 GB with Parakeet) are not bundled. They are imported from
 Settings > Voice typing and Settings > Grammar check:
 
 | Feature | File | Size |
 | --- | --- | --- |
+| Voice typing, live text (optional) | [tdt-0.6b-v3-q4_k.gguf](https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q4_k.gguf) | 675 MB |
 | Voice typing | [ggml-small-q5_1.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin) | 190 MB |
 | English clean-up (optional) | [s1-mini-q4_k_m.gguf](https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf) | 484 MB |
 | Grammar check | [Qwen3.5-0.8B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf) | 533 MB |
 
-Only these exact files are accepted; each is pinned by size and SHA-256. See [ml/README.md](ml/README.md).
+Only these exact files are accepted; each is pinned by size and SHA-256. The small Silero voice-detection model that
+Parakeet's live text needs ships inside the app. See [ml/README.md](ml/README.md).
 
 ## Theming
 
@@ -67,7 +70,7 @@ white where a system colour would not meet it.
 ## Privacy and security
 
 - **No network access.** The app does not request `INTERNET`; release builds fail if it appears.
-- **Isolated model process.** whisper.cpp and llama.cpp run in an isolated process
+- **Isolated model process.** whisper.cpp, parakeet.cpp and llama.cpp run in an isolated process
   (`android:isolatedProcess="true"`) with no permissions and no access to the keyboard's files. Models are passed as
   read-only file descriptors and all output is treated as untrusted.
 - **Microphone.** `RECORD_AUDIO` is requested on first use of the Voice key. Audio is held in memory only, and
@@ -84,7 +87,8 @@ white where a system colour would not meet it.
 Requirements: JDK 21, Android SDK (platform 37, build-tools 37.0.0), NDK `28.0.13004108`, CMake `3.31.6`.
 
 ```sh
-git submodule update --init --depth 1   # whisper.cpp and llama.cpp
+git submodule update --init --depth 1   # whisper.cpp, llama.cpp and parakeet.cpp
+git -C asr/native/parakeet.cpp submodule update --init --depth 1 third_party/ggml   # parakeet.cpp's ggml
 ./gradlew assembleDebugNoMinify         # debug build (io.github.highlyproteus.clackatoo.debug)
 ./gradlew assembleNouserlib             # release build, unsigned
 ./gradlew :app:testRunTestsUnitTest     # unit tests

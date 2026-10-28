@@ -45,7 +45,20 @@ class MlClient(context: Context) {
     private val main = Handler(Looper.getMainLooper())
     private val replies = Messenger(ReplyBinder(main) { what, arg1, arg2 -> handleReply(what, arg1, arg2) })
 
-    private class Pending(val continuation: CancellableContinuation<MlResult>) {
+    /** How a request ends: a coroutine that waits for it ([request]), or a live call ([live]). */
+    private interface Completion {
+        val isActive: Boolean
+        fun resume(result: MlResult)
+        fun fail(error: MlException)
+    }
+
+    private fun CancellableContinuation<MlResult>.asCompletion() = object : Completion {
+        override val isActive get() = this@asCompletion.isActive
+        override fun resume(result: MlResult) = this@asCompletion.resume(result)
+        override fun fail(error: MlException) = this@asCompletion.resumeWithException(error)
+    }
+
+    private class Pending(val completion: Completion) {
         var loaded = false
         /** Set when the service said it is done (the numbers of its reply). */
         var times: Int? = null
@@ -109,6 +122,113 @@ class MlClient(context: Context) {
         })
     }
 
+    /**
+     * Live dictation with Parakeet: audio goes to the model process while the user speaks ([LiveCall.write]) and
+     * [onText] gets the text so far on the main thread: the finished utterances joined by single spaces, and the
+     * utterance still being spoken. [LiveCall.finish] ends the audio; [LiveCall.await] returns the whole text after the
+     * last event. Must be called on the main thread. Everything the model process sends is checked ([LiveFrames]) and
+     * sanitised; a frame that breaks the rules ends the call with an error.
+     */
+    fun live(model: File, vad: File, language: String, onText: (committed: String, partial: String) -> Unit): LiveCall {
+        val call = LiveCall()
+        val audioPipe = ParcelFileDescriptor.createPipe() // the service reads [0], we write [1]
+        val eventPipe = ParcelFileDescriptor.createPipe() // the service writes [1], we read [0]
+        var vadFd: ParcelFileDescriptor? = null
+        fun closeAll() {
+            for (fd in listOfNotNull(audioPipe[0], audioPipe[1], eventPipe[0], eventPipe[1], vadFd)) runCatching { fd.close() }
+        }
+        try {
+            vadFd = ParcelFileDescriptor.open(vad, ParcelFileDescriptor.MODE_READ_ONLY)
+        } catch (_: FileNotFoundException) {
+            closeAll()
+            call.result.completeExceptionally(MlException("The voice detection model is missing"))
+            return call
+        }
+        val completion = object : Completion {
+            override val isActive get() = call.result.isActive
+            override fun resume(result: MlResult) { call.result.complete(result) }
+            override fun fail(error: MlException) {
+                call.stop()
+                call.result.completeExceptionally(error)
+            }
+        }
+        val id = submit(MlProtocol.MSG_LIVE, model, completion, readResultPipe = false, extras = {
+            putString(MlProtocol.KEY_LANGUAGE, language)
+            putParcelable(MlProtocol.KEY_VAD_FD, vadFd)
+            putString(MlProtocol.KEY_VAD_KEY, "${vad.name}:${vadFd!!.statSize}:${vad.lastModified()}")
+            putParcelable(MlProtocol.KEY_AUDIO_PIPE, audioPipe[0])
+            putParcelable(MlProtocol.KEY_EVENT_PIPE, eventPipe[1])
+        }, afterSend = {
+            // the service has its own copies of its ends now
+            runCatching { audioPipe[0].close() }
+            runCatching { eventPipe[1].close() }
+            runCatching { vadFd?.close() }
+            call.startWriter(ParcelFileDescriptor.AutoCloseOutputStream(audioPipe[1]))
+            Thread({ readEvents(call, eventPipe[0], onText) }, "clackatoo-live-events").start()
+        }, discardExtras = ::closeAll)
+        if (id == null) return call
+        call.attach(id, onCancel = { cancelLive(id, call) })
+        return call
+    }
+
+    private fun cancelLive(id: Int, call: LiveCall) {
+        call.stop()
+        cancelRequest(id)
+        call.result.completeExceptionally(MlException("cancelled", cancelled = true))
+    }
+
+    /** Reads the event frames of [id] until the service ends them, and reports them in order on the main thread. */
+    private fun readEvents(call: LiveCall, read: ParcelFileDescriptor, onText: (String, String) -> Unit) {
+        val committed = ArrayList<String>()
+        var partial = ""
+        var segmentBytes = 0
+        var failure: String? = null
+        var ended = false
+        try {
+            ParcelFileDescriptor.AutoCloseInputStream(read).use { input ->
+                while (!ended && !call.stopped) {
+                    val frame = LiveFrames.read(input) ?: break
+                    when (frame) {
+                        is LiveFrames.Frame.End -> ended = true
+                        is LiveFrames.Frame.Partial -> partial = OutputSanitizer.clean(frame.text, multiLine = false)
+                        is LiveFrames.Frame.Segment -> {
+                            segmentBytes += frame.size
+                            if (segmentBytes > MlProtocol.MAX_RESULT_BYTES) throw LiveFrames.ProtocolException("too much text")
+                            val text = OutputSanitizer.clean(frame.text, multiLine = false)
+                            if (text.isNotEmpty()) committed += text
+                            partial = ""
+                        }
+                    }
+                    if (!ended) {
+                        val c = committed.joinToString(" ")
+                        val p = partial
+                        main.post { if (!call.stopped) onText(c, p) }
+                    }
+                }
+            }
+            if (!ended && !call.stopped) failure = "The model process stopped unexpectedly"
+        } catch (_: LiveFrames.ProtocolException) {
+            failure = "The model process sent something unexpected"
+        } catch (_: IOException) {
+            if (!call.stopped) failure = "The model process stopped unexpectedly"
+        }
+        val text = committed.joinToString(" ")
+        main.post {
+            if (call.stopped) return@post
+            val id = call.id ?: return@post
+            if (failure != null) failRequest(id, MlException(failure))
+            else pending[id]?.let { it.text = text; complete(id, it) }
+        }
+    }
+
+    /** Ends [id] with [error], telling the service to stop. */
+    private fun failRequest(id: Int, error: MlException) {
+        val entry = pending.remove(id) ?: return
+        service?.let { send(it, Message.obtain(null, MlProtocol.MSG_CANCEL, id, 0)) }
+        scheduleUnbind()
+        entry.completion.fail(error)
+    }
+
     /** Closes the connection now (the model process exits). */
     fun release() {
         main.removeCallbacks(unbindLater)
@@ -119,58 +239,80 @@ class MlClient(context: Context) {
 
     private suspend fun request(what: Int, model: File, extras: Bundle.() -> Unit, afterSend: () -> Unit = {}): MlResult =
         suspendCancellableCoroutine { continuation ->
-            main.removeCallbacks(unbindLater)
-            val modelFd = try {
-                ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY)
-            } catch (_: FileNotFoundException) {
-                continuation.resumeWithException(MlException("The model file is missing"))
-                return@suspendCancellableCoroutine
+            val id = submit(what, model, continuation.asCompletion(), readResultPipe = true, extras, afterSend, discardExtras = {})
+            if (id != null) continuation.invokeOnCancellation { cancelRequest(id) }
+        }
+
+    /** Tells the service to stop [id] and forgets it. Safe to call from any thread. */
+    private fun cancelRequest(id: Int) {
+        main.post {
+            pending.remove(id)
+            service?.let { send(it, Message.obtain(null, MlProtocol.MSG_CANCEL, id, 0)) }
+            scheduleUnbind()
+        }
+    }
+
+    /**
+     * Sends a request of kind [what] as soon as the connection exists and registers [completion] for its end. Returns
+     * its id, or null when it failed at once ([completion] has been told). With [readResultPipe] the text of the result
+     * arrives through a pipe of its own, otherwise the caller supplies it ([extras] adds the request's own descriptors
+     * and [discardExtras] closes them when the request is never sent).
+     */
+    private fun submit(
+        what: Int, model: File, completion: Completion, readResultPipe: Boolean,
+        extras: Bundle.() -> Unit, afterSend: () -> Unit, discardExtras: () -> Unit,
+    ): Int? {
+        main.removeCallbacks(unbindLater)
+        val modelFd = try {
+            ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY)
+        } catch (_: FileNotFoundException) {
+            discardExtras()
+            completion.fail(MlException("The model file is missing"))
+            return null
+        }
+        val resultPipe = if (readResultPipe) ParcelFileDescriptor.createPipe() else null
+        val resultRead = resultPipe?.get(0)
+        val resultWrite = resultPipe?.get(1)
+        val id = nextId++
+        val entry = Pending(completion)
+        val data = Bundle().apply {
+            putParcelable(MlProtocol.KEY_MODEL_FD, modelFd)
+            putString(MlProtocol.KEY_MODEL_KEY, "${model.name}:${modelFd.statSize}:${model.lastModified()}")
+            if (resultWrite != null) putParcelable(MlProtocol.KEY_RESULT_PIPE, resultWrite)
+            extras()
+        }
+        pending[id] = entry
+        fun closeOurs() {
+            runCatching { modelFd.close() }
+            runCatching { resultWrite?.close() }
+            runCatching { resultRead?.close() }
+        }
+        whenConnected(discard = {
+            closeOurs()
+            discardExtras()
+        }) {
+            if (!pending.containsKey(id)) { // cancelled while the connection was being made
+                closeOurs()
+                discardExtras()
+                return@whenConnected
             }
-            val resultPipe = ParcelFileDescriptor.createPipe()
-            val resultRead = resultPipe[0]
-            val resultWrite = resultPipe[1]
-            val id = nextId++
-            val entry = Pending(continuation)
-            val data = Bundle().apply {
-                putParcelable(MlProtocol.KEY_MODEL_FD, modelFd)
-                putString(MlProtocol.KEY_MODEL_KEY, "${model.name}:${modelFd.statSize}:${model.lastModified()}")
-                putParcelable(MlProtocol.KEY_RESULT_PIPE, resultWrite)
-                extras()
-            }
-            pending[id] = entry
-            continuation.invokeOnCancellation {
-                main.post {
-                    pending.remove(id)
-                    service?.let { send(it, Message.obtain(null, MlProtocol.MSG_CANCEL, id, 0)) }
-                    scheduleUnbind()
-                }
-            }
-            whenConnected(discard = {
-                runCatching { modelFd.close() }
-                runCatching { resultWrite.close() }
-                runCatching { resultRead.close() }
-            }) {
-                if (!pending.containsKey(id)) { // cancelled while the connection was being made
-                    runCatching { modelFd.close() }
-                    runCatching { resultWrite.close() }
-                    runCatching { resultRead.close() }
-                    return@whenConnected
-                }
-                val s = service
-                val message = Message.obtain(null, what, id, 0).apply { this.data = data; replyTo = replies }
-                val sent = s != null && send(s, message)
-                // the service has its own copies of the descriptors now (or never will)
-                runCatching { modelFd.close() }
-                runCatching { resultWrite.close() }
-                if (!sent) {
-                    runCatching { resultRead.close() }
-                    pending.remove(id)?.continuation?.resumeWithException(MlException("The model process is not running"))
-                } else {
-                    afterSend()
-                    Thread({ readResult(id, resultRead) }, "clackatoo-result-pipe").start()
-                }
+            val s = service
+            val message = Message.obtain(null, what, id, 0).apply { this.data = data; replyTo = replies }
+            val sent = s != null && send(s, message)
+            // the service has its own copies of the descriptors now (or never will)
+            runCatching { modelFd.close() }
+            runCatching { resultWrite?.close() }
+            if (!sent) {
+                runCatching { resultRead?.close() }
+                discardExtras()
+                pending.remove(id)?.completion?.fail(MlException("The model process is not running"))
+            } else {
+                afterSend()
+                if (resultRead != null) Thread({ readResult(id, resultRead) }, "clackatoo-result-pipe").start()
             }
         }
+        return id
+    }
 
     private fun whenConnected(discard: () -> Unit, action: () -> Unit) {
         if (service != null) {
@@ -207,7 +349,7 @@ class MlClient(context: Context) {
             }
             MlProtocol.MSG_ERROR -> {
                 pending.remove(id)
-                entry.continuation.resumeWithException(errorFor(arg2))
+                entry.completion.fail(errorFor(arg2))
                 scheduleUnbind()
             }
         }
@@ -226,7 +368,7 @@ class MlClient(context: Context) {
         val times = entry.times ?: return
         val text = entry.text ?: return
         pending.remove(id)
-        entry.continuation.resume(MlResult(text, MlProtocol.loadMsOf(times), MlProtocol.runMsOf(times)))
+        entry.completion.resume(MlResult(text, MlProtocol.loadMsOf(times), MlProtocol.runMsOf(times)))
         scheduleUnbind()
     }
 
@@ -270,8 +412,8 @@ class MlClient(context: Context) {
         val all = pending.values.toList()
         pending.clear()
         all.forEach {
-            if (it.continuation.isActive)
-                it.continuation.resumeWithException(error ?: MlException("The model process stopped unexpectedly", modelFailedWhileLoading = !it.loaded))
+            if (it.completion.isActive)
+                it.completion.fail(error ?: MlException("The model process stopped unexpectedly", modelFailedWhileLoading = !it.loaded))
         }
     }
 
@@ -339,5 +481,124 @@ internal class ReplyBinder(private val handler: Handler, private val deliver: (w
     private companion object {
         /** The interface token of the platform's IMessenger, which [Messenger.send] writes first. */
         const val MESSENGER_DESCRIPTOR = "android.os.IMessenger"
+    }
+}
+
+
+/**
+ * A live dictation in progress, see [MlClient.live]. [write] and [finish] may be called from any thread (the audio
+ * thread calls [write]); [cancel] and [await] belong to the main thread.
+ */
+class LiveCall internal constructor() {
+    internal val result = kotlinx.coroutines.CompletableDeferred<MlResult>()
+    private val queue = java.util.concurrent.LinkedBlockingQueue<Any>()
+    @Volatile internal var stopped = false
+    @Volatile internal var id: Int? = null
+    private var onCancel: (() -> Unit)? = null
+
+    internal fun attach(id: Int, onCancel: () -> Unit) {
+        this.id = id
+        this.onCancel = onCancel
+    }
+
+    /** Queues a copy of samples[0, count) for the model process; never blocks the caller. */
+    fun write(samples: ShortArray, count: Int) {
+        if (stopped || count <= 0) return
+        queue.put(samples.copyOf(count))
+    }
+
+    /** No more audio: the model process decodes what is left and ends the call. */
+    fun finish() {
+        queue.put(END)
+    }
+
+    /** Ends the call at once and drops the audio. [await] then throws a cancelled [MlException]. */
+    fun cancel() {
+        if (stopped) return
+        onCancel?.invoke() ?: run {
+            stop()
+            result.completeExceptionally(MlException("cancelled", cancelled = true))
+        }
+    }
+
+    /** Returns when the last event, the service's reply and the end of the event pipe have all arrived. */
+    suspend fun await(): MlResult = result.await()
+
+    internal fun stop() {
+        stopped = true
+        queue.clear()
+        queue.put(END)
+    }
+
+    /** Drains the queue into the audio pipe on a thread of its own, so the audio thread never waits for the pipe. */
+    internal fun startWriter(out: java.io.OutputStream) {
+        Thread({
+            val bytes = ByteArray(2 * 4096)
+            try {
+                out.buffered(1 shl 16).use { buffered ->
+                    while (!stopped) {
+                        val item = queue.take()
+                        if (item === END) break
+                        val pcm = item as ShortArray
+                        var i = 0
+                        while (i < pcm.size && !stopped) {
+                            val n = minOf(4096, pcm.size - i)
+                            for (k in 0 until n) {
+                                bytes[2 * k] = pcm[i + k].toInt().toByte()
+                                bytes[2 * k + 1] = (pcm[i + k].toInt() shr 8).toByte()
+                            }
+                            buffered.write(bytes, 0, 2 * n)
+                            i += n
+                        }
+                        if (queue.isEmpty()) buffered.flush()
+                    }
+                }
+            } catch (_: IOException) {
+                // the service stopped reading (finished, cancelled or crashed)
+            }
+        }, "clackatoo-live-pipe").start()
+    }
+
+    private companion object {
+        val END = Any()
+    }
+}
+
+/** Reads and checks the event frames of [MlProtocol] from the model process, which is not trusted. */
+internal object LiveFrames {
+    sealed interface Frame {
+        class Partial(val text: String) : Frame
+        class Segment(val text: String, val size: Int) : Frame
+        data object End : Frame
+    }
+
+    class ProtocolException(message: String) : IOException(message)
+
+    /** The next frame, or null when the stream ends cleanly between frames. Anything else wrong throws [ProtocolException]. */
+    fun read(input: java.io.InputStream): Frame? {
+        val type = input.read()
+        if (type < 0) return null
+        if (type !in MlProtocol.EVENT_PARTIAL..MlProtocol.EVENT_END) throw ProtocolException("unknown event type")
+        val length = (readByte(input) shl 24) or (readByte(input) shl 16) or (readByte(input) shl 8) or readByte(input)
+        if (length < 0 || length > MlProtocol.MAX_EVENT_BYTES) throw ProtocolException("event too long")
+        if (type == MlProtocol.EVENT_END) {
+            if (length != 0) throw ProtocolException("the end event carries text")
+            return Frame.End
+        }
+        val payload = ByteArray(length)
+        var n = 0
+        while (n < length) {
+            val r = input.read(payload, n, length - n)
+            if (r < 0) throw ProtocolException("event cut short")
+            n += r
+        }
+        val text = String(payload, Charsets.UTF_8)
+        return if (type == MlProtocol.EVENT_PARTIAL) Frame.Partial(text) else Frame.Segment(text, length)
+    }
+
+    private fun readByte(input: java.io.InputStream): Int {
+        val b = input.read()
+        if (b < 0) throw ProtocolException("event cut short")
+        return b
     }
 }

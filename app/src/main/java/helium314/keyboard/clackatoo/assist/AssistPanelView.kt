@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.TextUtils
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
@@ -49,6 +50,9 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
 
     private val title = TextView(context)
     private val meter = LevelMeterView(context)
+    /** The level meter with the live text (Parakeet) below it. */
+    private val listeningBox = LinearLayout(context)
+    private val liveText = TextView(context)
     private val progress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
     private val message = TextView(context)
     private val previewScroll = ScrollView(context)
@@ -70,7 +74,14 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
 
         val body = FrameLayout(context)
         content.addView(body, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(6); bottomMargin = dp(8) })
-        body.addView(meter, LayoutParams(-1, -1))
+        listeningBox.orientation = LinearLayout.VERTICAL
+        listeningBox.addView(meter, LinearLayout.LayoutParams(-1, 0, 1f))
+        liveText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        liveText.maxLines = 3
+        liveText.ellipsize = TextUtils.TruncateAt.START
+        liveText.visibility = GONE
+        listeningBox.addView(liveText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        body.addView(listeningBox, LayoutParams(-1, -1))
         progress.isIndeterminate = true
         body.addView(progress, LayoutParams(-1, dp(6), Gravity.CENTER_VERTICAL))
         message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
@@ -106,12 +117,14 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         title.setTextColor(textColor)
         message.setTextColor(textColor)
         preview.setTextColor(textColor)
+        liveText.setTextColor(textColor)
         meter.color = accent
         progress.indeterminateTintList = android.content.res.ColorStateList.valueOf(accent)
         // the keyboard's font: Clackatoo's Inter (Medium for the title), or the font the user picked
         title.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT_BOLD)
         message.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
         preview.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+        liveText.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
     }
 
     private fun button(label: String, primary: Boolean, onClick: () -> Unit): TextView {
@@ -149,7 +162,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         val navigationBar = ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
         content.setPadding(dp(12), dp(8), dp(12), dp(12) + navigationBar)
         title.text = titleText
-        meter.visibility = if (showMeter) VISIBLE else GONE
+        listeningBox.visibility = if (showMeter) VISIBLE else GONE
         progress.visibility = if (showProgress) VISIBLE else GONE
         message.visibility = if (messageText != null) VISIBLE else GONE
         message.text = messageText
@@ -159,6 +172,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
 
     fun showListening() {
         meter.clear()
+        liveText.text = ""
+        liveText.visibility = GONE
         show(context.getString(R.string.assist_listening), true, false, null, false)
         setButtons(
             button(context.getString(R.string.assist_cancel), false) { listener?.onCancel() },
@@ -167,6 +182,21 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     }
 
     fun setLevel(level: Float) = meter.push(level)
+
+    /**
+     * Live dictation: the text so far, the finished utterances in the label colour and the one still being spoken in
+     * the hint colour. It is shown here only; nothing reaches the app until Stop.
+     */
+    fun showLiveText(committed: String, partial: String) {
+        val text = if (committed.isEmpty() || partial.isEmpty()) committed + partial else "$committed $partial"
+        val spannable = SpannableString(text)
+        if (partial.isNotEmpty()) {
+            val start = text.length - partial.length
+            spannable.setSpan(ForegroundColorSpan(colors.get(ColorType.KEY_HINT_TEXT)), start, text.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        liveText.text = spannable
+        liveText.visibility = if (text.isEmpty()) GONE else VISIBLE
+    }
 
     fun showWorking(titleText: CharSequence) {
         show(titleText, false, true, null, false)
@@ -253,6 +283,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     fun hide() {
         visibility = GONE
         preview.text = ""
+        liveText.text = ""
         meter.clear()
     }
 
