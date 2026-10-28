@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class ModelChoiceTest {
     @Test fun `only a downloadable model of the same role is a valid choice`() {
         assertTrue(ModelChoice.isValidChoice(ModelKind.SPEECH, Catalog.WHISPER_TINY.id))
-        assertTrue(ModelChoice.isValidChoice(ModelKind.GRAMMAR, Catalog.QWEN3_5_2B.id))
+        assertTrue(ModelChoice.isValidChoice(ModelKind.GRAMMAR, Catalog.QWEN3_5_0_8B.id))
         assertFalse(ModelChoice.isValidChoice(ModelKind.GRAMMAR, Catalog.WHISPER_TINY.id))
         assertFalse(ModelChoice.isValidChoice(ModelKind.SPEECH, ModelCatalog.SILERO_VAD.id))
         assertFalse(ModelChoice.isValidChoice(ModelKind.VAD, ModelCatalog.SILERO_VAD.id))

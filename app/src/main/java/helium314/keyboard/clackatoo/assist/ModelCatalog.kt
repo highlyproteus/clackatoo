@@ -58,16 +58,12 @@ object ModelCatalog {
     /** Short names for the cards of the settings, by catalog id. */
     private val SHORT_NAMES = mapOf(
         "parakeet-tdt-0.6b-v3" to "Parakeet v3",
-        "parakeet-tdt-0.6b-v2" to "Parakeet v2",
         "parakeet-tdt-ctc-110m" to "Parakeet 110M",
-        "nemotron-3.5-asr-streaming-0.6b" to "Nemotron 3.5",
         "whisper-tiny" to "Whisper tiny",
         "whisper-base" to "Whisper base",
         "whisper-small" to "Whisper small",
-        "whisper-large-v3-turbo" to "Whisper large v3 turbo",
         "s1-mini" to "S1-mini",
         "qwen3.5-0.8b" to "Qwen3.5 0.8B",
-        "qwen3.5-2b" to "Qwen3.5 2B",
     )
 
     private fun CatalogModel.toSpec() = ModelSpec(

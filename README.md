@@ -64,20 +64,17 @@ The voice and grammar models are not bundled. Open Settings > Voice typing or Se
 next to a model (or tap the Voice or Check key without a model and choose Download in the panel). The keyboard asks
 Clackatoo Models to fetch it; Clackatoo Models downloads the exact file from Hugging Face, checks its size and SHA-256 and
 hands it to the keyboard, which checks it again before it installs it. If Clackatoo Models is not installed the button reads
-"Get Clackatoo Models" and opens this repository's releases page in your browser. Each role has several models to choose
-from; the starred ones are recommended:
+"Get Clackatoo Models" and opens this repository's releases page in your browser. Only small models are offered, so
+they fit on a phone and run quickly; the starred ones are recommended:
 
 | Role | Model | Maker, licence | Size |
 | --- | --- | --- | --- |
 | Voice typing, live text | Parakeet TDT 0.6B v3 (25 languages) ★ | NVIDIA, CC-BY-4.0 | 742 MB |
-| | Parakeet TDT 0.6B v2 (English) | NVIDIA, CC-BY-4.0 | 705 MB |
 | | Parakeet TDT-CTC 110M (English, fast) | NVIDIA, CC-BY-4.0 | 143 MB |
-| | Nemotron 3.5 ASR streaming 0.6B (35 languages) | NVIDIA, OpenMDW-1.1 | 785 MB |
 | Voice typing | Whisper small ★ | OpenAI, MIT | 190 MB |
-| | Whisper tiny, base, large v3 turbo | OpenAI, MIT | 32, 60, 574 MB |
+| | Whisper tiny, base | OpenAI, MIT | 32, 60 MB |
 | English clean-up | S1-mini ★ | Superwhisper, Apache-2.0 | 484 MB |
 | Grammar check | Qwen3.5 0.8B ★ | Qwen team, Apache-2.0 | 533 MB |
-| | Qwen3.5 2B | Qwen team, Apache-2.0 | 1.28 GB |
 
 Every model is pinned by size and SHA-256 in `catalog/` (see [ml/README.md](ml/README.md) for the reference files and how
 to import one by hand). The small Silero voice-detection model that Parakeet's live text needs ships inside the keyboard.

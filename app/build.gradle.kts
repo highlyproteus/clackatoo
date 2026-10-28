@@ -17,8 +17,8 @@ android {
         // Clackatoo: versionName is Clackatoo's own and must equal the release tag without its "v" (Obtainium compares
         // them). versionCode stays in HeliBoard's numbering (one more per release, above the merged upstream version's
         // code and below upstream's next one), because AppUpgrade migrates settings by comparing it with upstream codes.
-        versionCode = 4202
-        versionName = "1.0.0"
+        versionCode = 4203
+        versionName = "1.1.0"
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))

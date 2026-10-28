@@ -173,11 +173,10 @@ Reference downloads (free; these exact files match the pinned sizes and digests)
 
 | File | Repository @ commit |
 | --- | --- |
-| `tdt-0.6b-v3-q5_k.gguf` (741,867,360 bytes), `tdt-0.6b-v2-q5_k.gguf`, `tdt_ctc-110m-q5_k.gguf`, `nemotron-3.5-asr-streaming-0.6b-q5_k.gguf` | `mudler/parakeet-cpp-gguf` @ `c77726e46ceaab96b5a5a3328915edb44c73209d` |
-| `ggml-tiny-q5_1.bin`, `ggml-base-q5_1.bin`, `ggml-small-q5_1.bin`, `ggml-large-v3-turbo-q5_0.bin` | `ggerganov/whisper.cpp` @ `5359861c739e955e79d9a303bcbc70fb988958b1` |
+| `tdt-0.6b-v3-q5_k.gguf` (741,867,360 bytes), `tdt_ctc-110m-q5_k.gguf` | `mudler/parakeet-cpp-gguf` @ `c77726e46ceaab96b5a5a3328915edb44c73209d` |
+| `ggml-tiny-q5_1.bin`, `ggml-base-q5_1.bin`, `ggml-small-q5_1.bin` | `ggerganov/whisper.cpp` @ `5359861c739e955e79d9a303bcbc70fb988958b1` |
 | `s1-mini-q4_k_m.gguf` | `superwhisper/s1-mini-GGUF` @ `34add00a48a2e5d24e5a4ee5405a99620a3a240c` |
 | `Qwen3.5-0.8B-Q4_K_M.gguf` | `unsloth/Qwen3.5-0.8B-GGUF` @ `6ab461498e2023f6e3c1baea90a8f0fe38ab64d0` |
-| `Qwen3.5-2B-Q4_K_M.gguf` | `unsloth/Qwen3.5-2B-GGUF` @ `f6d5376be1edb4d416d56da11e5397a961aca8ae` |
 
 (The q4_k Parakeet file of the same revision, 675 MB, was tried first and mis-heard the test sentence in two more places
 than Whisper small, see "Measured times".)
@@ -278,7 +277,9 @@ Each file was downloaded from its pinned URL (size and SHA-256 checked against t
 Friday, no wait, make that Thursday at three thirty.") was run through `TRANSCRIBE_WAV`, with S1-mini removed so the text
 in the field is the raw transcript. Same emulator as above (`clackatoo-test`: arm64-v8a, 4 cores, 4 GB). The text is what
 the field showed; times are from the app's log (load = loading the file in the model process, "after audio" = the wait
-after Stop for the live models, whole transcription for Whisper). All of them load and run; none was dropped.
+after Stop for the live models, whole transcription for Whisper). All of them load and run. The larger ones (Parakeet
+v2, Nemotron 3.5, Whisper large v3 turbo, Qwen3.5 2B) were then taken out of the catalog: on these clips they were no
+more accurate than the smaller options and were slower or needed much more memory; their rows stay here as the reason.
 
 | Model | Load | Time | Text in the field |
 | --- | --- | --- | --- |

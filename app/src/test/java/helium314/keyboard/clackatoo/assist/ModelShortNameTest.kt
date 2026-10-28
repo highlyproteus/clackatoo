@@ -17,7 +17,7 @@ class ModelShortNameTest {
     @Test fun `short titles are the ones the cards show`() {
         assertEquals("Parakeet v3", ModelCatalog.byId("parakeet-tdt-0.6b-v3")!!.shortName)
         assertEquals("S1-mini", ModelCatalog.byId("s1-mini")!!.shortName)
-        assertEquals("Qwen3.5 2B", ModelCatalog.byId("qwen3.5-2b")!!.shortName)
+        assertEquals("Qwen3.5 0.8B", ModelCatalog.byId("qwen3.5-0.8b")!!.shortName)
     }
 
     @Test fun `the full name stays the display name`() {

@@ -70,7 +70,7 @@ Install and select on an emulator:
 ```sh
 ADB="adb -s emulator-5554"
 ID=io.github.highlyproteus.clackatoo.debug/helium314.keyboard.latin.LatinIME
-$ADB install -r app/build/outputs/apk/debugNoMinify/Clackatoo_1.0.0-debugNoMinify.apk
+$ADB install -r app/build/outputs/apk/debugNoMinify/Clackatoo_*-debugNoMinify.apk
 $ADB shell ime enable $ID && $ADB shell ime set $ID
 $ADB shell settings put secure show_ime_with_hard_keyboard 1    # restore to 0 when finished
 ```
@@ -139,7 +139,8 @@ decoder on the same strokes and the decoding time.
 
 - `catalog/` is the one list of downloadable models, shared by the keyboard and the companion app `models`
   ("Clackatoo Models", application id `io.github.highlyproteus.clackatoo.models`). `ModelsProtocol` in it holds the few
-  names the two apps use to talk.
+  names the two apps use to talk. Offer only small models (the owner's choice): the larger options (Parakeet v2,
+  Nemotron 3.5, Whisper large v3 turbo, Qwen3.5 2B) were measured and removed, see ml/README.md.
 - **The companion is untrusted by the keyboard and the keyboard by the companion.** The keyboard binds the companion's
   `DownloadService` and makes one Binder call (an action and a catalog id, nothing else); `DownloadBinder` checks the
   caller's package and signature, `RequestParser` refuses a URL, a size or a hash, an unknown id and leftover data, and
