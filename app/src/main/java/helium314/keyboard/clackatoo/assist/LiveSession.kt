@@ -30,6 +30,7 @@ class LiveSession(
     private val transcribe: (pcm: ShortArray, offset: Int, count: Int) -> String?,
     private val segmenter: LiveSegmenter = LiveSegmenter(),
     private val nanoTime: () -> Long = System::nanoTime,
+    private val readerJoinMs: Long = READER_JOIN_MS,
 ) {
     class Cancelled : Exception()
     class Failed(message: String) : Exception(message)
@@ -46,6 +47,14 @@ class LiveSession(
     private var inputEndedAt = 0L
     private var readerError: String? = null
     private var reader: Thread? = null
+
+    /**
+     * True when [run] returned while the reader thread was still alive (blocked in a read that closing the input did not
+     * end). It never touches the detector again, but it may be inside a call to it for a moment: the caller must not free
+     * or reuse the detector then.
+     */
+    @Volatile var readerStillRunning = false
+        private set
 
     fun cancel() {
         cancelled = true
@@ -116,7 +125,10 @@ class LiveSession(
             cancelled = true // from here on the reader must not touch the detector
             runCatching { input.close() }
             runCatching { output.close() }
-            reader?.join(READER_JOIN_MS)
+            reader?.let {
+                it.join(readerJoinMs)
+                readerStillRunning = it.isAlive
+            }
         }
     }
 
@@ -227,7 +239,7 @@ class LiveSession(
         /** Three detector windows per call, about 96 ms of audio. */
         const val VAD_CHUNK = 3 * LiveSegmenter.WINDOW
         private const val READ_BYTES = 8192
-        private const val READER_JOIN_MS = 2_000L
+        const val READER_JOIN_MS = 2_000L
         private const val NS_PER_MS = 1_000_000L
 
         /** [bytes] cut to at most [max] bytes, not in the middle of a UTF-8 character. */

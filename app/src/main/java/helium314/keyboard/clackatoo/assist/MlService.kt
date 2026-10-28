@@ -379,7 +379,15 @@ class MlService : Service() {
         liveSession = req.id to session
         // a cancel that came before the session was published must not be lost
         if (calls.isCancelled(req.id)) session.cancel()
-        val timing = session.run()
+        val timing = try {
+            session.run()
+        } finally {
+            if (session.readerStillRunning) {
+                // a reader that is still alive may be inside the detector: never free or reuse it, leak it on purpose
+                vadHandle = 0L
+                vadKey = null
+            }
+        }
         req.runMs = timing.tailMs
         // numbers only; never the text
         Log.i(TAG, "live: first partial after ${timing.firstPartialMs} ms, ${timing.decodeMs} ms of recognition, ${timing.tailMs} ms after the audio ended")

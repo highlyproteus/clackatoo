@@ -154,6 +154,30 @@ class LiveSessionTest {
         assertIs<LiveSession.Cancelled>(failure)
     }
 
+    @Test fun `a reader that stays blocked after cancel is reported, so the detector is not reused`() {
+        val release = java.util.concurrent.CountDownLatch(1)
+        val stuck = object : InputStream() {
+            override fun read(): Int = throw UnsupportedOperationException()
+            override fun read(b: ByteArray, off: Int, len: Int): Int { release.await(); return -1 } // close() does not wake it
+        }
+        val s = LiveSession(stuck, ByteArrayOutputStream(), vadFeed, {}, { _, _, _ -> "x" }, readerJoinMs = 100)
+        var failure: Throwable? = null
+        val thread = Thread { try { s.run() } catch (e: Throwable) { failure = e } }
+        thread.start()
+        Thread.sleep(200)
+        s.cancel()
+        thread.join(5000)
+        assertIs<LiveSession.Cancelled>(failure)
+        assertTrue(s.readerStillRunning)
+        release.countDown()
+    }
+
+    @Test fun `a reader that ends in time leaves the detector free`() {
+        val s = session(ByteArrayInputStream(audio(true to 4000)), ByteArrayOutputStream()) { _, _, _ -> "x" }
+        s.run()
+        assertEquals(false, s.readerStillRunning)
+    }
+
     @Test fun `the detector is reset at the start and at the end of a recording`() {
         var resets = 0
         val s = LiveSession(ByteArrayInputStream(audio(true to 4000)), ByteArrayOutputStream(), vadFeed, { resets++ }, { _, _, _ -> "x" })

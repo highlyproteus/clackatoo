@@ -12,6 +12,7 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.Parcel
+import android.os.ParcelFileDescriptor
 import android.os.Parcelable
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
@@ -276,7 +277,7 @@ class MlClientTest {
         assertEnds(call, service, unexpected)
     }
 
-    @Test fun `frames are shown in order and the call returns the committed text`() {
+    @Test fun `frames are shown, newest last, and the call returns the committed text`() {
         val texts = ArrayList<Pair<String, String>>()
         val bytes = frame(MlProtocol.EVENT_PARTIAL, "so um".toByteArray()) +
             frame(MlProtocol.EVENT_SEGMENT, "So, um, I need".toByteArray()) +
@@ -285,8 +286,10 @@ class MlClientTest {
             frame(MlProtocol.EVENT_END)
         val (call, service) = liveCallWithEvents(bytes) { c, p -> texts += c to p }
         val id = service.live.id
-        waitFor { texts.size >= 4 }
-        assertEquals(listOf("" to "so um", "So, um, I need" to "", "So, um, I need" to "to send it", "So, um, I need to send it." to ""), texts)
+        waitFor { texts.isNotEmpty() && texts.last().first == "So, um, I need to send it." }
+        // updates are coalesced (see the flood test): some intermediate states may be skipped, the last one never is
+        assertEquals("So, um, I need to send it." to "", texts.last())
+        assertTrue(texts.all { it.first in setOf("", "So, um, I need", "So, um, I need to send it.") && "\u0007" !in it.second })
         // not finished until the model process says it is: the text alone does not complete the call
         assertFalse(call.result.isCompleted)
         service.live.replyTo!!.send(Message.obtain(null, MlProtocol.MSG_RESULT, id, MlProtocol.packTimes(1200, 340)))
@@ -295,6 +298,32 @@ class MlClientTest {
         assertEquals("So, um, I need to send it.", result.text)
         assertEquals(1200, result.loadMs)
         assertEquals(340, result.runMs)
+        assertTrue(call.stopped, "a finished call takes no more audio")
+    }
+
+    @Test fun `a flood of frames reaches the screen as a few updates ending with the last text`() {
+        val texts = ArrayList<Pair<String, String>>()
+        val bytes = ByteArray(0).let { var acc = it; for (i in 0 until 2000) acc += frame(MlProtocol.EVENT_PARTIAL, "x$i".toByteArray()); acc + frame(MlProtocol.EVENT_END) }
+        val (call, service) = liveCallWithEvents(bytes) { c, p -> texts += c to p }
+        waitFor { texts.isNotEmpty() && texts.last().second == "x1999" }
+        assertEquals("" to "x1999", texts.last())
+        assertTrue(texts.size < 200, "${texts.size} updates for 2000 frames")
+        assertTrue(service.requests.isNotEmpty())
+        call.cancel()
+    }
+
+    @Test fun `stopping a live call closes the keyboard's ends of both pipes`() {
+        val audio = ParcelFileDescriptor.createPipe()
+        val events = ParcelFileDescriptor.createPipe()
+        val call = LiveCall()
+        call.attachPipes(audio[1], events[0])
+        call.stop()
+        for (pfd in listOf(audio[1], events[0])) assertFailsWith<Exception> { pfd.fd }
+        // ends attached after the call has stopped are closed at once
+        val late = ParcelFileDescriptor.createPipe()
+        call.attachPipes(late[1], late[0])
+        for (pfd in listOf(late[1], late[0])) assertFailsWith<Exception> { pfd.fd }
+        audio[0].close(); events[1].close()
     }
 
     @Test fun `audio written to the call goes out as little-endian samples, then the pipe closes`() {
