@@ -77,6 +77,10 @@ object MlProtocol {
     const val PROBE_PARAKEET = 1
     const val PROBE_LLM = 2
     const val MAX_CHAT_TURNS = 32
+    /** [MSG_GENERATE] only: what the text is for, which decides what stays in memory (see [ModelResidency]). */
+    const val KEY_PURPOSE = "purpose"
+    const val PURPOSE_CLEAN_UP = 1
+    const val PURPOSE_GRAMMAR = 2
     val CHAT_ROLES = setOf("system", "user", "assistant")
     /** Live dictation: the voice-activity model (cache key as for the speech model), the audio pipe (read side) and the event pipe (write side). */
     const val KEY_VAD_FD = "vadFd"
@@ -159,7 +163,11 @@ class MlService : Service() {
     private var asrHandle = 0L
     private var vadKey: String? = null
     private var vadHandle = 0L
-    private val llmHandles = HashMap<String, Long>()
+    private var cleanUpKey: String? = null
+    private var cleanUpHandle = 0L
+    private var grammarKey: String? = null
+    private var grammarHandle = 0L
+    private val residency = ModelResidency()
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
 
@@ -187,6 +195,7 @@ class MlService : Service() {
         var special: List<Boolean> = emptyList()
         var roles: List<String> = emptyList()
         var probeEngine = -1
+        var purpose = 0
         var maxNew = 0
         var loadMs = 0L
         var runMs = 0L
@@ -245,6 +254,7 @@ class MlService : Service() {
         } else {
             request.context = data.getInt(MlProtocol.KEY_CONTEXT, 2048)
             request.maxNew = data.getInt(MlProtocol.KEY_MAX_NEW, 256)
+            request.purpose = data.getInt(MlProtocol.KEY_PURPOSE, 0)
             val texts = data.getStringArray(MlProtocol.KEY_PROMPT_TEXTS)
             val special = data.getBooleanArray(MlProtocol.KEY_PROMPT_SPECIAL)
             val roles = data.getStringArray(MlProtocol.KEY_CHAT_ROLES)
@@ -260,7 +270,8 @@ class MlService : Service() {
                 request.texts = texts.toList()
                 request.special = special.toList()
             }
-            request.texts.size in 1..MlProtocol.MAX_PROMPT_PARTS &&
+            (request.purpose == MlProtocol.PURPOSE_CLEAN_UP || request.purpose == MlProtocol.PURPOSE_GRAMMAR) &&
+                request.texts.size in 1..MlProtocol.MAX_PROMPT_PARTS &&
                 request.texts.sumOf { it.length } <= MlProtocol.MAX_PROMPT_BYTES / 4 &&
                 request.context in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT &&
                 request.maxNew in 1..MlProtocol.MAX_NEW_TOKENS
@@ -371,25 +382,19 @@ class MlService : Service() {
     private fun live(req: LiveRequest) {
         val t0 = SystemClock.elapsedRealtime()
         ensureNative()
+        makeRoom(ModelResidency.Slot.ASR, req.modelKey)
         if (asrKey != req.modelKey) {
-            // the speech engines do not both stay in memory
-            if (asrHandle != 0L) NativeAsr.free(asrHandle)
-            asrHandle = 0L
-            asrKey = null
-            if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
-            sttHandle = 0L
-            sttKey = null
             // a missing library surfaces here as a LinkageError; 0 means the file or this CPU is not usable
             asrHandle = NativeAsr.load(req.modelFd.detachFd(), threads())
             if (asrHandle == 0L) throw ModelLoadException("the speech model could not be loaded")
             asrKey = req.modelKey
+            residency.loaded(ModelResidency.Slot.ASR, req.modelKey)
         }
+        makeRoom(ModelResidency.Slot.VAD, req.vadKey)
         if (vadKey != req.vadKey) {
-            if (vadHandle != 0L) NativeMl.vadFree(vadHandle)
-            vadHandle = 0L
-            vadKey = null
             vadHandle = loading { NativeMl.vadLoad(req.vadFd.detachFd(), 1) }
             vadKey = req.vadKey
+            residency.loaded(ModelResidency.Slot.VAD, req.vadKey)
         }
         val asr = asrHandle
         val vad = vadHandle
@@ -419,6 +424,7 @@ class MlService : Service() {
                 // a reader that is still alive may be inside the detector: never free or reuse it, leak it on purpose
                 vadHandle = 0L
                 vadKey = null
+                residency.freed(ModelResidency.Slot.VAD)
             }
         }
         req.runMs = timing.tailMs
@@ -447,16 +453,12 @@ class MlService : Service() {
     private fun transcribe(req: Request): String {
         val t0 = SystemClock.elapsedRealtime()
         ensureNative()
+        // nothing is registered for cancelling at this point, so nothing can reach a handle being freed
+        makeRoom(ModelResidency.Slot.STT, req.modelKey)
         if (sttKey != req.modelKey) {
-            // nothing is registered for cancelling at this point, so nothing can reach the handle being freed
-            if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
-            sttHandle = 0L
-            sttKey = null
-            if (asrHandle != 0L) NativeAsr.free(asrHandle)
-            asrHandle = 0L
-            asrKey = null
             sttHandle = loading { NativeMl.sttLoad(req.modelFd.detachFd(), threads()) }
             sttKey = req.modelKey
+            residency.loaded(ModelResidency.Slot.STT, req.modelKey)
         }
         register(req, sttHandle)
         req.loadMs = SystemClock.elapsedRealtime() - t0
@@ -483,12 +485,16 @@ class MlService : Service() {
     private fun generate(req: Request): String {
         val t0 = SystemClock.elapsedRealtime()
         ensureNative()
-        val handle = llmHandles[req.modelKey] ?: loading {
-            NativeMl.llmLoad(req.modelFd.detachFd(), req.context, threads())
-        }.also {
-            llmHandles[req.modelKey] = it
-            Log.i(TAG, "text model loaded, ${if (NativeMl.llmLoadMode(it) == 1) "mapped from its descriptor" else "read into memory"}")
+        val slot = if (req.purpose == MlProtocol.PURPOSE_GRAMMAR) ModelResidency.Slot.GRAMMAR else ModelResidency.Slot.CLEAN_UP
+        makeRoom(slot, req.modelKey)
+        val held = if (slot == ModelResidency.Slot.GRAMMAR) grammarKey else cleanUpKey
+        if (held != req.modelKey) {
+            val loaded = loading { NativeMl.llmLoad(req.modelFd.detachFd(), req.context, threads()) }
+            Log.i(TAG, "text model loaded, ${if (NativeMl.llmLoadMode(loaded) == 1) "mapped from its descriptor" else "read into memory"}")
+            if (slot == ModelResidency.Slot.GRAMMAR) { grammarHandle = loaded; grammarKey = req.modelKey } else { cleanUpHandle = loaded; cleanUpKey = req.modelKey }
+            residency.loaded(slot, req.modelKey)
         }
+        val handle = if (slot == ModelResidency.Slot.GRAMMAR) grammarHandle else cleanUpHandle
         register(req, handle)
         req.loadMs = SystemClock.elapsedRealtime() - t0
         reply(req.replyTo, MlProtocol.MSG_LOADED, req.id, 0)
@@ -525,11 +531,25 @@ class MlService : Service() {
     }
 
     /** Frees every loaded model (the next request loads what it needs again). */
-    private fun dropCached() {
-        freeAll()
-        sttKey = null
-        asrKey = null
-        vadKey = null
+    private fun dropCached() = freeAll()
+
+    /**
+     * Frees what a request for [slot] with the file [key] must not keep in memory (see [ModelResidency]). Called on the worker
+     * thread before the request registers anything for cancelling, so no cancel can reach a handle that is freed here.
+     */
+    private fun makeRoom(slot: ModelResidency.Slot, key: String) {
+        residency.toFree(slot, key).forEach { free(it) }
+    }
+
+    private fun free(slot: ModelResidency.Slot) {
+        when (slot) {
+            ModelResidency.Slot.STT -> { if (sttHandle != 0L) NativeMl.sttFree(sttHandle); sttHandle = 0L; sttKey = null }
+            ModelResidency.Slot.ASR -> { if (asrHandle != 0L) NativeAsr.free(asrHandle); asrHandle = 0L; asrKey = null }
+            ModelResidency.Slot.VAD -> { if (vadHandle != 0L) NativeMl.vadFree(vadHandle); vadHandle = 0L; vadKey = null }
+            ModelResidency.Slot.CLEAN_UP -> { if (cleanUpHandle != 0L) NativeMl.llmFree(cleanUpHandle); cleanUpHandle = 0L; cleanUpKey = null }
+            ModelResidency.Slot.GRAMMAR -> { if (grammarHandle != 0L) NativeMl.llmFree(grammarHandle); grammarHandle = 0L; grammarKey = null }
+        }
+        residency.freed(slot)
     }
 
     private fun writeResult(fd: ParcelFileDescriptor, text: String) {
@@ -549,14 +569,8 @@ class MlService : Service() {
     }
 
     private fun freeAll() {
-        if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
-        sttHandle = 0L
-        if (asrHandle != 0L) NativeAsr.free(asrHandle)
-        asrHandle = 0L
-        if (vadHandle != 0L) NativeMl.vadFree(vadHandle)
-        vadHandle = 0L
-        llmHandles.values.forEach { NativeMl.llmFree(it) }
-        llmHandles.clear()
+        ModelResidency.Slot.entries.forEach { free(it) }
+        residency.clear()
     }
 
     private companion object {

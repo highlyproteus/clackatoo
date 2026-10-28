@@ -109,8 +109,8 @@ class MlClient(context: Context) {
         }
     }
 
-    /** [prompt]'s special parts may carry control tokens (the chat template); all others never do. */
-    suspend fun generate(model: File, contextTokens: Int, prompt: List<PromptPart>, maxNewTokens: Int): MlResult {
+    /** [purpose] is `MlProtocol.PURPOSE_CLEAN_UP` or `PURPOSE_GRAMMAR`: it decides which models the process keeps in memory. [prompt]'s special parts may carry control tokens (the chat template); all others never do. */
+    suspend fun generate(model: File, contextTokens: Int, prompt: List<PromptPart>, maxNewTokens: Int, purpose: Int): MlResult {
         require(contextTokens in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT && maxNewTokens in 1..MlProtocol.MAX_NEW_TOKENS)
         require(prompt.isNotEmpty() && prompt.size <= MlProtocol.MAX_PROMPT_PARTS)
         return request(MlProtocol.MSG_GENERATE, model, extras = {
@@ -118,6 +118,7 @@ class MlClient(context: Context) {
             putStringArray(MlProtocol.KEY_PROMPT_TEXTS, Array(prompt.size) { prompt[it].text })
             putBooleanArray(MlProtocol.KEY_PROMPT_SPECIAL, BooleanArray(prompt.size) { prompt[it].special })
             putInt(MlProtocol.KEY_MAX_NEW, maxNewTokens)
+            putInt(MlProtocol.KEY_PURPOSE, purpose)
         })
     }
 
@@ -126,7 +127,7 @@ class MlClient(context: Context) {
      * the model process with the template stored in the model file. The contents are plain text and can never become
      * control tokens.
      */
-    suspend fun chat(model: File, contextTokens: Int, turns: List<ChatPrompt.Turn>, maxNewTokens: Int): MlResult {
+    suspend fun chat(model: File, contextTokens: Int, turns: List<ChatPrompt.Turn>, maxNewTokens: Int, purpose: Int): MlResult {
         require(contextTokens in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT && maxNewTokens in 1..MlProtocol.MAX_NEW_TOKENS)
         require(turns.isNotEmpty() && turns.size <= MlProtocol.MAX_CHAT_TURNS && turns.all { it.role in MlProtocol.CHAT_ROLES })
         return request(MlProtocol.MSG_GENERATE, model, extras = {
@@ -134,6 +135,7 @@ class MlClient(context: Context) {
             putStringArray(MlProtocol.KEY_CHAT_ROLES, Array(turns.size) { turns[it].role })
             putStringArray(MlProtocol.KEY_PROMPT_TEXTS, Array(turns.size) { turns[it].content })
             putInt(MlProtocol.KEY_MAX_NEW, maxNewTokens)
+            putInt(MlProtocol.KEY_PURPOSE, purpose)
         })
     }
 
