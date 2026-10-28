@@ -48,6 +48,19 @@ class MlClientTest {
         }
     }
 
+    @Test fun `request ids come from one counter for every client of the process`() {
+        // two clients ask for ids in turn, and from different threads: never the same id twice
+        val seen = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+        val threads = (1..4).map { Thread { repeat(500) { check(seen.add(MlClient.nextRequestId())) { "duplicate id" } } } }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+        assertEquals(2000, seen.size)
+        val a = MlClient(ApplicationProvider.getApplicationContext())
+        val b = MlClient(ApplicationProvider.getApplicationContext())
+        assertTrue(MlClient.nextRequestId() < MlClient.nextRequestId())
+        a.release(); b.release()
+    }
+
     // ---- the reply binder reads three integers and nothing else
 
     private class Received(val what: Int, val arg1: Int, val arg2: Int)

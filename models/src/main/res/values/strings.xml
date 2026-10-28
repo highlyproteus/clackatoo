@@ -21,6 +21,7 @@
     <string name="failed_space">Not enough free storage.</string>
     <string name="failed_host">Redirected to an address that is not trusted.</string>
     <string name="failed_other">The download failed.</string>
+    <string name="failed_no_answer">The Clackatoo keyboard did not answer. Update the Clackatoo keyboard to the same version as this app, then try again.</string>
     <string name="failed_keyboard">The Clackatoo keyboard did not accept the file.</string>
     <string name="failed_custom_off">Turn on \'Use your own model\' in Clackatoo\'s settings (Voice typing or Grammar check) first, then try again.</string>
     <string name="failed_too_large">The file is too large for the keyboard.</string>

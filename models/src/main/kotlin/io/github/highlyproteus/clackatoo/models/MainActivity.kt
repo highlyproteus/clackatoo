@@ -119,6 +119,7 @@ class MainActivity : Activity() {
                 ModelsProtocol.HANDOVER_CUSTOM_OFF -> R.string.failed_custom_off
                 ModelsProtocol.HANDOVER_LOAD_FAILED -> R.string.failed_load
                 ModelsProtocol.HANDOVER_TOO_MANY -> R.string.failed_too_many
+                NO_ANSWER -> R.string.failed_no_answer
                 else -> R.string.failed_keyboard
             }
         )
@@ -157,4 +158,9 @@ class MainActivity : Activity() {
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        /** `Progress.reason` when the keyboard gave no answer to the hand-over (see `KeyboardLink.readHandoverReply`). */
+        const val NO_ANSWER = -1
+    }
 }

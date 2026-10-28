@@ -44,7 +44,7 @@ switches), see Style notes.
    is at most 4 GiB with enough free space, its format is found from its own header (`ModelFormats`, never from its name or
    the companion's say-so), it must fit the role, and one test load runs in the isolated process (`MSG_PROBE`) before it is
    kept; at most eight custom models, stored apart in `files/models/custom/<role>/` under sanitised names, used only when
-   the user chose them. Custom text models are prompted with their own chat template (`llm_chat`). Any change to these
+   the user chose them. Custom text models are prompted with their own chat template (`llm_chat`): user text cannot inject special tokens, but a model whose template uses plain-text markers can still be prompt-injected by typed text, which is accepted for experimental models (output is sanitised and shown or limited as for every model). Any change to these
    paths needs a security review.
    Models are listed in the `catalog` module (`Catalog.kt`: id, file, size, SHA-256, Hugging Face repository and a
    40-hex revision; `CatalogTest` pins the shape) and `ModelCatalog` is built on it; add a model there and in NOTICE.

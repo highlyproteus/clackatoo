@@ -169,8 +169,10 @@ class DownloadService : Service() {
                     return report(model, Progress.Phase.FAILED, 0, ModelsProtocol.FAIL_OTHER, keyboard)
                 }
                 DownloadTracker.update(Progress(model.id, Progress.Phase.HANDING_OVER, total, total))
+                var answered = false
                 try {
                     val result = keyboard.handover(model.id, file)
+                    answered = result != null
                     when (result) {
                         ModelsProtocol.HANDOVER_OK -> {
                             limiter.handedOver(model.id)
@@ -184,7 +186,8 @@ class DownloadService : Service() {
                         }
                     }
                 } finally {
-                    file.delete() // the keyboard has its own checked copy now (or refused it); this one is not kept
+                    // the keyboard has its own checked copy now (or refused it); this one is not kept, unless the keyboard gave no answer
+                    if (answered) file.delete()
                 }
             }
         }
@@ -267,9 +270,11 @@ class DownloadService : Service() {
                     return notifyDone(custom.displayName, false)
                 }
                 track(Progress.Phase.HANDING_OVER, total)
+                var answered = false
                 try {
                     val keyboard = link ?: KeyboardLink(this, BuildConfig.KEYBOARD_APPLICATION_ID).also { link = it }
                     val result = keyboard.handoverCustom(custom.displayName, custom.role, file)
+                    answered = result != null
                     if (result == ModelsProtocol.HANDOVER_OK) {
                         track(Progress.Phase.DONE, total)
                         notifyDone(custom.displayName, true)
@@ -278,7 +283,9 @@ class DownloadService : Service() {
                         notifyDone(custom.displayName, false)
                     }
                 } finally {
-                    file.delete() // the keyboard has its own copy now (or refused it); this one is not kept
+                    // the keyboard has its own copy now (or refused it); this one is not kept, unless the keyboard gave no answer
+                    // (an older keyboard): then it stays until the next download clears the folder
+                    if (answered) file.delete()
                 }
             }
         }
