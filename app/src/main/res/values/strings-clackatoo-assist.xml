@@ -25,6 +25,7 @@
     <string name="assist_speech_model_missing">The speech model is missing. Add it in Settings under Voice typing.</string>
     <string name="assist_grammar_model_missing">The grammar model is missing. Add it in Settings under Grammar check.</string>
     <string name="assist_model_broken">A model file could not be loaded. Import it again in Settings.</string>
+    <string name="assist_vad_unavailable">The voice detection model could not be set up.</string>
     <string name="assist_failed">Something went wrong: %1$s</string>
     <string name="assist_check_none">No mistakes found.</string>
     <string name="assist_check_empty">There is no text to check.</string>
@@ -50,7 +51,7 @@
     <string name="assist_import_wrong_size">This file has the wrong size. It may be incomplete.</string>
     <string name="assist_import_wrong_content">This is not the exact model file this keyboard uses (its checksum differs). Download it again from the source listed in the README.</string>
     <string name="assist_licenses">Open-source licences</string>
-    <string name="assist_licenses_summary">whisper.cpp, llama.cpp and ggml (MIT)</string>
+    <string name="assist_licenses_summary">whisper.cpp, llama.cpp, parakeet.cpp, ggml and Silero VAD (MIT)</string>
     <string name="assist_import_no_space">There is not enough free storage.</string>
     <string name="assist_import_error">The file could not be read.</string>
     <string name="assist_importing">Importing</string>
@@ -59,6 +60,8 @@
     <string name="assist_s1_mini_switch">Clean up English text</string>
     <string name="assist_s1_mini_summary">Removes fillers and fixes self-corrections, punctuation and numbers.</string>
     <string name="assist_s1_mini_credit">The English clean-up uses S1-mini by Superwhisper.</string>
+    <string name="assist_parakeet_live_hint">Shows your words while you speak. Whisper is used when Parakeet is not installed.</string>
+    <string name="assist_parakeet_credit">Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0.</string>
     <string name="assist_s1_styling">Writing style</string>
     <string name="assist_style_casual">Casual</string>
     <string name="assist_style_semi_casual">Semi-casual</string>

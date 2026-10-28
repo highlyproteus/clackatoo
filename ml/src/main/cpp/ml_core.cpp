@@ -18,6 +18,8 @@
 #include <android/log.h>
 static void log_cb(ggml_log_level level, const char *text, void *) {
     // never log prompts, transcripts or audio: ggml only logs model loading and errors here
+    // (live text feeds the voice detector ten times a second; its five lines per call are not worth logging)
+    if (level != GGML_LOG_LEVEL_ERROR && level != GGML_LOG_LEVEL_WARN && strncmp(text, "whisper_vad_detect_speech", 25) == 0) return;
     int prio = level == GGML_LOG_LEVEL_ERROR ? ANDROID_LOG_ERROR
              : level == GGML_LOG_LEVEL_WARN ? ANDROID_LOG_WARN : ANDROID_LOG_DEBUG;
     __android_log_write(prio, "ClackatooMl", text);
@@ -219,6 +221,25 @@ namespace {
 struct FileSource {
     FILE *fp;
 };
+
+// A whisper.cpp model loader that reads from [source]'s file. [close] closes the file (once, whatever happened).
+void init_file_loader(whisper_model_loader &loader, FileSource &source) {
+    loader = {};
+    loader.context = &source;
+    loader.read = [](void *ctx, void *output, size_t size) -> size_t {
+        auto *s = static_cast<FileSource *>(ctx);
+        return s->fp ? fread(output, 1, size, s->fp) : 0;
+    };
+    loader.eof = [](void *ctx) -> bool {
+        auto *s = static_cast<FileSource *>(ctx);
+        return !s->fp || feof(s->fp);
+    };
+    loader.close = [](void *ctx) {  // whisper_init_with_params calls this once, whether or not loading worked
+        auto *s = static_cast<FileSource *>(ctx);
+        if (s->fp) fclose(s->fp);
+        s->fp = nullptr;
+    };
+}
 }  // namespace
 
 Stt *stt_load(int fd, int n_threads, std::string &error) {
@@ -236,21 +257,8 @@ Stt *stt_load(int fd, int n_threads, std::string &error) {
         return nullptr;
     }
     FileSource source{fp};
-    whisper_model_loader loader = {};
-    loader.context = &source;
-    loader.read = [](void *ctx, void *output, size_t size) -> size_t {
-        auto *s = static_cast<FileSource *>(ctx);
-        return s->fp ? fread(output, 1, size, s->fp) : 0;
-    };
-    loader.eof = [](void *ctx) -> bool {
-        auto *s = static_cast<FileSource *>(ctx);
-        return !s->fp || feof(s->fp);
-    };
-    loader.close = [](void *ctx) {  // whisper.cpp calls this once, whether or not loading worked
-        auto *s = static_cast<FileSource *>(ctx);
-        if (s->fp) fclose(s->fp);
-        s->fp = nullptr;
-    };
+    whisper_model_loader loader;
+    init_file_loader(loader, source);
     whisper_context_params cp = whisper_context_default_params();
     cp.use_gpu = false;
     whisper_context *ctx = whisper_init_with_params(&loader, cp);
@@ -304,6 +312,71 @@ Status stt_transcribe(Stt *stt, const float *pcm, int n_samples, const char *lan
         if (text) out += text;
     }
     return Status::Ok;
+}
+
+// ---------------------------------------------------------------- voice activity detection (Silero, via whisper.cpp)
+
+struct Vad {
+    whisper_vad_context *ctx = nullptr;
+};
+
+Vad *vad_load(int fd, int n_threads, std::string &error) {
+    FILE *fp = fdopen(fd, "rb");
+    if (!fp) {
+        close(fd);
+        error = "could not read the voice detection model file";
+        return nullptr;
+    }
+    if (n_threads < 1 || n_threads > 16) {
+        fclose(fp);
+        error = "bad thread count";
+        return nullptr;
+    }
+    FileSource source{fp};
+    whisper_model_loader loader;
+    init_file_loader(loader, source);
+    whisper_vad_context_params cp = whisper_vad_default_context_params();
+    cp.use_gpu = false;
+    cp.n_threads = n_threads;
+    whisper_vad_context *ctx = whisper_vad_init_with_params(&loader, cp);
+    loader.close(loader.context);  // whisper_vad_init_with_params never closes the loader
+    if (!ctx) {
+        error = "could not load the voice detection model file";
+        return nullptr;
+    }
+    auto *vad = new Vad();
+    vad->ctx = ctx;
+    return vad;
+}
+
+Status vad_feed(Vad *vad, const float *pcm, int n, std::vector<float> &probs, std::string &error) {
+    probs.clear();
+    if (n <= 0 || n % kVadWindowSamples != 0) {
+        error = "bad sample count";
+        return Status::Error;
+    }
+    if (!whisper_vad_detect_speech_no_reset(vad->ctx, pcm, n)) {
+        error = "voice detection failed";
+        return Status::Error;
+    }
+    int count = whisper_vad_n_probs(vad->ctx);
+    const float *values = whisper_vad_probs(vad->ctx);
+    if (count != n / kVadWindowSamples || !values) {
+        error = "voice detection failed";
+        return Status::Error;
+    }
+    probs.assign(values, values + count);
+    return Status::Ok;
+}
+
+void vad_reset(Vad *vad) {
+    if (vad) whisper_vad_reset_state(vad->ctx);
+}
+
+void vad_free(Vad *vad) {
+    if (!vad) return;
+    whisper_vad_free(vad->ctx);
+    delete vad;
 }
 
 }  // namespace eg

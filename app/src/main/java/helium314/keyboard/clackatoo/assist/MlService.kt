@@ -17,6 +17,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.os.BundleCompat
+import helium314.keyboard.clackatoo.asr.NativeAsr
 import helium314.keyboard.clackatoo.ml.NativeMl
 import java.io.DataInputStream
 import java.io.File
@@ -35,6 +36,8 @@ object MlProtocol {
     const val MSG_TRANSCRIBE = 1
     const val MSG_GENERATE = 2
     const val MSG_CANCEL = 3
+    /** Live dictation: audio in through a pipe while the user speaks, text events out through another. */
+    const val MSG_LIVE = 4
     // service -> keyboard; arg1 is always the request id
     const val MSG_LOADED = 10
     /** arg2: the load and run times, see [packTimes]. The text arrives through the result pipe. */
@@ -60,6 +63,25 @@ object MlProtocol {
     const val KEY_PROMPT_TEXTS = "promptTexts"
     const val KEY_PROMPT_SPECIAL = "promptSpecial"
     const val KEY_MAX_NEW = "maxNew"
+    /** Live dictation: the voice-activity model (cache key as for the speech model), the audio pipe (read side) and the event pipe (write side). */
+    const val KEY_VAD_FD = "vadFd"
+    const val KEY_VAD_KEY = "vadKey"
+    const val KEY_AUDIO_PIPE = "audioPipe"
+    const val KEY_EVENT_PIPE = "eventPipe"
+
+    /**
+     * Live dictation events, written to the event pipe as frames: one type byte, a 4-byte big-endian length, then that
+     * many bytes of UTF-8 text ([EVENT_END] has none). A partial is the text of the utterance that is still being
+     * spoken and replaces the previous partial; a segment is the final text of an utterance. Segments together stay
+     * within [MAX_RESULT_BYTES]. The audio goes the other way as 16-bit little-endian samples, at most [MAX_SAMPLES].
+     */
+    const val EVENT_PARTIAL = 1
+    const val EVENT_SEGMENT = 2
+    const val EVENT_END = 3
+    /** The largest payload of one event frame. */
+    const val MAX_EVENT_BYTES = 4096
+    /** The most event frames of one live call (about 4 per second of the longest recording); the keyboard cancels the call above it. */
+    const val MAX_EVENTS = 4096
 
     const val SAMPLE_RATE = 16000
     /** Upper bound for one recording, in samples. */
@@ -109,6 +131,7 @@ class MlService : Service() {
     private val worker = Executors.newSingleThreadExecutor()
 
     // cancelling (main thread) and running or freeing (worker thread) meet in this registry
+    @Volatile private var liveSession: Pair<Int, LiveSession>? = null
     private val calls = CallRegistry { speech, handle, value ->
         if (speech) NativeMl.sttCancel(handle, value) else NativeMl.llmCancel(handle, value)
     }
@@ -117,6 +140,10 @@ class MlService : Service() {
     private var nativeReady = false
     private var sttKey: String? = null
     private var sttHandle = 0L
+    private var asrKey: String? = null
+    private var asrHandle = 0L
+    private var vadKey: String? = null
+    private var vadHandle = 0L
     private val llmHandles = HashMap<String, Long>()
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
@@ -154,7 +181,16 @@ class MlService : Service() {
     private fun dispatch(message: Message) {
         val id = message.arg1
         when (message.what) {
-            MlProtocol.MSG_CANCEL -> calls.cancel(id)
+            MlProtocol.MSG_CANCEL -> {
+                calls.cancel(id)
+                liveSession?.let { (liveId, session) -> if (liveId == id) session.cancel() }
+            }
+            MlProtocol.MSG_LIVE -> {
+                val replyTo = message.replyTo ?: return
+                val request = decodeLive(message, replyTo)
+                if (request == null) reply(replyTo, MlProtocol.MSG_ERROR, id, MlProtocol.ERR_BAD_REQUEST)
+                else worker.execute { runLive(request) }
+            }
             MlProtocol.MSG_TRANSCRIBE, MlProtocol.MSG_GENERATE -> {
                 val replyTo = message.replyTo ?: return
                 val request = decode(message, replyTo)
@@ -203,6 +239,44 @@ class MlService : Service() {
         return request
     }
 
+    /** One decoded live request. The descriptors are closed by [runLive]. */
+    private class LiveRequest(
+        val id: Int,
+        val replyTo: Messenger,
+        val modelFd: ParcelFileDescriptor,
+        val modelKey: String,
+        val vadFd: ParcelFileDescriptor,
+        val vadKey: String,
+        val audioFd: ParcelFileDescriptor,
+        val eventFd: ParcelFileDescriptor,
+    ) {
+        var loadMs = 0L
+        var runMs = 0L
+
+        fun closeAll() {
+            for (fd in listOf(modelFd, vadFd, audioFd, eventFd)) runCatching { fd.close() }
+        }
+    }
+
+    /** Reads and checks a live request; null (with every descriptor closed) when it is malformed. */
+    private fun decodeLive(message: Message, replyTo: Messenger): LiveRequest? {
+        val data = message.data ?: return null
+        val modelFd = BundleCompat.getParcelable(data, MlProtocol.KEY_MODEL_FD, ParcelFileDescriptor::class.java)
+        val vadFd = BundleCompat.getParcelable(data, MlProtocol.KEY_VAD_FD, ParcelFileDescriptor::class.java)
+        val audioFd = BundleCompat.getParcelable(data, MlProtocol.KEY_AUDIO_PIPE, ParcelFileDescriptor::class.java)
+        val eventFd = BundleCompat.getParcelable(data, MlProtocol.KEY_EVENT_PIPE, ParcelFileDescriptor::class.java)
+        val modelKey = data.getString(MlProtocol.KEY_MODEL_KEY)
+        val vadKey = data.getString(MlProtocol.KEY_VAD_KEY)
+        val language = data.getString(MlProtocol.KEY_LANGUAGE) ?: "auto"
+        if (modelFd == null || vadFd == null || audioFd == null || eventFd == null ||
+            modelKey == null || modelKey.length > 512 || vadKey == null || vadKey.length > 512 || !MlProtocol.isLanguageCode(language)
+        ) {
+            for (fd in listOfNotNull(modelFd, vadFd, audioFd, eventFd)) runCatching { fd.close() }
+            return null
+        }
+        return LiveRequest(message.arg1, replyTo, modelFd, modelKey, vadFd, vadKey, audioFd, eventFd)
+    }
+
     /** The native code refused the file (corrupt, truncated or not a model). */
     private class ModelLoadException(message: String?) : Exception(message)
     private class CancelledException : Exception()
@@ -237,6 +311,80 @@ class MlService : Service() {
 
     private class NativeUnavailable(message: String) : IllegalStateException(message)
 
+    private fun runLive(req: LiveRequest) {
+        try {
+            if (!calls.begin(req.id)) throw CancelledException()
+            live(req)
+        } catch (_: CancelledException) {
+            return reply(req.replyTo, MlProtocol.MSG_ERROR, req.id, MlProtocol.ERR_CANCELLED)
+        } catch (_: LiveSession.Cancelled) {
+            return reply(req.replyTo, MlProtocol.MSG_ERROR, req.id, MlProtocol.ERR_CANCELLED)
+        } catch (e: ModelLoadException) {
+            Log.w(TAG, "model could not be loaded: ${e.message}")
+            return reply(req.replyTo, MlProtocol.MSG_ERROR, req.id, MlProtocol.ERR_LOAD_FAILED)
+        } catch (e: Throwable) {
+            // only fixed texts of the native layer and of this class end up here, never user text
+            Log.w(TAG, "live request failed: ${e.javaClass.simpleName}: ${e.message}")
+            val code = if (e is NativeUnavailable || e is LinkageError) MlProtocol.ERR_UNAVAILABLE else MlProtocol.ERR_FAILED
+            return reply(req.replyTo, MlProtocol.MSG_ERROR, req.id, code)
+        } finally {
+            liveSession = null
+            calls.end(req.id)
+            req.closeAll()
+        }
+        reply(req.replyTo, MlProtocol.MSG_RESULT, req.id, MlProtocol.packTimes(req.loadMs, req.runMs))
+    }
+
+    private fun live(req: LiveRequest) {
+        val t0 = SystemClock.elapsedRealtime()
+        ensureNative()
+        if (asrKey != req.modelKey) {
+            // the speech engines do not both stay in memory
+            if (asrHandle != 0L) NativeAsr.free(asrHandle)
+            asrHandle = 0L
+            asrKey = null
+            if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
+            sttHandle = 0L
+            sttKey = null
+            // a missing library surfaces here as a LinkageError; 0 means the file or this CPU is not usable
+            asrHandle = NativeAsr.load(req.modelFd.detachFd(), threads())
+            if (asrHandle == 0L) throw ModelLoadException("the speech model could not be loaded")
+            asrKey = req.modelKey
+        }
+        if (vadKey != req.vadKey) {
+            if (vadHandle != 0L) NativeMl.vadFree(vadHandle)
+            vadHandle = 0L
+            vadKey = null
+            vadHandle = loading { NativeMl.vadLoad(req.vadFd.detachFd(), 1) }
+            vadKey = req.vadKey
+        }
+        val asr = asrHandle
+        val vad = vadHandle
+        req.loadMs = SystemClock.elapsedRealtime() - t0
+        reply(req.replyTo, MlProtocol.MSG_LOADED, req.id, 0)
+
+        val session = LiveSession(
+            input = ParcelFileDescriptor.AutoCloseInputStream(req.audioFd),
+            output = ParcelFileDescriptor.AutoCloseOutputStream(req.eventFd),
+            vadFeed = { pcm, offset, count -> NativeMl.vadFeed(vad, pcm, offset, count) },
+            vadReset = { NativeMl.vadReset(vad) },
+            transcribe = { pcm, offset, count ->
+                val t = SystemClock.elapsedRealtime()
+                NativeAsr.transcribe(asr, pcm, offset, count).also {
+                    // numbers only; never the text
+                    Log.d(TAG, "live: recognised $count samples in ${SystemClock.elapsedRealtime() - t} ms")
+                }
+            },
+        )
+        liveSession = req.id to session
+        // a cancel that came before the session was published must not be lost
+        if (calls.isCancelled(req.id)) session.cancel()
+        val timing = session.run()
+        req.runMs = timing.tailMs
+        // numbers only; never the text
+        Log.i(TAG, "live: first partial after ${timing.firstPartialMs} ms, ${timing.decodeMs} ms of recognition, ${timing.tailMs} ms after the audio ended")
+    }
+
     private fun ensureNative() {
         if (nativeReady) return
         if (!NativeMl.isAvailable) throw NativeUnavailable("The speech and text engines are not built for this phone")
@@ -263,6 +411,9 @@ class MlService : Service() {
             if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
             sttHandle = 0L
             sttKey = null
+            if (asrHandle != 0L) NativeAsr.free(asrHandle)
+            asrHandle = 0L
+            asrKey = null
             sttHandle = loading { NativeMl.sttLoad(req.modelFd.detachFd(), threads()) }
             sttKey = req.modelKey
         }
@@ -326,6 +477,10 @@ class MlService : Service() {
     private fun freeAll() {
         if (sttHandle != 0L) NativeMl.sttFree(sttHandle)
         sttHandle = 0L
+        if (asrHandle != 0L) NativeAsr.free(asrHandle)
+        asrHandle = 0L
+        if (vadHandle != 0L) NativeMl.vadFree(vadHandle)
+        vadHandle = 0L
         llmHandles.values.forEach { NativeMl.llmFree(it) }
         llmHandles.clear()
     }

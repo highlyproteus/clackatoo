@@ -71,6 +71,33 @@ class ModelStoreTest {
             assertTrue(Regex("[0-9a-f]{64}").matches(spec.sha256), spec.fileName)
         }
         assertEquals(ModelCatalog.all.size, ModelCatalog.all.map { it.sha256 }.toSet().size)
+        // the reference files, by name: a change here is a change of the model and must be made in NOTICE too
+        val pinned = ModelCatalog.all.associate { it.fileName to Triple(it.kind, it.sizeBytes, it.sha256) }
+        assertEquals(
+            Triple(ModelKind.SPEECH, 741_867_360L, "5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4"),
+            pinned["tdt-0.6b-v3-q5_k.gguf"],
+        )
+        assertEquals(
+            Triple(ModelKind.SPEECH, 190_085_487L, "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"),
+            pinned["ggml-small-q5_1.bin"],
+        )
+        assertEquals(
+            Triple(ModelKind.VAD, 885_098L, "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987"),
+            pinned["ggml-silero-v6.2.0.bin"],
+        )
+    }
+
+    @Test fun `the catalog lists Parakeet before Whisper and only the voice detector ships in the APK`() {
+        assertEquals(
+            listOf("tdt-0.6b-v3-q5_k.gguf", "ggml-small-q5_1.bin", "s1-mini-q4_k_m.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf", "ggml-silero-v6.2.0.bin"),
+            ModelCatalog.all.map { it.fileName },
+        )
+        assertEquals(
+            listOf(SpeechEngine.PARAKEET, SpeechEngine.WHISPER),
+            ModelCatalog.forKind(ModelKind.SPEECH).map { it.engine },
+        )
+        assertEquals(listOf(ModelCatalog.SILERO_VAD), ModelCatalog.all.filter { it.bundledAsset != null })
+        assertEquals(listOf(ModelCatalog.SILERO_VAD), ModelCatalog.forKind(ModelKind.VAD))
     }
 
     @Test fun `a valid speech model is imported and found`() {
@@ -230,6 +257,95 @@ class ModelStoreTest {
 
     @Test fun `the catalog entries have distinct file names`() {
         assertEquals(ModelCatalog.all.size, ModelCatalog.all.map { it.fileName.lowercase() }.toSet().size)
+    }
+
+    // ---- Parakeet and the bundled voice detector
+
+    private val parakeetBytes = ggufFile(fill = 5)
+    private val parakeet = ModelSpec(ModelKind.SPEECH, "parakeet.gguf", "Parakeet", "CC-BY-4.0", 1000, sha(parakeetBytes), engine = SpeechEngine.PARAKEET)
+    private val vadBytes = ByteArray(600) { (it * 7).toByte() }
+    private val vad = ModelSpec(ModelKind.VAD, "vad.bin", "VAD", "MIT", 600, sha(vadBytes), bundledAsset = "models/vad.bin")
+
+    private fun storeWith(assets: Map<String, ByteArray>, vararg specs: ModelSpec) = ModelStore(dir, object : BrokenMarks {
+        override fun get(fileName: String) = marks[fileName]
+        override fun set(fileName: String, value: String?) { if (value == null) marks.remove(fileName) else marks[fileName] = value }
+    }, specs.toList(), openAsset = { name -> ByteArrayInputStream(assets[name] ?: throw IOException("no such asset")) }, usableSpace = { space })
+
+    @Test fun `a Parakeet model is checked by its GGUF header`() {
+        val s = storeWith(emptyMap(), parakeet)
+        assertEquals(ImportResult.Imported(parakeet), s.import("parakeet.gguf", ByteArrayInputStream(parakeetBytes)))
+        assertEquals(parakeet, s.best(ModelKind.SPEECH))
+        // a Whisper file under the Parakeet name is not a GGUF file
+        assertEquals(ImportResult.Rejected(RejectReason.NOT_A_MODEL), s.import("parakeet.gguf", ByteArrayInputStream(whisperFile())))
+        assertEquals(ImportResult.Rejected(RejectReason.NOT_A_MODEL), s.import("parakeet.gguf", ByteArrayInputStream(ggufFile(version = 9))))
+        // right header and size, other content
+        assertEquals(ImportResult.Rejected(RejectReason.WRONG_CONTENT), s.import("parakeet.gguf", ByteArrayInputStream(ggufFile(fill = 6))))
+    }
+
+    @Test fun `a bundled model cannot be imported, whatever the file holds`() {
+        val s = storeWith(mapOf("models/vad.bin" to vadBytes), vad)
+        assertEquals(ImportResult.Rejected(RejectReason.UNKNOWN_FILE_NAME), s.import("vad.bin", ByteArrayInputStream(vadBytes)))
+        assertEquals(ImportResult.Rejected(RejectReason.UNKNOWN_FILE_NAME), s.import("VAD.BIN", ByteArrayInputStream(vadBytes)))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+    }
+
+    @Test fun `the shipped voice detector name is refused by import`() {
+        // the real catalog: the file is the reference one, and still it may not come in through the file picker
+        val real = ModelStore(dir, marks = object : BrokenMarks {
+            override fun get(fileName: String) = null
+            override fun set(fileName: String, value: String?) {}
+        })
+        assertEquals(
+            ImportResult.Rejected(RejectReason.UNKNOWN_FILE_NAME),
+            real.import(ModelCatalog.SILERO_VAD.fileName, ByteArrayInputStream(ByteArray(8))),
+        )
+        assertTrue(dir.listFiles().isNullOrEmpty())
+    }
+
+    @Test fun `ensureBundled installs the asset through the same checks and then leaves it alone`() {
+        var opened = 0
+        val s = ModelStore(dir, object : BrokenMarks {
+            override fun get(fileName: String) = marks[fileName]
+            override fun set(fileName: String, value: String?) { if (value == null) marks.remove(fileName) else marks[fileName] = value }
+        }, listOf(vad), openAsset = { opened++; ByteArrayInputStream(vadBytes) }, usableSpace = { space })
+        assertTrue(s.ensureBundled(vad))
+        assertContentEquals(vadBytes, File(dir, "vad.bin").readBytes())
+        assertIs<ModelStatus.Installed>(s.status(vad))
+        assertEquals(1, opened)
+        assertTrue(s.ensureBundled(vad))
+        assertEquals(1, opened, "an installed file is not copied again")
+        assertTrue(noPartFiles())
+    }
+
+    @Test fun `ensureBundled replaces a file of the wrong size`() {
+        File(dir, "vad.bin").writeBytes(ByteArray(10))
+        val s = storeWith(mapOf("models/vad.bin" to vadBytes), vad)
+        assertTrue(s.ensureBundled(vad))
+        assertContentEquals(vadBytes, File(dir, "vad.bin").readBytes())
+    }
+
+    @Test fun `a corrupted asset installs nothing and an old file stays`() {
+        val corrupted = vadBytes.copyOf().also { it[100] = (it[100] + 1).toByte() }
+        val s = storeWith(mapOf("models/vad.bin" to corrupted), vad)
+        assertFalse(s.ensureBundled(vad))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+        // a truncated asset, and one that cannot be read at all
+        assertFalse(storeWith(mapOf("models/vad.bin" to vadBytes.copyOf(500)), vad).ensureBundled(vad))
+        assertFalse(storeWith(emptyMap(), vad).ensureBundled(vad))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+    }
+
+    @Test fun `ensureBundled does nothing for a model that does not ship in the APK`() {
+        val s = storeWith(emptyMap(), speech)
+        assertFalse(s.ensureBundled(speech))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+    }
+
+    @Test fun `ensureBundled reports a full disk and leaves nothing`() {
+        space = 10
+        val s = storeWith(mapOf("models/vad.bin" to vadBytes), vad)
+        assertFalse(s.ensureBundled(vad))
+        assertTrue(dir.listFiles().isNullOrEmpty())
     }
 }
 

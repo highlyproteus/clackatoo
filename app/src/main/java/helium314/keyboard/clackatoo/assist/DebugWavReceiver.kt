@@ -14,7 +14,8 @@ import java.io.File
 
 /**
  * Debug builds only: transcribes a WAV file through the same pipeline as a real recording (speech to text, English
- * clean-up, insert into the focused field), because the emulator has no microphone.
+ * clean-up, insert into the focused field), because the emulator has no microphone. With Parakeet installed the clip is
+ * played into the live path in blocks of 100 ms, so the panel shows the text while it "speaks".
  *
  *     adb shell am broadcast -a io.github.highlyproteus.clackatoo.debug.TRANSCRIBE_WAV --es name en.wav [--es language es]
  *
@@ -41,7 +42,8 @@ class DebugWavReceiver private constructor(private val context: Context, private
             return Log.w(TAG, "debug wav: ${e.message}")
         }
         Log.i(TAG, "debug wav: ${pcm.size} samples, language ${language.code}")
-        assist.transcribeAndInsert(pcm, language)
+        if (assist.speechModel()?.engine == SpeechEngine.PARAKEET) assist.debugLive(pcm, language)
+        else assist.transcribeAndInsert(pcm, language)
     }
 
     companion object {

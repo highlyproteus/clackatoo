@@ -23,15 +23,15 @@ GitHub releases. Design: square, not pills (6dp corner radius for keys and panel
    `helium314.keyboard.clackatoo`.
 4. Upstream's AI policy (`docs/HELIBOARD_AI_USAGE.md`) forbids AI-generated upstream PRs and issues. Nothing here goes
    upstream unless a human writes the PR and says AI was used.
-5. Offline voice typing and grammar check live in `helium314.keyboard.clackatoo.assist` and the `ml` module (read
-   `ml/README.md`). Everything stays on the phone: models run in the separate `:ml` service, which is an **isolated
-   process** (`android:isolatedProcess="true"`, own UID, no access to the app's files): models arrive as file
-   descriptors, never as paths, and replies from it are untrusted (numbers only, text through a size-limited pipe,
-   sanitised by `OutputSanitizer`). Model files are pinned by size and SHA-256 in `ModelCatalog`; changing a model
-   means changing both there and in NOTICE. Audio is only in memory, recording never starts without the recording
-   panel on screen, and RECORD_AUDIO is requested on first use of the Voice key only. Never log text the user typed,
-   said or that a model produced, in any build. Any change that touches the microphone, the debug WAV entry point,
-   model import, the model process or text replacement needs a security review.
+5. Offline voice typing and grammar check live in `helium314.keyboard.clackatoo.assist` and the `ml` and `asr` modules
+   (read `ml/README.md`; `asr` is Parakeet with its own static ggml). Everything stays on the phone: models run in the
+   separate `:ml` service, which is an **isolated process** (`android:isolatedProcess="true"`, own UID, no access to
+   the app's files): models arrive as file descriptors, never as paths, and replies from it are untrusted (numbers
+   only, text through a size-limited pipe, sanitised by `OutputSanitizer`). Model files are pinned by size and SHA-256
+   in `ModelCatalog`; changing a model means changing both there and in NOTICE. Audio is only in memory, recording
+   never starts without the recording panel on screen, and RECORD_AUDIO is requested on first use of the Voice key
+   only. Never log text the user typed, said or that a model produced, in any build. Any change that touches the
+   microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
 6. **No user-supplied native library in any build type.** `BuildConfig.ALLOW_USER_LIBRARY` is false for every build
    type, and `UserLibraryPolicy` (checked in `JniUtils` and the advanced settings screen) keeps HeliBoard's "load
    gesture typing library" closed: such a library would run inside the keyboard process and void the isolation
@@ -53,7 +53,8 @@ G="./gradlew -Dorg.gradle.jvmargs=-Xmx3g --max-workers=4"
 $G assembleDebugNoMinify                    # fast debug APK (assembleDebug: the minified one)
 $G :app:testRunTestsUnitTest               # the full unit suite, as CI runs it: offline, skips tests known to fail
 $G :app:testDebugUnitTest --tests 'helium314.keyboard.clackatoo.*'   # quick: tests of Clackatoo code
-git submodule update --init --depth 1       # whisper.cpp and llama.cpp, needed to build the APK (not for unit tests)
+git submodule update --init --depth 1       # whisper.cpp, llama.cpp and our parakeet.cpp fork, needed to build the APK (not for unit tests)
+git -C asr/native/parakeet.cpp submodule update --init --depth 1 third_party/ggml   # parakeet's ggml (its other submodules are not used)
 # XLinkTest checks links against live websites and runs only with -PlinkChecks. Two of its tests fail on
 # clean v4.2 too: layoutsLinks (a dead link in layouts.md) and readmeLinks.
 ```

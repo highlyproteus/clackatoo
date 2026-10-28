@@ -66,6 +66,17 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   to `DefaultColors` (optional parameters; other themes are unchanged),
   `KeyboardSwitcher`, `KeyboardTypeface`, `SuggestionStripView` and
   `MoreSuggestions`.
+- 2026-10-27: NVIDIA Parakeet TDT 0.6B v3 as a second speech engine, with live
+  text: while the user speaks, the voice panel shows the words recognised so
+  far (the text goes into the field after Stop, as before). Parakeet runs in
+  the isolated model process through parakeet.cpp, built in a new Gradle
+  module `asr` with its own static, hidden ggml; Silero VAD (shipped in the
+  APK, `assets/models/ggml-silero-v6.2.0.bin`, loaded by whisper.cpp) cuts the
+  audio into utterances. Whisper stays the engine when Parakeet is not
+  installed. New files: `asr/`, `LiveSegmenter.kt`, `LiveSession.kt`; hooks in
+  `MlService`, `MlClient`, `AssistController`, `AssistPanelView`,
+  `AudioRecorder`, `ModelCatalog`, `ModelStore`, `DebugWavReceiver`, the Voice
+  typing settings screen and the `ml` module (voice-activity detection).
 - 2026-10-22: the keyboard data stays in credential-protected storage when the
   app is preinstalled as a system app (only the input method service is
   direct-boot aware); clipboard history skips clips marked sensitive and is
@@ -117,12 +128,36 @@ whisper.cpp and llama.cpp (ml/native/, git submodules; built into the app)
     shipped in the app (assets/licenses/ml-notices.txt, shown in Settings >
     Voice typing and Grammar check > Open-source licences).
 
+parakeet.cpp (asr/native/parakeet.cpp, git submodule; built into the app)
+    Copyright (c) 2026 the parakeet.cpp authors, MIT licence. Our fork
+    https://github.com/highlyproteus/parakeet.cpp (branch clackatoo, based on
+    v0.6.1 of https://github.com/mudler/parakeet.cpp) adds loading a model from
+    an open file and a thread-count call. Built with its own copy of ggml
+    (third_party/ggml, MIT, Copyright (c) 2023-2026 The ggml authors). The MIT
+    notices are shipped in the app (assets/licenses/ml-notices.txt).
+
+Silero VAD v6.2.0 (app/src/main/assets/models/ggml-silero-v6.2.0.bin, 885,098 bytes)
+    Copyright (c) 2020-present Silero Team (https://github.com/snakers4/silero-vad),
+    MIT licence; ggml conversion from https://huggingface.co/ggml-org/whisper-vad
+    (ggml-silero-v6.2.0.bin), unmodified. Pinned by size and SHA-256 in
+    ModelCatalog.kt:
+    2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987
+
 Material Design "spellcheck" icon (app/src/main/res/drawable/ic_grammar_check.xml)
     Copyright Google LLC, Apache License 2.0.
 
 Model files (not part of this repository or the APK; the user imports them, see
 ml/README.md for the reference downloads). Each file is pinned by exact size and SHA-256 in ModelCatalog.kt; the digests are
 listed below.
+    Parakeet TDT 0.6B v3, 5-bit quantised GGUF (tdt-0.6b-v3-q5_k.gguf, 742 MB)
+        https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+        "Parakeet TDT 0.6B v3 by NVIDIA", CC-BY-4.0 (attribution: NVIDIA; the
+        quantised GGUF conversion is from
+        https://huggingface.co/mudler/parakeet-cpp-gguf, revision
+        c77726e46ceaab96b5a5a3328915edb44c73209d; changed: quantised to
+        5 bits). Speech to text with live text while speaking; used before
+        Whisper when installed. Credited in Settings > Voice typing and here.
+        SHA-256 5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4
     Whisper small, multilingual, 5-bit quantised ggml build (ggml-small-q5_1.bin,
         190 MB). Weights by OpenAI (https://github.com/openai/whisper),
         Copyright (c) 2022 OpenAI, MIT licence; ggml conversion and
@@ -144,7 +179,7 @@ listed below.
         quantisation from https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF.
         Grammar and spelling check for English and Spanish.
         SHA-256 bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517
-    Total of the three files: about 1.21 GB.
+    Total of the three files without Parakeet: about 1.21 GB; Parakeet adds 742 MB.
 
 Test material only (nothing of this is shipped or committed): the English and
 Spanish test recordings were made with the Piper text-to-speech voices

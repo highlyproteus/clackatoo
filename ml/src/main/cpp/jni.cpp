@@ -23,6 +23,10 @@ struct SttHandle {
     std::atomic<bool> cancel{false};
 };
 
+struct VadHandle {
+    eg::Vad *vad;
+};
+
 constexpr size_t kMaxPromptBytes = 1 << 20;
 
 void throw_java(JNIEnv *env, const std::string &message) {
@@ -242,6 +246,63 @@ JNIEXPORT jbyteArray JNICALL JNI(sttTranscribeBytes)(JNIEnv *env, jobject, jlong
                 return from_utf8(env, out);
         }
         return nullptr;
+    });
+}
+
+// A voice-activity detector (Silero). [fd] is owned by this function from here on.
+JNIEXPORT jlong JNICALL JNI(vadLoad)(JNIEnv *env, jobject, jint fd, jint threads) {
+    return guard<jlong>(env, 0, [&] {
+        std::string error;
+        eg::Vad *vad = eg::vad_load(fd, threads, error);
+        if (!vad) {
+            throw_java(env, error);
+            return (jlong) 0;
+        }
+        return reinterpret_cast<jlong>(new VadHandle{vad});
+    });
+}
+
+// One speech probability per 512 samples of pcm16[offset, offset + count), or null when the detector failed (no
+// exception). The caller feeds multiples of 512 samples.
+JNIEXPORT jfloatArray JNICALL JNI(vadFeed)(JNIEnv *env, jobject, jlong handle, jshortArray pcm16, jint offset, jint count) {
+    return guard<jfloatArray>(env, nullptr, [&]() -> jfloatArray {
+        auto *h = reinterpret_cast<VadHandle *>(handle);
+        if (!h || !pcm16) {
+            throw_java(env, "missing argument");
+            return nullptr;
+        }
+        jsize length = env->GetArrayLength(pcm16);
+        if (offset < 0 || count <= 0 || count > 16000 * 125 || offset > length - count) {
+            throw_java(env, "bad audio range");
+            return nullptr;
+        }
+        std::vector<jshort> shorts((size_t) count);
+        env->GetShortArrayRegion(pcm16, offset, count, shorts.data());
+        if (env->ExceptionCheck()) return nullptr;
+        std::vector<float> pcm((size_t) count);
+        for (jsize i = 0; i < count; i++) pcm[(size_t) i] = shorts[(size_t) i] / 32768.0f;
+        std::vector<float> probs;
+        std::string error;
+        if (eg::vad_feed(h->vad, pcm.data(), count, probs, error) != eg::Status::Ok) return nullptr;
+        jfloatArray out = env->NewFloatArray((jsize) probs.size());
+        if (!out) return nullptr;  // OutOfMemoryError is pending
+        env->SetFloatArrayRegion(out, 0, (jsize) probs.size(), probs.data());
+        return out;
+    });
+}
+
+JNIEXPORT void JNICALL JNI(vadReset)(JNIEnv *, jobject, jlong handle) {
+    auto *h = reinterpret_cast<VadHandle *>(handle);
+    if (h) eg::vad_reset(h->vad);
+}
+
+JNIEXPORT void JNICALL JNI(vadFree)(JNIEnv *env, jobject, jlong handle) {
+    auto *h = reinterpret_cast<VadHandle *>(handle);
+    if (!h) return;
+    guard<int>(env, 0, [&] {
+        eg::vad_free(h->vad);
+        delete h;
+        return 0;
     });
 }
 

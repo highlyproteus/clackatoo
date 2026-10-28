@@ -16,6 +16,7 @@ tools/*.txt
 *.diff
 *.sh
 ml/.cxx
+asr/.cxx
 
 # Clackatoo: model files for development, never committed
 /models/

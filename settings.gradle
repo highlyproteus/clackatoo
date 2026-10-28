@@ -1,3 +1,4 @@
 include ':app'
 include ':ml'
+include ':asr'
 include ':tools:make-emoji-keys'

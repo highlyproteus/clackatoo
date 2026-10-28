@@ -39,6 +39,7 @@ import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelStatus
 import helium314.keyboard.clackatoo.assist.RejectReason
 import helium314.keyboard.clackatoo.assist.S1Styling
+import helium314.keyboard.clackatoo.assist.SpeechEngine
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.SearchSettingsScreen
@@ -88,6 +89,7 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
                 )
                 // the credit S1-mini's licence requires wherever it is used
                 InfoText(stringResource(R.string.assist_s1_mini_credit))
+                InfoText(stringResource(R.string.assist_parakeet_credit))
                 LicencesRow()
             }
         }
@@ -179,6 +181,7 @@ private fun ModelRows(kind: ModelKind, refresh: Int) {
             is ModelStatus.Broken -> stringResource(R.string.assist_model_broken_status)
         }
         Preference(name = spec.displayName, description = "$status\n${spec.licence}, ${spec.fileName}", onClick = {})
+        if (spec.engine == SpeechEngine.PARAKEET) InfoText(stringResource(R.string.assist_parakeet_live_hint))
     }
 }
 
