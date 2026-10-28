@@ -13,6 +13,7 @@ import android.os.Looper
 import androidx.core.content.ContextCompat
 import helium314.keyboard.clackatoo.assist.AssistSettings
 import helium314.keyboard.clackatoo.assist.ModelCatalog
+import helium314.keyboard.clackatoo.assist.ModelSpec
 import helium314.keyboard.clackatoo.assist.ModelStatus
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 import helium314.keyboard.latin.BuildConfig
@@ -63,6 +64,39 @@ object ModelDownloads {
     /** Re-reads which model files are on the phone, after an import, a deletion or a copy with adb. Running downloads are untouched. */
     fun refresh(context: Context) {
         holder(context).refresh(ModelCatalog.all.filter { it.bundledAsset == null }.map { it.id })
+    }
+
+    /** Counts changes of the experimental custom models (added by an import or a hand-over, deleted); screens re-read the folder when it changes. */
+    fun customChanges(context: Context): StateFlow<Int> = holder(context).customChanges()
+
+    /** Tells the screens that the custom models changed (an import in Settings; hand-overs report it themselves). */
+    fun customChanged(context: Context) = holder(context).customChanged()
+
+    /** Deletes the experimental custom model [spec] from the phone. */
+    fun deleteCustom(context: Context, spec: ModelSpec) {
+        if (!spec.custom) return
+        AssistSettings.modelStore(context).delete(spec)
+        holder(context).customChanged()
+    }
+
+    /**
+     * Opens the Clackatoo Models app, where the user browses Hugging Face (the keyboard sends it nothing); when it is not
+     * installed, opens the page to get it, like [download].
+     */
+    fun openCompanion(context: Context) {
+        val app = context.applicationContext
+        if (isCompanionInstalled(app)) {
+            val launch = app.packageManager.getLaunchIntentForPackage(companionPackage)
+            if (launch != null) {
+                try {
+                    app.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return
+                } catch (_: ActivityNotFoundException) { }
+            }
+        }
+        try {
+            app.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ModelsProtocol.RELEASES_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) { }
     }
 
     /** True when the signed Clackatoo Models app of this build type is installed (a look-alike with another signature does not count). */

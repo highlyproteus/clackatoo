@@ -10,7 +10,9 @@ import android.text.format.Formatter
 import android.os.Handler
 import android.os.Looper
 import helium314.keyboard.clackatoo.catalog.Catalog
+import helium314.keyboard.clackatoo.models.DeviceProfile
 import helium314.keyboard.clackatoo.models.ModelChoice
+import helium314.keyboard.clackatoo.models.ModelSuggestions
 import helium314.keyboard.clackatoo.models.MissingModels
 import helium314.keyboard.clackatoo.models.ModelDownloads
 import helium314.keyboard.clackatoo.models.ModelState
@@ -327,8 +329,12 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (text.isNotBlank() && language.cleanUpWithS1Mini && cleanUp != null && AssistSettings.s1MiniEnabled(ime.prefs())) {
             panel?.showWorking(ime.getString(R.string.assist_cleaning))
             try {
-                val prompt = S1MiniPrompt.build(text, AssistSettings.styling(ime.prefs()))
-                val cleaned = client.generate(store.file(cleanUp), cleanUp.contextTokens, prompt, MAX_NEW_TOKENS_CLEAN_UP)
+                val styling = AssistSettings.styling(ime.prefs())
+                val cleaned = if (cleanUp.ownTemplate) { // an experimental custom model: its own chat template
+                    client.chat(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.turns(text, styling), MAX_NEW_TOKENS_CLEAN_UP)
+                } else {
+                    client.generate(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.build(text, styling), MAX_NEW_TOKENS_CLEAN_UP)
+                }
                 Log.i(TAG, "cleaned in ${cleaned.runMs} ms (load ${cleaned.loadMs} ms)")
                 text = OutputSanitizer.clean(S1MiniPrompt.parse(cleaned.text), multiLine, maxChars)
             } catch (e: MlException) {
@@ -358,7 +364,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
      * otherwise the panel offers to download the recommended models (the sheet), or to get the Clackatoo Models app.
      */
     private fun missingModel(kind: ModelKind, language: AssistLanguage, titleRes: Int, missingRes: Int) {
-        val offered = when (val plan = MissingModels.plan(kind, language.cleanUpWithS1Mini, store::status, ModelChoice::runsHere)) {
+        val offered = when (val plan = MissingModels.plan(kind, language.cleanUpWithS1Mini, store::status, ModelChoice::runsHere, ::suggestedModel)) {
             is MissingModels.Plan.Offer -> plan.specs
             MissingModels.Plan.Broken, MissingModels.Plan.Nothing -> return message(titleRes, missingModelText(kind, missingRes), settings = true)
             MissingModels.Plan.Unsupported -> return message(titleRes, ime.getString(R.string.models_unsupported_phone))
@@ -376,12 +382,16 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         panel?.showModelSheet(ime.getString(sheetTitleRes), ime.getString(text), sheetItems(offered), ModelDownloads.isCompanionInstalled(ime))
     }
 
+    /** The catalog id suggested for [kind] on this phone (see [ModelSuggestions]). */
+    private fun suggestedModel(kind: ModelKind): String? =
+        ModelSuggestions.suggestedId(DeviceProfile.read(ime), kind, ModelSuggestions.keyboardLanguages())
+
     private fun sheetItems(specs: List<ModelSpec>) = specs.map { AssistPanelView.SheetItem(it.id, sheetLabel(it), it.sizeBytes) }
 
     private fun sheetLabel(spec: ModelSpec): String = ime.getString(
         when (spec.id) {
-            Catalog.PARAKEET_TDT_V3.id -> R.string.models_label_parakeet
-            Catalog.WHISPER_SMALL.id -> R.string.models_label_whisper
+            Catalog.PARAKEET_TDT_V3.id, Catalog.PARAKEET_TDT_CTC_110M.id -> R.string.models_label_parakeet
+            Catalog.WHISPER_TINY.id, Catalog.WHISPER_BASE.id, Catalog.WHISPER_SMALL.id -> R.string.models_label_whisper
             Catalog.S1_MINI.id -> R.string.models_label_clean_up
             Catalog.QWEN3_5_0_8B.id -> R.string.models_label_grammar
             else -> R.string.models_label_other
@@ -466,9 +476,10 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                         corrected.append(chunk)
                         continue
                     }
+                    val maxNew = (chunk.toByteArray().size + 48).coerceAtMost(MlProtocol.MAX_NEW_TOKENS)
                     val result = try {
-                        client.generate(store.file(grammar), grammar.contextTokens, GrammarPrompt.build(format, chunk),
-                            (chunk.toByteArray().size + 48).coerceAtMost(MlProtocol.MAX_NEW_TOKENS))
+                        if (grammar.ownTemplate) client.chat(store.file(grammar), grammar.contextTokens, GrammarPrompt.turns(chunk), maxNew)
+                        else client.generate(store.file(grammar), grammar.contextTokens, GrammarPrompt.build(format, chunk), maxNew)
                     } catch (e: MlException) {
                         if (e.modelFailedWhileLoading) store.markBroken(grammar)
                         throw e
@@ -618,7 +629,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     }
 
     private fun missingModelText(kind: ModelKind, missingRes: Int): String {
-        val broken = ModelCatalog.forKind(kind).any { store.status(it) is ModelStatus.Broken }
+        val broken = (ModelCatalog.forKind(kind) + store.customSpecs(kind)).any { store.status(it) is ModelStatus.Broken }
         return ime.getString(if (broken) R.string.assist_model_broken else missingRes)
     }
 

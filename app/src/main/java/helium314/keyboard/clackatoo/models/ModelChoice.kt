@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import androidx.core.content.edit
 import helium314.keyboard.clackatoo.assist.AssistSettings
+import helium314.keyboard.clackatoo.assist.CustomPolicy
 import helium314.keyboard.clackatoo.assist.ModelCatalog
 import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelSpec
@@ -21,7 +22,7 @@ object ModelChoice {
     /** The id the user chose for [kind] (it may not be installed), or null. */
     fun selectedId(context: Context, kind: ModelKind): String? = context.prefs().getString(key(kind), null)
 
-    /** Chooses [id] for its role. False (and nothing changes) when [id] is not a downloadable model of [kind]. */
+    /** Chooses [id] for its role. False (and nothing changes) when [id] is not a catalog or custom model of [kind]. */
     fun select(context: Context, kind: ModelKind, id: String): Boolean {
         if (!isValidChoice(kind, id)) return false
         context.prefs().edit { putString(key(kind), id) }
@@ -35,7 +36,9 @@ object ModelChoice {
     fun active(context: Context, kind: ModelKind, languageCode: String? = null): ModelSpec? =
         AssistSettings.modelStore(context).best(kind, selectedId(context, kind), languageCode, ::runsHere)
 
-    internal fun isValidChoice(kind: ModelKind, id: String): Boolean = ModelCatalog.byId(id)?.kind == kind
+    /** A catalog model of [kind], or an experimental custom model of [kind] (whether its file exists is not checked here). */
+    internal fun isValidChoice(kind: ModelKind, id: String): Boolean =
+        ModelCatalog.byId(id)?.kind == kind || CustomPolicy.parseId(id)?.first == kind
 
     /**
      * False when no model can run on this phone: the native runtimes of every engine (`ml` for Whisper and the text

@@ -79,6 +79,20 @@ they fit on a phone and run quickly; the starred ones are recommended:
 Every model is pinned by size and SHA-256 in `catalog/` (see [ml/README.md](ml/README.md) for the reference files and how
 to import one by hand). The small Silero voice-detection model that Parakeet's live text needs ships inside the keyboard.
 
+The model that suits your phone (its memory, CPU and your keyboard languages) is listed first and labelled "Suggested for
+this phone"; you can still download and use any other. See "Which model for which phone" in [ml/README.md](ml/README.md).
+
+#### Your own models (experimental)
+
+Below the list, Settings > Voice typing and Grammar check have "Use your own model (experimental)" rows, behind a notice that
+says plainly: not checked by Clackatoo, may not work, may be slow or use a lot of memory, results may be poor. Two ways in:
+import any file from your storage (the keyboard finds the format from the file's header: Whisper `ggml-*.bin`, a Parakeet GGUF,
+or a text GGUF that you use for clean-up or grammar; it refuses everything else, files over 4 GB and files that fail a test
+load), or "Browse Hugging Face" in Clackatoo Models, where you type a search or `owner/name`, see the files and sizes, and pick
+one. The keyboard sends the companion nothing for this. Custom models run in the same isolated process without internet, are
+kept apart from the catalog models, are marked "Experimental · not verified", can be chosen like any model and deleted from
+the card's menu. Text models are prompted with the chat template stored in the model file.
+
 ## Theming
 
 The default colour theme, "Clackatoo (follows the phone)", maps keyboard elements to Material 3 colour roles:

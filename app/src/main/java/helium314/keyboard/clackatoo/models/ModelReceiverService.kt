@@ -13,9 +13,13 @@ import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
 import helium314.keyboard.clackatoo.assist.AssistSettings
+import helium314.keyboard.clackatoo.assist.CustomPolicy
+import helium314.keyboard.clackatoo.assist.CustomProbe
 import helium314.keyboard.clackatoo.assist.ModelCatalog
+import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 import helium314.keyboard.latin.utils.Log
+import helium314.keyboard.latin.utils.prefs
 import java.io.FileInputStream
 
 /**
@@ -31,6 +35,7 @@ class ModelReceiverService : Service() {
             isTrustedCaller = { isTrusted(Binder.getCallingUid()) },
             states = ModelDownloads.holder(this),
             installFile = { id, pfd -> install(id, pfd) },
+            installCustom = { name, kind, pfd -> installCustom(name, kind, pfd) },
         )
     }
 
@@ -54,6 +59,27 @@ class ModelReceiverService : Service() {
         if (result == ModelsProtocol.HANDOVER_OK) ModelChoice.select(this, spec.kind, spec.id)
         return result
     }
+
+    /**
+     * A custom (experimental) model from the companion's Hugging Face browser. Refused until the user has accepted the
+     * experimental-models notice in Settings; then a regular file of at most [CustomPolicy.MAX_BYTES] goes through
+     * [ModelHandover.acceptCustom] (header format, role, test load in the model process). A new model becomes the chosen one of its role.
+     */
+    private fun installCustom(name: String, kind: ModelKind, pfd: ParcelFileDescriptor): Int {
+        if (!AssistSettings.customModelsConfirmed(prefs())) return ModelsProtocol.HANDOVER_CUSTOM_OFF
+        val stat = try { Os.fstat(pfd.fileDescriptor) } catch (_: Exception) { return ModelsProtocol.HANDOVER_READ_ERROR }
+        if (!OsConstants.S_ISREG(stat.st_mode)) return ModelsProtocol.HANDOVER_READ_ERROR
+        if (stat.st_size > CustomPolicy.MAX_BYTES) return ModelsProtocol.HANDOVER_TOO_LARGE
+        val store = AssistSettings.modelStore(this)
+        store.cleanUp()
+        val app = applicationContext
+        val handed = FileInputStream(pfd.fileDescriptor).use {
+            ModelHandover.acceptCustom(store, kind, name, it, stat.st_size) { file, spec -> CustomProbe.run(app, file, spec) }
+        }
+        handed.spec?.let { ModelChoice.select(this, kind, it.id) }
+        if (handed.code == ModelsProtocol.HANDOVER_OK) ModelDownloads.holder(this).customChanged()
+        return handed.code
+    }
 }
 
 /**
@@ -65,11 +91,13 @@ internal class ModelReceiverBinder(
     private val isTrustedCaller: () -> Boolean,
     private val states: ModelStateHolder,
     private val installFile: (id: String, file: ParcelFileDescriptor) -> Int,
+    private val installCustom: (name: String, kind: ModelKind, file: ParcelFileDescriptor) -> Int = { _, _, _ -> ModelsProtocol.HANDOVER_BAD_REQUEST },
 ) : Binder() {
     override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
         if (!isTrustedCaller()) throw SecurityException("not the Clackatoo companion app")
         try {
             data.enforceInterface(ModelsProtocol.RECEIVER_DESCRIPTOR)
+            if (code == ModelsProtocol.TX_CUSTOM_HANDOVER) return customHandover(data, reply)
             val id = data.readString()
             val spec = ModelCatalog.byId(id)
             if (id == null || id.length > ModelsProtocol.MAX_ID_LENGTH || spec == null) return refuse(reply, code)
@@ -109,6 +137,32 @@ internal class ModelReceiverBinder(
             Log.w(TAG, "refused a malformed model message: ${e.javaClass.simpleName}")
             return false
         }
+    }
+
+    /**
+     * `writeString(name); writeInt(role); writeFileDescriptor(file)` and nothing else: a name of 1 to
+     * [ModelsProtocol.MAX_CUSTOM_NAME_LENGTH] characters, a role that is one of the `CUSTOM_ROLE_*` numbers, a descriptor.
+     * Any other shape is answered with `HANDOVER_BAD_REQUEST` and the descriptor is closed unread. What the file is, is
+     * decided by [installCustom], never by anything in this call.
+     */
+    private fun customHandover(data: Parcel, reply: Parcel?): Boolean {
+        val name = data.readString()
+        val kind = CustomPolicy.roleOfProtocol(data.readInt())
+        val file = data.readFileDescriptor()
+        val wellFormed = file != null && name != null && name.length in 1..ModelsProtocol.MAX_CUSTOM_NAME_LENGTH && kind != null && data.dataAvail() == 0
+        if (!wellFormed) {
+            file?.close()
+            reply?.writeNoException()
+            reply?.writeInt(ModelsProtocol.HANDOVER_BAD_REQUEST)
+            return true
+        }
+        val result = try { file!!.use { installCustom(name!!, kind!!, it) } } catch (e: Exception) {
+            Log.w(TAG, "custom model hand-over failed: ${e.javaClass.simpleName}")
+            ModelsProtocol.HANDOVER_READ_ERROR
+        }
+        reply?.writeNoException()
+        reply?.writeInt(result)
+        return true
     }
 
     private fun refuse(reply: Parcel?, code: Int): Boolean {

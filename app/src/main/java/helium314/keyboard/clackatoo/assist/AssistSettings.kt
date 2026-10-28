@@ -12,11 +12,15 @@ import java.io.File
 object AssistSettings {
     const val PREF_S1_MINI_ENABLED = "assist_s1_mini_enabled"
     const val PREF_S1_STYLING = "assist_s1_styling"
+    /** Set when the user has read and accepted the experimental-models notice in Settings; the companion's custom hand-over is refused until then. */
+    const val PREF_CUSTOM_MODELS_CONFIRMED = "assist_custom_models_confirmed"
     private const val BROKEN_PREFIX = "assist_broken_model_"
     /** In the app's private files folder (left out of backups, see backup_rules.xml); only the keyboard process opens it and hands the files to the model process as descriptors. */
     private const val MODEL_DIR_NAME = "models"
 
     fun s1MiniEnabled(prefs: SharedPreferences) = prefs.getBoolean(PREF_S1_MINI_ENABLED, true)
+
+    fun customModelsConfirmed(prefs: SharedPreferences) = prefs.getBoolean(PREF_CUSTOM_MODELS_CONFIRMED, false)
 
     fun styling(prefs: SharedPreferences): S1Styling {
         val saved = prefs.getString(PREF_S1_STYLING, null)

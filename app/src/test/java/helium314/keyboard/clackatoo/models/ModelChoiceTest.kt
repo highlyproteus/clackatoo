@@ -19,6 +19,15 @@ class ModelChoiceTest {
         assertFalse(ModelChoice.isValidChoice(ModelKind.SPEECH, "nope"))
     }
 
+    @Test fun `a custom model is a valid choice only for its own role`() {
+        assertTrue(ModelChoice.isValidChoice(ModelKind.GRAMMAR, "custom:grammar:Qwen3-0.6B.gguf"))
+        assertTrue(ModelChoice.isValidChoice(ModelKind.SPEECH, "custom:speech:ggml-tiny.en-q5_1.bin"))
+        assertFalse(ModelChoice.isValidChoice(ModelKind.SPEECH, "custom:grammar:Qwen3-0.6B.gguf"))
+        assertFalse(ModelChoice.isValidChoice(ModelKind.VAD, "custom:vad:x.bin"))
+        assertFalse(ModelChoice.isValidChoice(ModelKind.GRAMMAR, "custom:grammar:../x"))
+        assertFalse(ModelChoice.isValidChoice(ModelKind.GRAMMAR, "custom:grammar:"))
+    }
+
     @Test fun `every engine runs only where its native runtime ships, 64-bit ARM or x86_64 on Android 9 or newer`() {
         val models = listOf(Catalog.PARAKEET_TDT_V3, Catalog.WHISPER_SMALL, Catalog.S1_MINI, Catalog.QWEN3_5_0_8B)
             .map { ModelCatalog.byId(it.id)!! }

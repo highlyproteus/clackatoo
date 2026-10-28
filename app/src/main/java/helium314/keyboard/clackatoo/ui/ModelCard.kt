@@ -57,7 +57,7 @@ sealed interface ModelCardState {
  * A model as a card: a neutral [icon] (never a maker's logo), the [title], the maker and size in [subtitle], and
  * what can be done with it in its [state]: Download (labelled [downloadLabel], as it may send the user to the
  * companion app first), progress with Cancel, Installing, or Ready with a radio button when [selectable] (the active
- * model of the role) and a menu to delete it.
+ * model of the role) and a menu to delete it. A [badge] goes above the title.
  */
 @Composable
 fun ModelCard(
@@ -75,6 +75,10 @@ fun ModelCard(
     selectable: Boolean = false,
     selected: Boolean = false,
     onSelect: () -> Unit = {},
+    /** A short label above the title: "Suggested for this phone", or "Experimental · not verified" for a custom model. */
+    badge: String? = null,
+    /** Shown as a warning rather than a recommendation (experimental models). */
+    badgeIsWarning: Boolean = false,
 ) {
     val installed = state is ModelCardState.Installed
     // a long label ("Get Clackatoo Models") would squeeze the name, so it goes below the text instead of beside it
@@ -94,6 +98,11 @@ fun ModelCard(
                 Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
             Column(Modifier.weight(1f)) {
+                if (badge != null)
+                    Text(
+                        badge, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (badgeIsWarning) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                    )
                 Text(
                     title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { contentDescription = fullName },
