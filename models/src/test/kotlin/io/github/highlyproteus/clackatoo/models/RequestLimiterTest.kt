@@ -69,4 +69,42 @@ class RequestLimiterTest {
         t += 60_000
         assertEquals(Verdict.START, limiter.tryStart("f"))
     }
+
+    private class Memory : RequestLimiter.Persistence {
+        var starts: List<Long> = emptyList()
+        var blocked: Map<String, Long> = emptyMap()
+        override fun load() = starts to blocked
+        override fun save(starts: List<Long>, blockedUntil: Map<String, Long>) { this.starts = starts; blocked = blockedUntil }
+    }
+
+    @Test fun `a restart does not reset the hourly cap or a cool-down`() {
+        val memory = Memory()
+        val first = RequestLimiter(memory, now = { t })
+        for (i in 1..RequestLimiter.MAX_PER_HOUR) { first.tryStart("m$i"); first.released("m$i") }
+        first.tryStart("x"); first.failed("x") // refused by the cap, but also starts a cool-down only if it started
+        val second = RequestLimiter(memory, now = { t }) // the app was restarted
+        assertEquals(Verdict.LATER, second.tryStart("another"))
+        t += 3_600_000L
+        assertEquals(Verdict.START, second.tryStart("another")) // an hour later the cap has slid
+    }
+
+    @Test fun `a cool-down survives a restart and expired ones are not kept`() {
+        val memory = Memory()
+        val first = RequestLimiter(memory, now = { t })
+        first.tryStart("a"); first.failed("a")
+        assertEquals(Verdict.LATER, RequestLimiter(memory, now = { t }).tryStart("a"))
+        t += RequestLimiter.COOLDOWN_MS
+        val later = RequestLimiter(memory, now = { t })
+        assertEquals(Verdict.START, later.tryStart("a"))
+        assertEquals(emptyMap(), memory.blocked)
+    }
+
+    @Test fun `a refunded start neither counts nor leaves a cool-down`() {
+        val memory = Memory()
+        val l = RequestLimiter(memory, now = { t })
+        assertEquals(Verdict.START, l.tryStart("a"))
+        l.refund("a")
+        assertEquals(0, memory.starts.size)
+        assertEquals(Verdict.START, l.tryStart("a"))
+    }
 }

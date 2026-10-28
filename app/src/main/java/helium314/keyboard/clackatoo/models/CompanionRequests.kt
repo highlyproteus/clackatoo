@@ -41,8 +41,8 @@ internal object CompanionRequests {
         }
         val intent = Intent().setComponent(ComponentName(companionPackage, ModelsProtocol.DOWNLOAD_SERVICE_CLASS))
         val bound = try { app.bindService(intent, connection, Context.BIND_AUTO_CREATE) } catch (_: SecurityException) { false }
-        if (!bound) return null
         try {
+            if (!bound) return null
             if (!latch.await(8, TimeUnit.SECONDS)) return null
             val remote = binder ?: return null
             val data = Parcel.obtain()
@@ -63,7 +63,7 @@ internal object CompanionRequests {
                 reply.recycle()
             }
         } finally {
-            app.unbindService(connection)
+            app.unbindService(connection) // also after a bindService that returned false, as the documentation asks
         }
     }
 }
