@@ -36,11 +36,15 @@ namespace latinime {
 
 const int Dictionary::HEADER_ATTRIBUTE_BUFFER_SIZE = 32;
 
-Dictionary::Dictionary(JNIEnv *env, DictionaryStructureWithBufferPolicy::StructurePolicyPtr
+Dictionary::Dictionary(DictionaryStructureWithBufferPolicy::StructurePolicyPtr
         dictionaryStructureWithBufferPolicy)
         : mDictionaryStructureWithBufferPolicy(std::move(dictionaryStructureWithBufferPolicy)),
           mGestureSuggest(new Suggest(GestureSuggestPolicyFactory::getGestureSuggestPolicy())),
-          mTypingSuggest(new Suggest(TypingSuggestPolicyFactory::getTypingSuggestPolicy())) {
+          mTypingSuggest(new Suggest(TypingSuggestPolicyFactory::getTypingSuggestPolicy())) {}
+
+Dictionary::Dictionary(JNIEnv *env, DictionaryStructureWithBufferPolicy::StructurePolicyPtr
+        dictionaryStructureWithBufferPolicy)
+        : Dictionary(std::move(dictionaryStructureWithBufferPolicy)) {
     logDictionaryInfo(env);
 }
 

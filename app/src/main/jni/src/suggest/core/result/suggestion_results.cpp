@@ -16,6 +16,8 @@
 
 #include "suggest/core/result/suggestion_results.h"
 
+#include <algorithm>
+
 #include "utils/jni_data_utils.h"
 
 namespace latinime {
@@ -87,6 +89,18 @@ void SuggestionResults::getSortedScores(int *const outScores) const {
         outScores[copyOfSuggestedWords.size() - 1] = suggestedWord.getScore();
         copyOfSuggestedWords.pop();
     }
+}
+
+std::vector<SuggestedWord> SuggestionResults::getSortedSuggestions() const {
+    std::vector<SuggestedWord> suggestedWords;
+    auto copyOfSuggestedWords = mSuggestedWords;
+    while (!copyOfSuggestedWords.empty()) {
+        suggestedWords.push_back(copyOfSuggestedWords.top());
+        copyOfSuggestedWords.pop();
+    }
+    // The queue pops the worst suggestion first.
+    std::reverse(suggestedWords.begin(), suggestedWords.end());
+    return suggestedWords;
 }
 
 void SuggestionResults::dumpSuggestions() const {

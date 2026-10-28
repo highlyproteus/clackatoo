@@ -62,6 +62,10 @@ class Dictionary {
     static const int KIND_FLAG_EXACT_MATCH_WITH_INTENTIONAL_OMISSION = 0x20000000;
     static const int KIND_FLAG_APPROPRIATE_FOR_AUTOCORRECTION = 0x10000000;
 
+    // Does not log, so it works without a JVM (host test harness, tools/gesture-eval).
+    explicit Dictionary(DictionaryStructureWithBufferPolicy::StructurePolicyPtr
+            dictionaryStructureWithBufferPolicy);
+
     Dictionary(JNIEnv *env, DictionaryStructureWithBufferPolicy::StructurePolicyPtr
             dictionaryStructureWithBufferPolicy);
 

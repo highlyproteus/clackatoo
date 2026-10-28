@@ -35,6 +35,16 @@ class ProximityInfo {
             const jintArray keyYCoordinates, const jintArray keyWidths, const jintArray keyHeights,
             const jintArray keyCharCodes, const jfloatArray sweetSpotCenterXs,
             const jfloatArray sweetSpotCenterYs, const jfloatArray sweetSpotRadii);
+    // JNI-free constructor, used by the host test harness (tools/gesture-eval). The three
+    // sweet-spot pointers may be nullptr, meaning no touch-position correction data. All arrays
+    // are copied; proximityCharsLength must be gridWidth * gridHeight * MAX_PROXIMITY_CHARS_SIZE.
+    ProximityInfo(const int keyboardWidth, const int keyboardHeight, const int gridWidth,
+            const int gridHeight, const int mostCommonKeyWidth, const int mostCommonKeyHeight,
+            const int *const proximityChars, const int proximityCharsLength, const int keyCount,
+            const int *const keyXCoordinates, const int *const keyYCoordinates,
+            const int *const keyWidths, const int *const keyHeights, const int *const keyCharCodes,
+            const float *const sweetSpotCenterXs, const float *const sweetSpotCenterYs,
+            const float *const sweetSpotRadii);
     ~ProximityInfo();
     bool hasSpaceProximity(const int x, const int y) const;
     float getNormalizedSquaredDistanceFromCenterFloatG(
@@ -90,6 +100,18 @@ class ProximityInfo {
  private:
     DISALLOW_IMPLICIT_CONSTRUCTORS(ProximityInfo);
 
+    // The Java arrays of the JNI constructor, copied so that the JNI constructor can delegate to
+    // the raw-pointer one. An empty vector stands for a null (or empty) Java array.
+    struct JavaArrays;
+    ProximityInfo(const JavaArrays &arrays, const int keyboardWidth, const int keyboardHeight,
+            const int gridWidth, const int gridHeight, const int mostCommonKeyWidth,
+            const int mostCommonKeyHeight, const int keyCount);
+
+    void initialize(const int *const proximityChars, const int proximityCharsLength,
+            const int *const keyXCoordinates, const int *const keyYCoordinates,
+            const int *const keyWidths, const int *const keyHeights, const int *const keyCharCodes,
+            const float *const sweetSpotCenterXs, const float *const sweetSpotCenterYs,
+            const float *const sweetSpotRadii);
     void initializeG();
 
     const int GRID_WIDTH;

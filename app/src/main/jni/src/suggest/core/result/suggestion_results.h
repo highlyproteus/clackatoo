@@ -43,6 +43,8 @@ class SuggestionResults {
             const int score, const int type, const int indexToPartialCommit,
             const int autocimmitFirstWordConfindence);
     void getSortedScores(int *const outScores) const;
+    // The suggestions, best first (the order of getSortedScores).
+    std::vector<SuggestedWord> getSortedSuggestions() const;
     void dumpSuggestions() const;
 
     void setWeightOfLangModelVsSpatialModel(const float weightOfLangModelVsSpatialModel) {
