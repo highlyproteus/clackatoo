@@ -9,6 +9,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Binder
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -17,19 +19,19 @@ import android.annotation.TargetApi
 import helium314.keyboard.clackatoo.catalog.CatalogModel
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Downloads catalog models one after another as a foreground service (a notification with progress and a Cancel action),
- * then hands each file to the keyboard and deletes its own copy. Started by the keyboard with one Intent that holds a
- * catalog id ([RequestParser] refuses everything else); the service is guarded by the signature permission.
+ * then hands each file to the keyboard and deletes its own copy. The keyboard asks over a bound Binder ([DownloadBinder]):
+ * an action and one catalog id, from a caller whose package and signature are checked on every call ([RequestParser]
+ * refuses everything else, [RequestLimiter] limits how often). The service is also guarded by the signature permission.
+ * Start intents carry nothing this service reads: they only make it a foreground service, which the download needs.
  */
 class DownloadService : Service() {
     private val worker = Executors.newSingleThreadExecutor()
-    private val cancelFlags = ConcurrentHashMap<String, AtomicBoolean>()
     private var link: KeyboardLink? = null
     private val active = AtomicInteger()
     @Volatile private var lastStartId = 0
@@ -37,23 +39,49 @@ class DownloadService : Service() {
     private val downloader = Downloader()
     private var lastNotified = 0L
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    private val binder by lazy {
+        DownloadBinder(
+            isTrustedCaller = { isKeyboard(Binder.getCallingUid()) },
+            onRequest = { request -> handle(request) },
+        )
+    }
+
+    override fun onBind(intent: Intent?): IBinder = binder
+
+    /** The caller is the Clackatoo keyboard of this build type, signed like this app. */
+    private fun isKeyboard(uid: Int): Boolean {
+        val pm = packageManager
+        val keyboard = BuildConfig.KEYBOARD_APPLICATION_ID
+        return pm.getPackagesForUid(uid).orEmpty().contains(keyboard) &&
+            pm.checkSignatures(uid, applicationInfo.uid) == PackageManager.SIGNATURE_MATCH
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // a service started with startForegroundService() must go to the foreground at once, whatever the request says
+        // a service started with startForegroundService() must go to the foreground at once, whoever started it; what the
+        // Intent says is never read (requests come over the Binder), so a stranger can only make it flash a notification
         lastStartId = startId
         showForeground(getString(R.string.notification_title, "…"), 0, 0)
-        when (val request = RequestParser.parse(intent)) {
-            is Request.Download -> enqueue(request.model)
-            is Request.Cancel -> cancel(request.model)
-            null -> Unit // refused: nothing is started and nothing is said back
-        }
         if (active.get() == 0) finishIfIdle()
         return START_NOT_STICKY
     }
 
+    /** Runs a request that [DownloadBinder] has checked for caller and shape. Returns a `REQUEST_*` code. */
+    private fun handle(request: Request): Int = when (request) {
+        is Request.Cancel -> { cancelFlags[request.model.id]?.set(true); ModelsProtocol.REQUEST_OK }
+        is Request.Download -> when (limiter.tryStart(request.model.id)) {
+            RequestLimiter.Verdict.ALREADY -> ModelsProtocol.REQUEST_OK
+            RequestLimiter.Verdict.LATER -> ModelsProtocol.REQUEST_LATER
+            RequestLimiter.Verdict.START -> {
+                // Started (not yet foreground) so that it survives the keyboard unbinding; the keyboard, which is on
+                // screen and so may, then starts it in the foreground (this app may not go to the foreground by itself)
+                enqueue(request.model)
+                startService(Intent(this, DownloadService::class.java))
+                ModelsProtocol.REQUEST_OK
+            }
+        }
+    }
+
     private fun enqueue(model: CatalogModel) {
-        if (cancelFlags.containsKey(model.id)) return // already queued or running
         val flag = AtomicBoolean(false)
         cancelFlags[model.id] = flag
         active.incrementAndGet()
@@ -63,23 +91,23 @@ class DownloadService : Service() {
                 run(model, flag)
             } finally {
                 cancelFlags.remove(model.id)
+                limiter.released(model.id) // whatever happened, it is no longer running
                 active.decrementAndGet()
                 finishIfIdle()
             }
         }
     }
 
-    private fun cancel(model: CatalogModel) {
-        cancelFlags[model.id]?.set(true)
-    }
-
     private fun run(model: CatalogModel, cancelled: AtomicBoolean) {
         val keyboard = link ?: KeyboardLink(this, BuildConfig.KEYBOARD_APPLICATION_ID).also { link = it }
         val total = model.sizeBytes
-        if (cancelled.get()) return report(model, Progress.Phase.CANCELLED, 0, ModelsProtocol.FAIL_CANCELLED, keyboard)
+        if (cancelled.get()) {
+            limiter.failed(model.id)
+            return report(model, Progress.Phase.CANCELLED, 0, ModelsProtocol.FAIL_CANCELLED, keyboard)
+        }
         keyboard.connect() // best effort: the download can run without progress reports
         val dir = File(filesDir, "downloads").apply { mkdirs() }
-        dir.listFiles()?.forEach { if (it.name != model.fileName + ".part") it.delete() } // leftovers of a crash
+        dir.listFiles()?.forEach { it.delete() } // leftovers of an earlier run: a download resumes only within one run
         val part = File(dir, model.fileName + ".part")
         var lastReport = 0L
         DownloadTracker.update(Progress(model.id, Progress.Phase.DOWNLOADING, 0, total))
@@ -106,12 +134,15 @@ class DownloadService : Service() {
         }
         when (outcome) {
             is DownloadOutcome.Failed -> {
+                part.delete() // no partial file outlives a run that did not succeed
+                limiter.failed(model.id)
                 report(model, if (outcome.reason == ModelsProtocol.FAIL_CANCELLED) Progress.Phase.CANCELLED else Progress.Phase.FAILED, 0, outcome.reason, keyboard)
             }
             DownloadOutcome.Done -> {
                 val file = File(dir, model.fileName)
                 if (!part.renameTo(file)) {
                     part.delete()
+                    limiter.failed(model.id)
                     return report(model, Progress.Phase.FAILED, 0, ModelsProtocol.FAIL_OTHER, keyboard)
                 }
                 DownloadTracker.update(Progress(model.id, Progress.Phase.HANDING_OVER, total, total))
@@ -119,10 +150,12 @@ class DownloadService : Service() {
                     val result = keyboard.handover(model.id, file)
                     when (result) {
                         ModelsProtocol.HANDOVER_OK -> {
+                            limiter.handedOver(model.id)
                             DownloadTracker.update(Progress(model.id, Progress.Phase.DONE, total, total))
                             notifyDone(model, true)
                         }
                         else -> {
+                            limiter.failed(model.id)
                             DownloadTracker.update(Progress(model.id, Progress.Phase.FAILED, total, total, result ?: -1))
                             notifyDone(model, false)
                         }
@@ -184,8 +217,8 @@ class DownloadService : Service() {
     }
 
     private fun cancelAction(model: CatalogModel): Notification.Action {
-        val intent = Intent(this, DownloadService::class.java).setAction(ModelsProtocol.ACTION_CANCEL).putExtra(ModelsProtocol.EXTRA_ID, model.id)
-        val pending = PendingIntent.getService(this, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val intent = Intent(this, CancelReceiver::class.java).putExtra(ModelsProtocol.EXTRA_ID, model.id)
+        val pending = PendingIntent.getBroadcast(this, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Action.Builder(null, getString(R.string.cancel), pending).build()
     }
 
@@ -214,9 +247,18 @@ class DownloadService : Service() {
         manager().notify(NOTIFICATION_ID, builder().setContentTitle(text).setOngoing(false).setAutoCancel(true).build())
     }
 
-    private companion object {
-        const val CHANNEL = "downloads"
-        const val MAX_ATTEMPTS = 6
-        const val NOTIFICATION_ID = 1
+    companion object {
+        /** Cancel flags of the queued and running downloads, by id; process-wide so the notification and the screen can reach them. */
+        internal val cancelFlags = java.util.concurrent.ConcurrentHashMap<String, AtomicBoolean>()
+        internal val limiter = RequestLimiter()
+
+        /** Cancels the download of [id], from this app's own screen or notification (never from outside: those are not exported). */
+        internal fun cancel(id: String) {
+            cancelFlags[id]?.set(true)
+        }
+
+        private const val CHANNEL = "downloads"
+        private const val MAX_ATTEMPTS = 6
+        private const val NOTIFICATION_ID = 1
     }
 }

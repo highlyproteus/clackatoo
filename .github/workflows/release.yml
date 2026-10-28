@@ -76,14 +76,27 @@ jobs:
 
       - name: Check the APKs
         id: apk
+        # bash with pipefail (the default shell has none): a failing check inside a pipe must fail the step
+        shell: bash
         run: |
+          set -euo pipefail
           shopt -s nullglob
           bt=$ANDROID_HOME/build-tools/$BUILD_TOOLS
           version=${{ steps.version.outputs.name }}
 
-          # One APK per module, then the checks that apply to both: package, version, the MODELS permission declared with
-          # protection level signature (0x2), and zipalign.
-          check() { # module package
+          # The attributes of every element of one kind in the manifest, one line per element:
+          # elements <apk> <kind>  ->  "name(0x01010003)="..." protectionLevel(0x01010009)=0x00000002 ..."
+          elements() {
+            "$bt/aapt2" dump xmltree --file AndroidManifest.xml "$1" | awk -v kind="$2" '
+              /^ *E: / { if (rec != "") print rec; rec = ""; on = ($2 == kind) }
+              on && /^ *A: / { sub(/^ *A: [^ ]*[:\/]/, ""); rec = rec " " $0 }
+              END { if (rec != "") print rec }'
+          }
+
+          # One APK per module, then the checks that apply to both: package, version, the MODELS permission declared
+          # with protection level signature (the name and the level on the same <permission>: other libraries declare
+          # signature permissions too), and the exported service that takes calls from the other app guarded by it.
+          check() { # module package service-class
             local apks=("$1"/build/outputs/apk/nouserlib/*.apk "$1"/build/intermediates/apk/nouserlib/*.apk)
             [ ${#apks[@]} -ge 1 ] || { echo "::error::no APK for $1" >&2; exit 1; }
             local apk=${apks[0]}
@@ -91,15 +104,17 @@ jobs:
             badging=$("$bt/aapt2" dump badging "$apk")
             grep -q "^package: name='$2' " <<<"$badging" || { echo "::error::$1: wrong package name" >&2; exit 1; }
             grep -q "versionName='$version'" <<<"$badging" || { echo "::error::$1: wrong versionName" >&2; exit 1; }
-            "$bt/aapt2" dump permissions "$apk" | grep -q "^permission: $MODELS_PERMISSION$" ||
-              { echo "::error::$1: does not declare $MODELS_PERMISSION" >&2; exit 1; }
-            "$bt/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -A3 "E: permission" | grep -q "protectionLevel(0x01010009)=0x00000002" ||
-              { echo "::error::$1: the MODELS permission is not protectionLevel=signature" >&2; exit 1; }
+            elements "$apk" permission | grep -F "name(0x01010003)=\"$MODELS_PERMISSION\"" | grep -q "protectionLevel(0x01010009)=0x00000002" ||
+              { echo "::error::$1: $MODELS_PERMISSION is not declared with protectionLevel=signature" >&2; exit 1; }
+            elements "$apk" service | grep -F "name(0x01010003)=\"$3\"" | grep -qF "permission(0x01010006)=\"$MODELS_PERMISSION\"" ||
+              { echo "::error::$1: $3 is not guarded by $MODELS_PERMISSION" >&2; exit 1; }
             echo "$apk"
           }
 
-          keyboard=$(check app "$PACKAGE" | tail -n1)
-          companion=$(check models "$COMPANION_PACKAGE" | tail -n1)
+          keyboard=$(check app "$PACKAGE" helium314.keyboard.clackatoo.models.ModelReceiverService)
+          companion=$(check models "$COMPANION_PACKAGE" io.github.highlyproteus.clackatoo.models.DownloadService)
+          [ -f "$keyboard" ] || { echo "::error::no keyboard APK" >&2; exit 1; }
+          [ -f "$companion" ] || { echo "::error::no companion APK" >&2; exit 1; }
 
           # the keyboard must not be able to reach the internet
           if "$bt/aapt2" dump permissions "$keyboard" | grep -q 'android.permission.INTERNET'; then

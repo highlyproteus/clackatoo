@@ -117,12 +117,7 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun cancel(id: String) {
-        // the same request the keyboard sends, through the same checks
-        startForegroundService(
-            Intent(this, DownloadService::class.java).setAction(ModelsProtocol.ACTION_CANCEL).putExtra(ModelsProtocol.EXTRA_ID, id),
-        )
-    }
+    private fun cancel(id: String) = DownloadService.cancel(id)
 
     private fun openKeyboard() {
         val intent = packageManager.getLaunchIntentForPackage(BuildConfig.KEYBOARD_APPLICATION_ID) ?: return
