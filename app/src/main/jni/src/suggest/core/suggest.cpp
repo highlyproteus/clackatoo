@@ -83,8 +83,10 @@ void Suggest::initializeSearch(DicTraverseSession *traverseSession) const {
         return;
     }
 
+    // The gesture policy never caches nodes, so there is nothing to continue from.
     if (traverseSession->getInputSize() > MIN_CONTINUOUS_SUGGESTION_INPUT_SIZE
-            && traverseSession->isContinuousSuggestionPossible()) {
+            && traverseSession->isContinuousSuggestionPossible()
+            && traverseSession->getDicTraverseCache()->hasCachedDicNodesForContinuousSuggestion()) {
         // Continue suggestion
         traverseSession->getDicTraverseCache()->continueSearch();
     } else {

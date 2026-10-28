@@ -24,7 +24,7 @@
 namespace latinime {
 
 // The biggest value among MAX_CACHE_DIC_NODE_SIZE, MAX_CACHE_DIC_NODE_SIZE_FOR_SINGLE_POINT, ...
-const int DicNodesCache::LARGE_PRIORITY_QUEUE_CAPACITY = 310;
+const int DicNodesCache::LARGE_PRIORITY_QUEUE_CAPACITY = 510;
 // Capacity for reducing memory footprint.
 const int DicNodesCache::SMALL_PRIORITY_QUEUE_CAPACITY = 100;
 

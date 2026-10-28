@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2026 The Clackatoo Authors
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 #define LATINIME_GESTURE_SUGGEST_POLICY_FACTORY_H
 
 #include "defines.h"
+#include "gesture_suggest_policy.h"
 
 namespace latinime {
 
@@ -25,20 +27,12 @@ class SuggestPolicy;
 
 class GestureSuggestPolicyFactory {
  public:
-    static void setGestureSuggestPolicyFactoryMethod(const SuggestPolicy *(*factoryMethod)()) {
-        sGestureSuggestFactoryMethod = factoryMethod;
-    }
-
     static const SuggestPolicy *getGestureSuggestPolicy() {
-        if (!sGestureSuggestFactoryMethod) {
-            return 0;
-        }
-        return sGestureSuggestFactoryMethod();
+        return GestureSuggestPolicy::getInstance();
     }
 
  private:
     DISALLOW_COPY_AND_ASSIGN(GestureSuggestPolicyFactory);
-    static const SuggestPolicy *(*sGestureSuggestFactoryMethod)();
 };
 } // namespace latinime
 #endif // LATINIME_GESTURE_SUGGEST_POLICY_FACTORY_H
