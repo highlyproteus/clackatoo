@@ -202,6 +202,11 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   experimental (`CustomModels.kt`, `ModelStore.importCustom`, the receiver's
   `TX_CUSTOM_HANDOVER`, `MSG_PROBE` and chat-template prompting in `ml`). Models
   the user adds have their own licences, which Clackatoo does not list.
+- 2026-10-28: voice typing no longer stops at once on a keyboard that has just
+  started: the recording panel may wait up to 1 s for its first layout before
+  the visibility check ends the recording (`AssistController`,
+  `AssistPanelView.isVisibleAwaitingLayout`); the model process keeps only the
+  models of the current use in memory (`ModelResidency`).
 
 Upstream copyright
 ------------------
