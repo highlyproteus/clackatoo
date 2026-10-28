@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class DownloadService : Service() {
     private val worker = Executors.newSingleThreadExecutor()
+    private val limiter get() = limiterFor(this)
     private var link: KeyboardLink? = null
     private val active = AtomicInteger()
     @Volatile private var lastStartId = 0
@@ -60,9 +61,23 @@ class DownloadService : Service() {
         // a service started with startForegroundService() must go to the foreground at once, whoever started it; what the
         // Intent says is never read (requests come over the Binder), so a stranger can only make it flash a notification
         lastStartId = startId
-        showForeground(getString(R.string.notification_title, "…"), 0, 0)
+        try {
+            showForeground(getString(R.string.notification_title, "…"), 0, 0)
+        } catch (e: IllegalStateException) { // ForegroundServiceStartNotAllowedException: the phone does not let us be foreground now
+            giveUp()
+            return START_NOT_STICKY
+        } catch (e: SecurityException) {
+            giveUp()
+            return START_NOT_STICKY
+        }
         if (active.get() == 0) finishIfIdle()
         return START_NOT_STICKY
+    }
+
+    /** The service cannot go to the foreground: no download may run (and none was handed anything); end quietly instead of crashing. */
+    private fun giveUp() {
+        cancelFlags.values.forEach { it.set(true) }
+        stopSelf()
     }
 
     /** Runs a request that [DownloadBinder] has checked for caller and shape. Returns a `REQUEST_*` code. */
@@ -74,19 +89,36 @@ class DownloadService : Service() {
             RequestLimiter.Verdict.START -> {
                 // Started (not yet foreground) so that it survives the keyboard unbinding; the keyboard, which is on
                 // screen and so may, then starts it in the foreground (this app may not go to the foreground by itself)
-                enqueue(request.model)
-                startService(Intent(this, DownloadService::class.java))
-                ModelsProtocol.REQUEST_OK
+                val queued = enqueue(request.model)
+                try {
+                    startService(Intent(this, DownloadService::class.java))
+                    ModelsProtocol.REQUEST_OK
+                } catch (e: RuntimeException) { // not allowed to start it now: nothing stays queued or counted
+                    withdraw(request.model, queued)
+                    ModelsProtocol.REQUEST_REFUSED
+                }
             }
         }
     }
 
-    private fun enqueue(model: CatalogModel) {
+    /** Takes back a queued download that never started (or, if it already did, cancels it). */
+    private fun withdraw(model: CatalogModel, queued: java.util.concurrent.Future<*>) {
+        if (queued.cancel(false)) {
+            cancelFlags.remove(model.id)
+            active.decrementAndGet()
+            limiter.refund(model.id)
+            DownloadTracker.update(Progress(model.id, Progress.Phase.CANCELLED, 0, model.sizeBytes, ModelsProtocol.FAIL_CANCELLED))
+        } else {
+            cancelFlags[model.id]?.set(true)
+        }
+    }
+
+    private fun enqueue(model: CatalogModel): java.util.concurrent.Future<*> {
         val flag = AtomicBoolean(false)
         cancelFlags[model.id] = flag
         active.incrementAndGet()
         DownloadTracker.update(Progress(model.id, Progress.Phase.QUEUED, 0, model.sizeBytes))
-        worker.execute {
+        return worker.submit {
             try {
                 run(model, flag)
             } finally {
@@ -250,7 +282,12 @@ class DownloadService : Service() {
     companion object {
         /** Cancel flags of the queued and running downloads, by id; process-wide so the notification and the screen can reach them. */
         internal val cancelFlags = java.util.concurrent.ConcurrentHashMap<String, AtomicBoolean>()
-        internal val limiter = RequestLimiter()
+        private var limiterInstance: RequestLimiter? = null
+
+        /** The limiter of this process, keeping its state in the app's preferences so that a restart does not reset it. */
+        @Synchronized
+        internal fun limiterFor(context: Context): RequestLimiter =
+            limiterInstance ?: RequestLimiter(PrefsPersistence(context.applicationContext)).also { limiterInstance = it }
 
         /** Cancels the download of [id], from this app's own screen or notification (never from outside: those are not exported). */
         internal fun cancel(id: String) {

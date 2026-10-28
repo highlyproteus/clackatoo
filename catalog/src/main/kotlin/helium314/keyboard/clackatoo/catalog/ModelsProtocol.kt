@@ -16,7 +16,7 @@ package helium314.keyboard.clackatoo.catalog
  * finished file as a read-only file descriptor.
  */
 object ModelsProtocol {
-    /** Name of the one extra of the old Intent form of a request; now only the shape of [RequestParser]'s check. */
+    /** Name of the extra that carries a model id in the companion's own notification Cancel intent (requests from the keyboard are Binder calls). */
     const val EXTRA_ID = "id"
     const val MAX_ID_LENGTH = 64
 

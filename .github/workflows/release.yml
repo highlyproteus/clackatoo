@@ -117,7 +117,8 @@ jobs:
           [ -f "$companion" ] || { echo "::error::no companion APK" >&2; exit 1; }
 
           # the keyboard must not be able to reach the internet
-          if "$bt/aapt2" dump permissions "$keyboard" | grep -q 'android.permission.INTERNET'; then
+          keyboard_perms=$("$bt/aapt2" dump permissions "$keyboard")
+          if grep -q 'android.permission.INTERNET' <<<"$keyboard_perms"; then
             echo "::error::the keyboard APK asks for the INTERNET permission"; exit 1
           fi
           # the companion asks for exactly the allowed permissions (uses-permission lines, whatever their SDK qualifier)
