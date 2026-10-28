@@ -2,7 +2,7 @@
 
 Clackatoo is a standalone Android keyboard, a fork of HeliBoard v4.2 (<https://github.com/HeliBorg/HeliBoard>, remote
 `upstream`). It is published at <https://github.com/highlyproteus/clackatoo> and installed with Obtainium from its
-GitHub releases. Design: square, not pills (6dp corner radius for keys and panels, 4dp for small elements).
+GitHub releases. Design: Material 3 shapes (keys and key-like buttons 8dp, cards and panels 12dp; stock buttons and switches), see Style notes.
 
 ## Rules
 
@@ -98,7 +98,18 @@ decoder on the same strokes and the decoding time.
   pressed/selected/active things. `ClackatooStyle.colors` builds a `DefaultColors` whose `changeCheck` makes
   `KeyboardSwitcher` rebuild the views when the system colours change. Never hard-code colours in Clackatoo code: take
   them from `Settings.getValues().mColors`. Labels must stay at 4.5:1 (`ClackatooPaletteTest`).
-- Shapes: no pills or circles (6dp keys and panels, 4dp small things). Check suggestion strip, toolbar, popups,
-  toast and the Voice/Check panel when adding UI.
+- Shapes: Material 3 defaults. Keys and key-like buttons 8dp (`ClackatooStyle.CORNER_RADIUS_DP`, the `*_clackatoo`
+  drawables), the keyboard's own panels and toast 12dp, small things 8dp. Check suggestion strip, toolbar, popups, toast
+  and the Voice/Check panel when adding UI.
+- Themes: the theme preferences (`theme_colors`, `theme_colors_night`) hold a name: HeliBoard's built-in names, `clackatoo`,
+  `glass`, `glass_dark`, `glass_light`, `omarchy_<name>`, or the name of a user theme (a user theme always wins over a
+  built-in one of the same name; new user themes cannot take built-in names). Every Clackatoo theme is a `ClackatooPalette`
+  (`ClackatooStyle.paletteColors`), so one contrast guard covers them all. Omarchy themes come from
+  `tools/omarchy-themes/generate.py` at a pinned commit (colours only, MIT, `third_party/omarchy/`); never hand-edit
+  `OmarchyThemeData.kt`, change the generator or the mapping in `OmarchyThemes.kt`.
+- Glass: the colours are translucent (`GlassPalette`), the keyboard window is transparent and the blur is a separate small
+  window behind the visible keyboard (`GlassWindow`; `Window.setBackgroundBlurRadius` on the keyboard window itself blurs the
+  whole screen, because that window is as tall as the screen). Where blur is off the tint is nearly opaque. Labels must have 4.5:1
+  over white and over black behind the keyboard (`ThemePalettesTest`).
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.

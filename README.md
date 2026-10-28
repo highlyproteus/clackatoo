@@ -14,8 +14,12 @@ recognition and grammar correction all run on the device.
 
 ## Features
 
-- **System theming.** Square keys with a hairline edge and Inter labels, coloured from the system's Material 3
+- **System theming.** Keys with 8dp corners and a hairline edge and Inter labels, coloured from the system's Material 3
   palette. The keyboard follows palette and dark-theme changes without a restart.
+- **Themes.** A theme picker (Settings > Appearance > Theme) with live miniatures: Follow phone, three Glass themes
+  (translucent, blurring the app behind the keyboard where Android allows it), all 23 colour themes of
+  [Omarchy](https://github.com/basecamp/omarchy), HeliBoard's classic themes and your own, with separate day and night
+  choices.
 - **Voice typing.** Speech to text with NVIDIA Parakeet TDT 0.6B v3 or, without it, Whisper (English and Spanish).
   With Parakeet the words appear in the voice panel while you speak and go into the field when you tap Stop. English
   transcripts are cleaned up by S1-mini by Superwhisper (filler words, self-corrections, punctuation, numbers).
@@ -69,6 +73,18 @@ The default colour theme, "Clackatoo (follows the phone)", maps keyboard element
 Android 14 and later provide these roles directly; Android 12 and 13 use the nearest system tones, and earlier
 versions use a fixed fallback palette. Labels are kept at a contrast ratio of at least 4.5:1, falling back to black or
 white where a system colour would not meet it.
+
+### Glass and Omarchy themes
+
+The Glass themes make the keyboard window translucent. On Android 12 and later, where the phone allows window blur
+(not in battery saver, not switched off in developer options), what is behind the keyboard is blurred; otherwise the
+tint is nearly opaque. Whatever is behind it, labels keep a contrast of at least 4.5:1 (checked over white and over
+black). The 23 Omarchy themes use the colour tables (`colors.toml`) of [Omarchy](https://github.com/basecamp/omarchy)
+(MIT) at a pinned commit, mapped as: keyboard `background`; letter keys `lighter_background` (dark themes) or
+`dark_background` (light themes); function keys `selection` or `darker_background`; labels `foreground`; hints
+`light_foreground`; accent `accent`; labels and hints are raised to 4.5:1 where a theme is fainter. They are generated
+by `python3 tools/omarchy-themes/generate.py` (needs network, or `--source` with a clone) into `OmarchyThemeData.kt`;
+`--check` verifies the checked-in file.
 
 ## Privacy and security
 
