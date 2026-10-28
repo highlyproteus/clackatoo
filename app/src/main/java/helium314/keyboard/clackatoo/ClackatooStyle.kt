@@ -21,10 +21,12 @@ import helium314.keyboard.latin.utils.prefs
 
 /** Everything that is specific to the Clackatoo style, kept apart from upstream's styles so upstream stays mergeable. */
 object ClackatooStyle {
-    /** Corner radius of keys and panels, in dp (hub design rule: square, not pills). */
-    const val CORNER_RADIUS_DP = 6f
+    /** Corner radius of keys and of buttons that look like keys, in dp (Material 3 "small"). */
+    const val CORNER_RADIUS_DP = 8f
     /** Corner radius of small elements, in dp. */
-    const val SMALL_CORNER_RADIUS_DP = 4f
+    const val SMALL_CORNER_RADIUS_DP = 8f
+    /** Corner radius of the keyboard's own panels (the toast; the popup panel's drawable says the same), in dp (Material 3 "medium"). */
+    const val PANEL_CORNER_RADIUS_DP = 12f
     /** The hairline edge of keys is one physical pixel wide. */
     const val BORDER_WIDTH_PX = 1f
 
@@ -82,9 +84,22 @@ object ClackatooStyle {
     @JvmStatic
     fun colors(
         context: Context, themeStyle: String, hasBorders: Boolean, forcedDark: Boolean?, keyboardBackground: Drawable?,
+    ): Colors = paletteColors(context, themeStyle, hasBorders, keyboardBackground) {
+        ClackatooPalette.resolve(it, forcedDark ?: ResourceUtils.isNight(it.resources))
+    }
+
+    /**
+     * The keyboard colours of [palette], which [resolve] returns for a context. The keyboard compares [resolve]'s result with the
+     * palette it was built from (whenever it is about to show), and rebuilds itself if they differ, so a palette that depends on
+     * something outside the app (the phone's colours, whether blur is on) follows it. A [translucent] palette (glass) makes the
+     * keyboard window translucent; [blurRadiusDp] above 0 blurs what is behind it.
+     */
+    @JvmStatic
+    fun paletteColors(
+        context: Context, themeStyle: String, hasBorders: Boolean, keyboardBackground: Drawable?,
+        translucent: Boolean = false, blurRadiusDp: Int = 0, resolve: (Context) -> ClackatooPalette,
     ): Colors {
-        fun dark(context: Context) = forcedDark ?: ResourceUtils.isNight(context.resources)
-        val palette = ClackatooPalette.resolve(context, dark(context))
+        val palette = resolve(context)
         return DefaultColors(
             themeStyle,
             hasBorders,
@@ -101,10 +116,31 @@ object ClackatooStyle {
             actionKeyBackground = palette.actionKey,
             actionKeyIcon = palette.actionKeyContent,
             autoCorrectText = palette.selectedText,
-            popupBackground = palette.surfaceContainerHighest,
+            popupBackground = palette.popup,
             // the keyboard compares this with the phone's colours now, and rebuilds itself if they differ
-            changeCheck = { ClackatooPalette.resolve(it, dark(it)) != palette },
+            changeCheck = { resolve(it) != palette },
+            translucentWindow = translucent,
+            windowBlurRadiusDp = blurRadiusDp,
         )
+    }
+
+    /**
+     * The glass theme [themeName] ([ThemeCatalog.GLASS], which takes the phone's colours and dark or light mode, or the fixed
+     * [ThemeCatalog.GLASS_DARK] and [ThemeCatalog.GLASS_LIGHT]): translucent colours, and blur behind the window where the phone does it.
+     */
+    @JvmStatic
+    fun glassColors(
+        context: Context, themeName: String, themeStyle: String, hasBorders: Boolean, forcedDark: Boolean?, keyboardBackground: Drawable?,
+    ): Colors = paletteColors(
+        context, themeStyle, hasBorders, keyboardBackground,
+        translucent = true, blurRadiusDp = if (GlassWindow.blurAvailable(context)) GlassPalette.BLUR_RADIUS_DP else 0,
+    ) {
+        val blur = GlassWindow.blurAvailable(it)
+        when (themeName) {
+            ThemeCatalog.GLASS_DARK -> GlassPalette.fixed(true, blur)
+            ThemeCatalog.GLASS_LIGHT -> GlassPalette.fixed(false, blur)
+            else -> GlassPalette.build(ClackatooPalette.resolve(it, forcedDark ?: ResourceUtils.isNight(it.resources)), blur)
+        }
     }
 
     /** Background of an enabled (pinned) toolbar key: a square with the accent at low opacity instead of a round glow. */
@@ -120,7 +156,7 @@ object ClackatooStyle {
     fun styleToast(view: TextView, colors: Colors) {
         val density = view.resources.displayMetrics.density
         view.background = GradientDrawable().apply {
-            cornerRadius = CORNER_RADIUS_DP * density
+            cornerRadius = PANEL_CORNER_RADIUS_DP * density
             setColor(colors.get(ColorType.POPUP_KEYS_BACKGROUND))
             setStroke(BORDER_WIDTH_PX.toInt(), colors.keyBorder)
         }

@@ -4,4 +4,25 @@
     <!-- names are looked up by name at runtime, see getStringResourceOrName -->
     <string name="style_name_Clackatoo" translatable="false" tools:keep="@string/style_name_Clackatoo">Clackatoo</string>
     <string name="theme_name_clackatoo" translatable="false" tools:keep="@string/theme_name_clackatoo">Clackatoo (follows the phone)</string>
+    <string name="theme_name_glass" translatable="false">Glass (follows the phone)</string>
+    <string name="theme_name_glass_dark" translatable="false">Glass dark</string>
+    <string name="theme_name_glass_light" translatable="false">Glass light</string>
+
+    <!-- theme picker -->
+    <string name="theme_picker_title" translatable="false">Theme</string>
+    <string name="theme_picker_summary" translatable="false">%1$s</string>
+    <string name="theme_picker_group_follow" translatable="false">Follow phone</string>
+    <string name="theme_picker_group_glass" translatable="false">Glass</string>
+    <string name="theme_picker_group_omarchy" translatable="false">Omarchy</string>
+    <string name="theme_picker_group_classic" translatable="false">Classic</string>
+    <string name="theme_picker_group_custom" translatable="false">Custom</string>
+    <string name="theme_picker_day" translatable="false">Day</string>
+    <string name="theme_picker_night" translatable="false">Night</string>
+    <string name="theme_picker_day_night" translatable="false">Different theme at night</string>
+    <string name="theme_picker_day_night_summary" translatable="false">Choose a theme for day and one for night; the keyboard follows the phone\'s dark mode</string>
+    <string name="theme_picker_new_custom" translatable="false">New custom theme</string>
+    <string name="theme_picker_edit_custom" translatable="false">Edit colours</string>
+    <string name="theme_picker_selected" translatable="false">Selected</string>
+    <string name="theme_picker_glass_note" translatable="false">Glass blurs the app behind the keyboard where the phone allows it, and tints it otherwise.</string>
+    <string name="theme_picker_omarchy_note" translatable="false">Colours of the Omarchy themes (MIT, github.com/basecamp/omarchy).</string>
 </resources>

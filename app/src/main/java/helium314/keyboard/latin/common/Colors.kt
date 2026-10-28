@@ -52,6 +52,11 @@ interface Colors {
     val accentShiftedIcon: Boolean get() =
         Settings.getCurrentContext().prefs().getBoolean(Settings.PREF_ACCENT_SHIFTED_ICON, Defaults.PREF_ACCENT_SHIFTED_ICON)
 
+    /** true if the keyboard window has to be translucent (the glass theme draws translucent colours over what is behind it) */
+    val translucentWindow: Boolean get() = false
+    /** radius in dp of the blur of what is behind the keyboard window, 0 for none; only used if [translucentWindow] */
+    val windowBlurRadiusDp: Int get() = 0
+
     /** use to check whether colors have changed, for colors (in)directly derived from context,
      *  e.g. night mode or potentially changing system colors */
     fun haveColorsChanged(context: Context): Boolean = false
@@ -407,6 +412,8 @@ class DefaultColors (
     popupBackground: Int? = null,
     /** returns true if the colours (which may come from the system) are not what they were when this was created */
     private val changeCheck: ((Context) -> Boolean)? = null,
+    override val translucentWindow: Boolean = false,
+    override val windowBlurRadiusDp: Int = 0,
 ) : Colors {
     override val keyBorder: Int = keyBorderColor ?: brightenOrDarken(keyBackground, true)
     private val navBar: Int
@@ -455,7 +462,8 @@ class DefaultColors (
 
         val stripBackground: Int
         val pressedStripElementBackground: Int
-        if (keyboardBackground != null || (themeStyle == STYLE_HOLO && hasKeyBorders)) {
+        // (a translucent keyboard, too: the strip is drawn over the keyboard's background, and two layers of glass would make it darker than the keys)
+        if (keyboardBackground != null || (themeStyle == STYLE_HOLO && hasKeyBorders) || translucentWindow) {
             stripBackground = Color.TRANSPARENT
             pressedStripElementBackground = if (isDarkColor(background)) 0x22ffffff // assume background is similar to the background color
                 else 0x11000000

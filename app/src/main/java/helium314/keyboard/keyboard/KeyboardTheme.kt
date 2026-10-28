@@ -8,6 +8,8 @@ package helium314.keyboard.keyboard
 import android.content.Context
 import android.content.SharedPreferences
 import helium314.keyboard.clackatoo.ClackatooStyle
+import helium314.keyboard.clackatoo.OmarchyThemes
+import helium314.keyboard.clackatoo.ThemeCatalog
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -52,6 +54,7 @@ private constructor(val themeId: Int, @JvmField val mStyleId: Int) {
 
         // new themes that are just colors
         const val THEME_CLACKATOO = "clackatoo"
+        // glass (ThemeCatalog.GLASS, GLASS_DARK, GLASS_LIGHT) and Omarchy ("omarchy_<name>", OmarchyThemes) are handled in getThemeColors
         const val THEME_LIGHT = "light"
         const val THEME_HOLO_WHITE = "holo_white"
         const val THEME_DARK = "dark"
@@ -156,9 +159,16 @@ private constructor(val themeId: Int, @JvmField val mStyleId: Int) {
             return getThemeColors(themeName!!, themeStyle!!, context, prefs, isNight)
         }
 
-        private fun getThemeColors(themeName: String, themeStyle: String, context: Context, prefs: SharedPreferences, isNight: Boolean): Colors {
+        /** The colours of the theme named [themeName] in the keyboard's current style, as they look in the day or in the [night]. Used by the theme picker for its previews. */
+        @JvmStatic
+        fun getColorsForThemeName(context: Context, themeName: String, night: Boolean): Colors {
+            val prefs = context.prefs()
+            return getThemeColors(themeName, prefs.getString(Settings.PREF_THEME_STYLE, Defaults.PREF_THEME_STYLE)!!, context, prefs, night, false)
+        }
+
+        private fun getThemeColors(themeName: String, themeStyle: String, context: Context, prefs: SharedPreferences, isNight: Boolean, withBackgroundImage: Boolean = true): Colors {
             val hasBorders = hasKeyBorders(prefs)
-            val backgroundImage = Settings.readUserBackgroundImage(context, isNight)
+            val backgroundImage = if (withBackgroundImage) Settings.readUserBackgroundImage(context, isNight) else null
             return when (themeName) {
                 THEME_DYNAMIC -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) DynamicColors(context, themeStyle, hasBorders, backgroundImage)
@@ -166,6 +176,10 @@ private constructor(val themeId: Int, @JvmField val mStyleId: Int) {
                 }
                 // the phone's own colours, in the phone's dark theme whatever the day/night setting of the keyboard is
                 THEME_CLACKATOO -> ClackatooStyle.colors(context, themeStyle, hasBorders, SettingsActivity.forceNight, backgroundImage)
+                // a user theme that has one of the new names from before they existed keeps working
+                ThemeCatalog.GLASS, ThemeCatalog.GLASS_DARK, ThemeCatalog.GLASS_LIGHT ->
+                    if (isUserTheme(prefs, themeName)) userThemeColors(themeName, themeStyle, hasBorders, prefs, context, isNight, backgroundImage)
+                    else ClackatooStyle.glassColors(context, themeName, themeStyle, hasBorders, SettingsActivity.forceNight, backgroundImage)
                 THEME_LIGHT -> DefaultColors(
                     themeStyle,
                     hasBorders,
@@ -350,16 +364,25 @@ private constructor(val themeId: Int, @JvmField val mStyleId: Int) {
                     Color.WHITE,
                     keyboardBackground = backgroundImage
                 )
-                else -> { // user-defined theme
-                    val colorSettings = readUserColors(prefs, themeName)
-                    val colors = readUserColorTheme(themeStyle, hasBorders, colorSettings, context, isNight, backgroundImage)
-                    if (readUserMoreColors(prefs, themeName) == 2)
-                        AllColors(readUserAllColors(prefs, themeName, colors), themeStyle, hasBorders, backgroundImage)
-                    else {
-                        colors
-                    }
+                else -> {
+                    val omarchy = OmarchyThemes.byId(themeName)
+                    if (omarchy != null && !isUserTheme(prefs, themeName))
+                        ClackatooStyle.paletteColors(context, themeStyle, hasBorders, backgroundImage) { omarchy.palette }
+                    else userThemeColors(themeName, themeStyle, hasBorders, prefs, context, isNight, backgroundImage)
                 }
             }
+        }
+
+        /** True if the user has colours stored for the theme called [themeName]. */
+        private fun isUserTheme(prefs: SharedPreferences, themeName: String) =
+            listOf(Settings.PREF_USER_COLORS_PREFIX, Settings.PREF_USER_MORE_COLORS_PREFIX, Settings.PREF_USER_ALL_COLORS_PREFIX).any { prefs.contains(it + themeName) }
+
+        private fun userThemeColors(themeName: String, themeStyle: String, hasBorders: Boolean, prefs: SharedPreferences, context: Context, isNight: Boolean, backgroundImage: Drawable?): Colors {
+            val colorSettings = readUserColors(prefs, themeName)
+            val colors = readUserColorTheme(themeStyle, hasBorders, colorSettings, context, isNight, backgroundImage)
+            return if (readUserMoreColors(prefs, themeName) == 2)
+                AllColors(readUserAllColors(prefs, themeName, colors), themeStyle, hasBorders, backgroundImage)
+            else colors
         }
 
         fun readUserColorTheme(themeStyle: String, hasBorders: Boolean, colorSettings: List<ColorSetting>, context: Context, isNight: Boolean, backgroundImage: Drawable?): Colors {
@@ -432,7 +455,8 @@ private constructor(val themeId: Int, @JvmField val mStyleId: Int) {
         }
 
         fun getUnusedThemeName(initialName: String, prefs: SharedPreferences): String {
-            val existingNames = getExistingThemeNames(prefs)
+            // the names of the glass and Omarchy themes are taken, too
+            val existingNames = getExistingThemeNames(prefs) + ThemeCatalog.glass + OmarchyThemes.all.map { it.id }
             if (initialName !in existingNames) return initialName
             var i = 1
             while ("$initialName$i" in existingNames)

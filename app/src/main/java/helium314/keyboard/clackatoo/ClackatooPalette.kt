@@ -8,6 +8,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import helium314.keyboard.latin.utils.brightenOrDarken
 
 /**
  * The colours of the Clackatoo keyboard: Material 3 colour roles taken from
@@ -34,9 +35,24 @@ data class ClackatooPalette(
     @ColorInt val onSurfaceVariant: Int,
     /** the accent: active and selected things only */
     @ColorInt val primary: Int,
+    /** background of popups, which are drawn over keys and need to stay opaque even where the other colours are glass */
+    @ColorInt val popup: Int = surfaceContainerHighest,
+    /** opacity (0-255) of the hairline edge of keys: 12% (dark) or 16% (light) unless a theme wants it stronger */
+    val hairlineAlpha: Int = if (dark) 31 else 41,
 ) {
-    /** The hairline edge of keys: 1 pixel of [onSurface] at 12% (dark) or 16% (light). */
-    @get:ColorInt val hairline get() = ColorUtils.setAlphaComponent(onSurface, if (dark) 31 else 41)
+    /** The hairline edge of keys: 1 pixel of [onSurface] at [hairlineAlpha]. */
+    @get:ColorInt val hairline get() = ColorUtils.setAlphaComponent(onSurface, hairlineAlpha)
+
+    /**
+     * The surface as it can look: the colours may be translucent (the glass theme), and then what is behind the
+     * keyboard decides. These are the surface over white and over black, the worst cases; one colour if it is opaque.
+     */
+    private fun surfaces() = listOf(WHITE, BLACK).map { ColorUtils.compositeColors(surface, it) }.distinct()
+
+    /** [background] (a key, drawn over the surface) over each of [surfaces]. */
+    private fun onSurfaces(@ColorInt background: Int) = surfaces().map { ColorUtils.compositeColors(background, it) }
+
+    private fun readable(@ColorInt text: Int, backgrounds: List<Int>) = backgrounds.all { contrast(text, it) >= MIN_TEXT_CONTRAST }
 
     /** Fill of a pressed key: the key colour with a share of [primary]. */
     @ColorInt fun pressed(@ColorInt fill: Int) = ColorUtils.blendARGB(fill, primary, PRESSED_SHARE)
@@ -45,37 +61,73 @@ data class ClackatooPalette(
     @get:ColorInt val actionKey get() = ColorUtils.blendARGB(surfaceContainerHighest, primary, ACTION_KEY_SHARE)
 
     /** The Enter key's glyph or label: [primary] where that is readable on [actionKey], else [onSurface]. */
-    @get:ColorInt val actionKeyContent get() = if (contrast(primary, actionKey) >= MIN_TEXT_CONTRAST) primary else onSurface
+    @get:ColorInt val actionKeyContent get() = if (readable(primary, onSurfaces(actionKey))) primary else onSurface
 
     /** The selected suggestion: [primary] where that is readable on [surface], else [onSurface]. */
-    @get:ColorInt val selectedText get() = if (contrast(primary, surface) >= MIN_TEXT_CONTRAST) primary else onSurface
+    @get:ColorInt val selectedText get() = if (readable(primary, surfaces())) primary else onSurface
 
     /**
      * Guards the contrast of text (at least 4.5:1, WCAG AA) against odd system colours: labels fall back to black or
      * white, hint letters to the label colour, wherever the key colours leave too little contrast.
      */
     fun withReadableText(): ClackatooPalette {
-        val resting = listOf(surface, surfaceContainerHigh, surfaceContainerHighest)
-        // labels also have to be readable on the Enter key and on keys while they are pressed; hint letters (which the Enter key has none of) only on keys at rest
-        val backgrounds = resting + listOf(actionKey, pressed(surfaceContainerHigh), pressed(surfaceContainerHighest), pressed(actionKey))
-        fun readable(@ColorInt text: Int) = backgrounds.all { contrast(text, it) >= MIN_TEXT_CONTRAST }
+        val resting = restingBackgrounds()
+        val backgrounds = labelBackgrounds()
+        fun readable(@ColorInt text: Int) = labelReadable(text)
         val label = when {
             readable(onSurface) -> onSurface
             readable(BLACK) && !readable(WHITE) -> BLACK
             readable(WHITE) && !readable(BLACK) -> WHITE
             else -> listOf(BLACK, WHITE).maxBy { text -> backgrounds.minOf { contrast(text, it) } }
         }
-        val variant = if (resting.all { contrast(onSurfaceVariant, it) >= MIN_TEXT_CONTRAST }) onSurfaceVariant else label
+        val variant = if (readable(onSurfaceVariant, resting)) onSurfaceVariant else label
         return copy(onSurface = label, onSurfaceVariant = variant)
     }
+
+    /**
+     * Like [withReadableText], but keeps the character of a theme's colours: a label or hint that is too faint is moved
+     * towards white (on dark keys) or black (on light keys) in 5% steps until it has 4.5:1, instead of jumping to pure white or black.
+     */
+    fun withRaisedText(): ClackatooPalette {
+        val resting = restingBackgrounds()
+        val backgrounds = labelBackgrounds()
+        fun raise(@ColorInt text: Int, on: List<Int>, ok: (Int) -> Boolean): Int {
+            if (ok(text)) return text
+            val target = if (on.map { ColorUtils.calculateLuminance(it) }.average() < 0.5) WHITE else BLACK
+            for (step in 1..20) {
+                val raised = ColorUtils.blendARGB(text, target, step / 20f)
+                if (ok(raised)) return raised
+            }
+            return target
+        }
+        val label = raise(onSurface, backgrounds) { labelReadable(it) }
+        val variant = raise(onSurfaceVariant, resting) { readable(it, resting) }
+        return copy(onSurface = label, onSurfaceVariant = variant)
+    }
+
+    /** True if the label colour is readable (4.5:1) on every key and surface, as they look over white and over black. */
+    fun hasReadableLabels() = labelReadable(onSurface)
+
+    /**
+     * True if [text] can be a key label: readable on everything a key label is drawn on, and so is the suggestion strip's colour for
+     * suggestions that are not the main one, which the keyboard makes from the label colour (a little brighter or darker).
+     */
+    private fun labelReadable(@ColorInt text: Int) = readable(text, labelBackgrounds()) && readable(brightenOrDarken(text, true), surfaces())
+
+    /** What a key label can be drawn on: surface and keys at rest, the Enter key, pressed keys and popups, each as it looks over white and over black. */
+    private fun labelBackgrounds() = restingBackgrounds() + onSurfaces(actionKey) + onSurfaces(pressed(surfaceContainerHigh)) +
+        onSurfaces(pressed(surfaceContainerHighest)) + onSurfaces(pressed(actionKey)) + onSurfaces(popup)
+
+    /** The surface and keys at rest: where hint letters (which the Enter key and pressed keys do not need) are drawn. */
+    private fun restingBackgrounds() = surfaces() + onSurfaces(surfaceContainerHigh) + onSurfaces(surfaceContainerHighest)
 
     companion object {
         const val MIN_TEXT_CONTRAST = 4.5
         /** share of [primary] in a pressed key */
         const val PRESSED_SHARE = 0.2f
         private const val ACTION_KEY_SHARE = 0.2f
-        private const val BLACK = 0xFF000000.toInt()
-        private const val WHITE = 0xFFFFFFFF.toInt()
+        const val BLACK = 0xFF000000.toInt()
+        const val WHITE = 0xFFFFFFFF.toInt()
 
         /** WCAG contrast ratio of [text] on [background] (taken as opaque, as system colours are). */
         fun contrast(@ColorInt text: Int, @ColorInt background: Int) =
