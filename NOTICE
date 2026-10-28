@@ -100,7 +100,9 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   the gesture settings no longer offer the (unsupported) space-aware option. The
   engine also builds on a host for testing (`tools/gesture-eval/`, never shipped;
   small additive changes to `ProximityInfo`, `Dictionary` and `SuggestionResults`
-  for that, and a larger node cache for gestures in `DicNodesCache`).
+  for that, a larger node cache for gestures in `DicNodesCache`, and `Suggest`
+  continues a search only when nodes were cached). HeliBoard's gesture data
+  gathering stays hidden and off (`GestureDataPolicy`).
 
 Upstream copyright
 ------------------
