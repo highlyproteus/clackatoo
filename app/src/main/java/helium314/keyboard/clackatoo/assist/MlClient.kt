@@ -146,7 +146,10 @@ class MlClient(context: Context) {
         }
         val completion = object : Completion {
             override val isActive get() = call.result.isActive
-            override fun resume(result: MlResult) { call.result.complete(result) }
+            override fun resume(result: MlResult) {
+                call.stop() // nothing more is wanted from the audio thread, whatever it still sends
+                call.result.complete(result)
+            }
             override fun fail(error: MlException) {
                 call.stop()
                 call.result.completeExceptionally(error)
@@ -163,6 +166,7 @@ class MlClient(context: Context) {
             runCatching { audioPipe[0].close() }
             runCatching { eventPipe[1].close() }
             runCatching { vadFd?.close() }
+            call.attachPipes(audioPipe[1], eventPipe[0])
             call.startWriter(ParcelFileDescriptor.AutoCloseOutputStream(audioPipe[1]))
             Thread({ readEvents(call, eventPipe[0], onText) }, "clackatoo-live-events").start()
         }, discardExtras = ::closeAll)
@@ -179,6 +183,10 @@ class MlClient(context: Context) {
 
     /** Reads the event frames of [id] until the service ends them, and reports them in order on the main thread. */
     private fun readEvents(call: LiveCall, read: ParcelFileDescriptor, onText: (String, String) -> Unit) {
+        // The newest text goes to the main thread through one slot and at most one pending post, so a process that sends
+        // frames faster than the keyboard can show them cannot queue work (or memory) on the main thread.
+        val latest = java.util.concurrent.atomic.AtomicReference<Pair<String, String>?>(null)
+        val posted = java.util.concurrent.atomic.AtomicBoolean(false)
         val committed = ArrayList<String>()
         var partial = ""
         var segmentBytes = 0
@@ -202,9 +210,14 @@ class MlClient(context: Context) {
                         }
                     }
                     if (!ended) {
-                        val c = committed.joinToString(" ")
-                        val p = partial
-                        main.post { if (!call.stopped) onText(c, p) }
+                        latest.set(committed.joinToString(" ") to partial)
+                        if (posted.compareAndSet(false, true)) {
+                            main.post {
+                                posted.set(false)
+                                val text = latest.get()
+                                if (text != null && !call.stopped) onText(text.first, text.second)
+                            }
+                        }
                     }
                 }
             }
@@ -216,6 +229,8 @@ class MlClient(context: Context) {
         }
         val text = committed.joinToString(" ")
         main.post {
+            // the last text first: a call that ended right after a burst of frames still shows its final state
+            latest.getAndSet(null)?.let { if (!call.stopped) onText(it.first, it.second) }
             if (call.stopped) return@post
             val id = call.id ?: return@post
             if (failure != null) failRequest(id, MlException(failure))
@@ -497,6 +512,22 @@ class LiveCall internal constructor() {
     @Volatile internal var stopped = false
     @Volatile internal var id: Int? = null
     private var onCancel: (() -> Unit)? = null
+    private var audioOut: ParcelFileDescriptor? = null
+    private var eventsIn: ParcelFileDescriptor? = null
+    private val pipeLock = Any()
+
+    /** The keyboard's ends of the two pipes, closed by [stop] so that no thread stays blocked on them. */
+    internal fun attachPipes(audio: ParcelFileDescriptor, events: ParcelFileDescriptor) {
+        synchronized(pipeLock) {
+            if (!stopped) {
+                audioOut = audio
+                eventsIn = events
+                return
+            }
+        }
+        runCatching { audio.close() }
+        runCatching { events.close() }
+    }
 
     internal fun attach(id: Int, onCancel: () -> Unit) {
         this.id = id
@@ -530,6 +561,8 @@ class LiveCall internal constructor() {
         stopped = true
         queue.clear()
         queue.put(END)
+        val pipes = synchronized(pipeLock) { listOfNotNull(audioOut, eventsIn).also { audioOut = null; eventsIn = null } }
+        pipes.forEach { runCatching { it.close() } }
     }
 
     /** Drains the queue into the audio pipe on a thread of its own, so the audio thread never waits for the pipe. */

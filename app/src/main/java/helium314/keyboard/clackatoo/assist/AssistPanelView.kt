@@ -191,10 +191,13 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
      */
     fun showLiveText(committed: String, partial: String) {
         val text = if (committed.isEmpty() || partial.isEmpty()) committed + partial else "$committed $partial"
-        val spannable = SpannableString(text)
+        // only the tail is laid out: the text can be as long as a whole dictation
+        val cut = maxOf(0, text.length - LIVE_TEXT_MAX_CHARS)
+        val shown = if (cut == 0) text else text.substring(cut)
+        val spannable = SpannableString(shown)
         if (partial.isNotEmpty()) {
-            val start = text.length - partial.length
-            spannable.setSpan(ForegroundColorSpan(colors.get(ColorType.KEY_HINT_TEXT)), start, text.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val start = shown.length - minOf(partial.length, shown.length)
+            spannable.setSpan(ForegroundColorSpan(colors.get(ColorType.KEY_HINT_TEXT)), start, shown.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         liveText.text = lastLines(spannable)
         liveText.visibility = if (text.isEmpty()) GONE else VISIBLE
@@ -306,6 +309,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
 
     private companion object {
         const val LIVE_TEXT_LINES = 3
+        const val LIVE_TEXT_MAX_CHARS = 1_000
     }
 
     /** Recent input levels as square bars. */
