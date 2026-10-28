@@ -219,7 +219,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
      * with a timeout of [START_TIMEOUT_MS]; a start that cannot show the panel in time is cancelled with the microphone still
      * closed and reported as [ListeningStart.PANEL_HIDDEN]. Every way out of STARTING ([close]) removes the listener and the
      * timeout, and a late callback of a cancelled start does nothing (token). Once recording, the recording lasts only while the
-     * panel is on screen: [onPanelUnavailable] and the level callback (every 100 ms) stop it and drop the audio otherwise.
+     * panel is on screen: a pre-draw watch ([watchPanel]) ends it on the first frame in which the panel is not on screen,
+     * [onPanelUnavailable] ends it at once when the panel is hidden or detached, and the level callback (every 100 ms) is a
+     * backstop that stops it and drops the audio otherwise.
      */
     internal fun startListening(
         view: AssistPanelView,
@@ -479,6 +481,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
             MissingModels.Plan.Broken, MissingModels.Plan.Nothing -> return message(titleRes, missingModelText(kind, missingRes), settings = true)
             MissingModels.Plan.Unsupported -> return message(titleRes, ime.getString(R.string.models_unsupported_phone))
         }
+        endWatches()
         job = null
         recorder?.cancel()
         recorder = null

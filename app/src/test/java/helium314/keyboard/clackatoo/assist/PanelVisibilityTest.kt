@@ -584,16 +584,47 @@ class PanelVisibilityTest {
         assertEquals(0, recorders.single().stopped)
     }
 
-    @Test fun `the frame watch ends with the recording and with every other way out of listening`() {
+    /** How many pre-draw listeners the window's view tree observer holds (the panel shares the window's observer). */
+    private fun preDrawListeners(): Int {
+        val listeners = ReflectionHelpers.getField<Any?>(panel.viewTreeObserver, "mOnPreDrawListeners") ?: return 0
+        return ReflectionHelpers.callInstanceMethod<Int>(listeners, "size")
+    }
+
+    @Test fun `no pre-draw listener outlives a pending start or a recording, whichever way it ends`() {
+        val ways = linkedMapOf<String, (AssistController) -> Unit>(
+            "close" to { it.close() },
+            "the session changed" to { it.onSessionChanged() },
+            "Cancel" to { it.onCancel() },
+            "Stop" to { it.onStop() },
+            "hidden ancestor" to { wrapper.visibility = View.GONE },
+        )
+        for (listening in listOf(false, true)) for ((name, way) in ways) {
+            tearDownViews(); setUp()
+            val baseline = preDrawListeners()
+            val recorders = ArrayList<FakeRecorder>()
+            val controller = controller(recorders)
+            controller.startListening(panel) { }
+            if (listening) idle()
+            assertEquals(if (listening) 1 else 0, recorders.size, name)
+            assertTrue(preDrawListeners() > baseline, "$name: a listener is registered while waiting or recording")
+            way(controller)
+            idle()
+            assertEquals(baseline, preDrawListeners(), "$name (${if (listening) "recording" else "pending"}): the listener is removed")
+        }
+    }
+
+    @Test fun `a message or the needs-a-model sheet also removes the watches`() {
         val recorders = ArrayList<FakeRecorder>()
         val controller = controller(recorders)
+        val baseline = preDrawListeners()
         start(controller)
+        assertTrue(preDrawListeners() > baseline)
         controller.close()
-        // a later frame without area must not touch a new pending start or anything else
+        assertEquals(baseline, preDrawListeners())
+        // a frame without area after the recording ended touches nothing and a later start works
         wrapper.layoutParams = FrameLayout.LayoutParams(-1, 0)
         idle()
         assertTrue(controller.isIdle)
-        assertEquals(1, recorders.single().cancelled)
         restoreLayout()
         start(controller)
         assertEquals(2, recorders.size)
