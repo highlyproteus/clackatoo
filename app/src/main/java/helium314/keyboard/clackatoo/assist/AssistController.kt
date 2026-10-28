@@ -56,6 +56,12 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     /** Increases whenever the editor, keyboard visibility or language changes; results of older work are dropped. */
     private var session = 0
 
+    /** The clock of the first-layout allowance below; tests replace it. */
+    internal var elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime
+    private var listeningSince = 0L
+    /** Whether the recording panel has been seen on screen (laid out, visible) since this recording started. */
+    private var panelSeen = false
+
     private enum class Mode { NONE, LISTENING, WORKING, PREVIEW, MESSAGE, SHEET }
     private var mode = Mode.NONE
     internal val isListening get() = mode == Mode.LISTENING
@@ -177,7 +183,15 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
             { level ->
                 main.post {
                     if (mode == Mode.LISTENING) {
-                        if (panel?.isOnScreen() == true) panel?.setLevel(level) else close()
+                        if (panel?.isOnScreen() == true) {
+                            panelSeen = true
+                            panel?.setLevel(level)
+                        } else if (!panelSeen && elapsedRealtime() - listeningSince < FIRST_LAYOUT_MS && panel?.isVisibleAwaitingLayout() == true) {
+                            // the panel was made visible a moment ago and has not been laid out yet (the first level update comes
+                            // within 100 ms, which a keyboard that has just started can take longer to draw): not hidden, wait for it
+                        } else {
+                            close()
+                        }
                     }
                 }
             },
@@ -190,6 +204,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
         recorder = rec
         liveCall = call
+        panelSeen = false
+        listeningSince = elapsedRealtime()
         mode = Mode.LISTENING
         view.showListening()
         if (!view.isShown) { // the panel could not be shown after all
@@ -637,10 +653,15 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (e.modelFailedWhileLoading) ime.getString(R.string.assist_model_broken)
         else ime.getString(R.string.assist_failed, e.message ?: "unknown")
 
-    private companion object {
-        const val TAG = "ClackatooAssist"
-        const val CHUNK_CHARS = 600
-        const val MAX_NEW_TOKENS_CLEAN_UP = 600
+    companion object {
+        private const val TAG = "ClackatooAssist"
+        /**
+         * How long a panel that has been made visible but not laid out yet may go without area before the level check ends the
+         * recording. A panel that was never seen is waited for; one that was seen and then loses its area ends at once.
+         */
+        internal const val FIRST_LAYOUT_MS = 2_000L
+        private const val CHUNK_CHARS = 600
+        private const val MAX_NEW_TOKENS_CLEAN_UP = 600
     }
 }
 

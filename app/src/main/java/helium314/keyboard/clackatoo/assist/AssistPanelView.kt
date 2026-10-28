@@ -392,6 +392,21 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         return true
     }
 
+    /**
+     * Like [isOnScreen] but without asking for any area: the panel and everything above it are attached, in a shown window and
+     * VISIBLE, yet may not have been laid out. That is the state of a panel that was made visible a moment ago and has not had
+     * its first layout pass yet (slow right after the keyboard's process started); it is not the state of a hidden panel.
+     */
+    fun isVisibleAwaitingLayout(): Boolean {
+        if (!isAttachedToWindow || beingHidden || windowVisibility != VISIBLE || visibility != VISIBLE) return false
+        var view = parent
+        while (view is View) {
+            if (view.visibility != VISIBLE) return false
+            view = view.parent
+        }
+        return true
+    }
+
     /** The panel is visible and [canBeSeen]: what a recording needs to go on. */
     fun isOnScreen(): Boolean = visibility == VISIBLE && canBeSeen()
 

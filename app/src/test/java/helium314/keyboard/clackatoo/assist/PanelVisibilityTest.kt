@@ -318,6 +318,8 @@ class PanelVisibilityTest {
         val controller = controller(recorders, ime)
         controller.startListening(panel)
         layOut()
+        recorders.single().onLevel(0.5f) // the panel is seen on screen at the first level update
+        idle()
         // no visibility change, so no callback: only the check on every level update (every 100 ms) can see this
         wrapper.layout(0, 0, width, 0)
         assertTrue(controller.isListening)
@@ -327,6 +329,66 @@ class PanelVisibilityTest {
         assertEquals(0, recorders.single().stopped)
         assertTrue(controller.isIdle)
         assertFalse(panel.isShowing)
+    }
+
+    // The bug: on a keyboard that has just started, the first level update (100 ms after the start) can come before the panel's
+    // first layout pass. It saw a panel without area, ended the recording and cancelled the live call that was still waiting for
+    // the model process to connect: nothing happened, silently.
+    @Test fun `a panel that was made visible but not laid out yet is waited for, not treated as hidden`() {
+        val recorders = ArrayList<FakeRecorder>()
+        var now = 1_000L
+        val controller = controller(recorders)
+        controller.elapsedRealtime = { now }
+        controller.startListening(panel)
+        wrapper.layout(0, 0, width, 0) // visible, attached, but no area yet
+        assertFalse(panel.isOnScreen())
+        now += 100
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertTrue(controller.isListening)
+        assertEquals(0, recorders.single().cancelled)
+        // once it is laid out it is seen, and from then on losing its area ends the recording at once
+        wrapper.layout(0, 0, width, height)
+        panel.layout(0, 0, width, height)
+        assertTrue(panel.isOnScreen())
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertTrue(controller.isListening)
+        wrapper.layout(0, 0, width, 0)
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `a panel that never gets its layout ends the recording after the allowance`() {
+        val recorders = ArrayList<FakeRecorder>()
+        var now = 1_000L
+        val controller = controller(recorders)
+        controller.elapsedRealtime = { now }
+        controller.startListening(panel)
+        wrapper.layout(0, 0, width, 0)
+        now += AssistController.FIRST_LAYOUT_MS + 1
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `a panel that is hidden, not merely unlaid, ends the recording at once even inside the allowance`() {
+        val recorders = ArrayList<FakeRecorder>()
+        var now = 1_000L
+        val controller = controller(recorders)
+        controller.elapsedRealtime = { now }
+        controller.startListening(panel)
+        wrapper.layout(0, 0, width, 0)
+        wrapper.visibility = View.GONE
+        idle()
+        now += 100
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
     }
 
     @Test fun `a panel that stays on screen keeps recording and shows the level`() {
