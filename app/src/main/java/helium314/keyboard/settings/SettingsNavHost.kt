@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings
 
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -45,6 +50,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsNavHost(
     onClickBack: () -> Unit,
+    onClickSetUp: () -> Unit = { },
     startDestination: String? = null,
 ) {
     val navController = rememberNavController()
@@ -53,7 +59,10 @@ fun SettingsNavHost(
 
     // duration does not change when system setting changes, but that's rare enough to not care
     val duration = (250 * getTransitionAnimationScale(LocalContext.current)).toInt()
-    val animation = tween<IntOffset>(durationMillis = duration)
+    // fade through, with a small slide: the screens are glass, so a full-width slide would show two screens' text over each other
+    val slide = tween<IntOffset>(durationMillis = duration, easing = FastOutSlowInEasing)
+    val fadeInSpec = tween<Float>(durationMillis = (duration * 0.6f).toInt(), delayMillis = (duration * 0.3f).toInt(), easing = LinearOutSlowInEasing)
+    val fadeOutSpec = tween<Float>(durationMillis = (duration * 0.3f).toInt(), easing = FastOutLinearInEasing)
 
     fun goBack() {
         if (!navController.popBackStack()) onClickBack()
@@ -62,10 +71,10 @@ fun SettingsNavHost(
     NavHost(
         navController = navController,
         startDestination = startDestination ?: SettingsDestination.Settings,
-        enterTransition = { slideInHorizontally(initialOffsetX = { +it * dir }, animationSpec = animation) },
-        exitTransition = { slideOutHorizontally(targetOffsetX = { -it * dir }, animationSpec = animation) },
-        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it * dir }, animationSpec = animation) },
-        popExitTransition = { slideOutHorizontally(targetOffsetX = { +it * dir }, animationSpec = animation) }
+        enterTransition = { slideInHorizontally(initialOffsetX = { +it / 10 * dir }, animationSpec = slide) + fadeIn(fadeInSpec) },
+        exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 10 * dir }, animationSpec = slide) + fadeOut(fadeOutSpec) },
+        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 10 * dir }, animationSpec = slide) + fadeIn(fadeInSpec) },
+        popExitTransition = { slideOutHorizontally(targetOffsetX = { +it / 10 * dir }, animationSpec = slide) + fadeOut(fadeOutSpec) }
     ) {
         composable(SettingsDestination.Settings) {
             MainSettingsScreen(
@@ -82,6 +91,7 @@ fun SettingsNavHost(
                 onClickDictionaries = { navController.navigate(SettingsDestination.Dictionaries) },
                 onClickVoiceTyping = { navController.navigate(SettingsDestination.VoiceTyping) },
                 onClickGrammarCheck = { navController.navigate(SettingsDestination.GrammarCheck) },
+                onClickSetUp = onClickSetUp,
                 onClickBack = ::goBack,
             )
         }

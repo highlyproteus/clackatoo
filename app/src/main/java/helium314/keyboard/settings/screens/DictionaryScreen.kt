@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
+import helium314.keyboard.clackatoo.ui.SettingsRow
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
@@ -74,37 +75,20 @@ fun DictionaryScreen(
         },
         itemContent = { locale ->
             if (locale == null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .clickable { showAddDictDialog = true }
-                        .padding(vertical = 4.dp, horizontal = 16.dp)
-                        .fillMaxWidth()
-                ) {
-                    Text(
-                        stringResource(R.string.add_new_dictionary_title),
-                    )
-                    Icon(painterResource(R.drawable.ic_plus), stringResource(R.string.add_new_dictionary_title))
-                }
+                SettingsRow(
+                    title = stringResource(R.string.add_new_dictionary_title),
+                    onClick = { showAddDictDialog = true },
+                ) { Icon(painterResource(R.drawable.ic_plus), stringResource(R.string.add_new_dictionary_title)) }
             } else {
-                Column(
-                    Modifier
-                        .clickable { selectedLocale = locale }
-                        .padding(vertical = 6.dp, horizontal = 16.dp)
-                        .fillMaxWidth()
-                ) {
-                    val (dicts, hasInternal) = getUserAndInternalDictionaries(ctx, locale)
-                    val types = dicts.mapTo(mutableListOf()) { it.name.substringBefore("_${DictionaryInfoUtils.USER_DICTIONARY_SUFFIX}") }
-                    if (hasInternal && !types.contains(Dictionary.TYPE_MAIN))
-                        types.add(0, stringResource(R.string.internal_dictionary_summary))
-                    Text(locale.localizedDisplayName(LocalResources.current))
-                    Text(
-                        types.joinToString(", "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                val (dicts, hasInternal) = getUserAndInternalDictionaries(ctx, locale)
+                val types = dicts.mapTo(mutableListOf()) { it.name.substringBefore("_${DictionaryInfoUtils.USER_DICTIONARY_SUFFIX}") }
+                if (hasInternal && !types.contains(Dictionary.TYPE_MAIN))
+                    types.add(0, stringResource(R.string.internal_dictionary_summary))
+                SettingsRow(
+                    title = locale.localizedDisplayName(LocalResources.current),
+                    subtitle = types.joinToString(", "),
+                    onClick = { selectedLocale = locale },
+                )
             }
         }
     )

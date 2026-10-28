@@ -2,7 +2,7 @@
 
 Clackatoo is a standalone Android keyboard, a fork of HeliBoard v4.2 (<https://github.com/HeliBorg/HeliBoard>, remote
 `upstream`). It is published at <https://github.com/highlyproteus/clackatoo> and installed with Obtainium from its
-GitHub releases. Design: square, not pills (6dp corner radius for keys and panels, 4dp for small elements).
+GitHub releases. Design: Material 3 default shapes (see Style notes), not custom square or pill shapes.
 
 ## Rules
 
@@ -98,7 +98,23 @@ decoder on the same strokes and the decoding time.
   pressed/selected/active things. `ClackatooStyle.colors` builds a `DefaultColors` whose `changeCheck` makes
   `KeyboardSwitcher` rebuild the views when the system colours change. Never hard-code colours in Clackatoo code: take
   them from `Settings.getValues().mColors`. Labels must stay at 4.5:1 (`ClackatooPaletteTest`).
-- Shapes: no pills or circles (6dp keys and panels, 4dp small things). Check suggestion strip, toolbar, popups,
-  toast and the Voice/Check panel when adding UI.
+- Shapes: Material 3 defaults. Settings panels and cards 12dp (`MaterialTheme.shapes.medium`), small elements 8dp,
+  dialogs 28dp, buttons and switches stock (pill); keys 8dp in the Clackatoo style and the new themes (the earlier
+  "square, 6dp/4dp, no pills" rule is replaced). Check suggestion strip, toolbar, popups, toast and the Voice/Check
+  panel when adding UI.
+- Settings UI: every settings screen is built from the shared components in `helium314.keyboard.clackatoo.ui`
+  (`SettingsGroup` panels, `SettingsRow` rows with a state subtitle, `SettingsSectionHeader`, `SettingsHint`; the
+  HeliBoard `Preference`/`PreferenceCategory`/`SwitchPreference`, `SearchSettingsScreen` and `SearchScreen` delegate to
+  them). Screens give a list of settings keys to `SearchSettingsScreen`; an `Int` entry starts a new group with that
+  title. Do not hand-roll rows, cards or app bars in a screen. Dialogs use `ThreeButtonAlertDialog` or M3's
+  `AlertDialog` (Material 3 default look); never a custom surface.
+- Glass settings: the settings activity is translucent (`platformActivityTheme.Settings`) and shows the wallpaper
+  behind a tinted scrim (`surface` at `GlassStyle.SCRIM_ALPHA`), blurred as well on Android 12+ when
+  `WindowManager.isCrossWindowBlurEnabled` (`GlassWindowEffect`); panels are translucent `surfaceContainerHigh` with a
+  hairline border. The switch "Glass background" (`GlassStyle.PREF_GLASS`, default on) falls back to opaque Material 3
+  surfaces. The alphas are fixed because text must keep 4.5:1 over any wallpaper, in light and dark mode;
+  `GlassStyleTest` checks it, so change the alphas only together with that test. Text directly on the window uses
+  `onSurface`; `onSurfaceVariant` only inside panels. In glass mode the theme's `background` colour is transparent so
+  Scaffolds do not paint over the wallpaper.
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.

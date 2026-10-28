@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
+import helium314.keyboard.clackatoo.ui.SettingsRow
 import android.content.ContentResolver
 import android.content.Context
 import android.database.Cursor
@@ -67,21 +68,11 @@ fun PersonalDictionaryScreen(
             words.filter { it.word.startsWith(term, true) || it.shortcut?.startsWith(term, true) == true }
         },
         itemContent = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { selectedWord = it }
-                    .padding(vertical = 6.dp, horizontal = 16.dp)
-            ) {
-                Column {
-                    Text(it.word, style = MaterialTheme.typography.bodyLarge)
-                    val details = if (it.shortcut == null) it.weight.toString() else "${it.weight}  |  ${it.shortcut}"
-                    Text(details, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.user_dict_settings_edit_dialog_title))
-            }
+            SettingsRow(
+                title = it.word,
+                subtitle = if (it.shortcut == null) it.weight.toString() else "${it.weight}  |  ${it.shortcut}",
+                onClick = { selectedWord = it },
+            ) { Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.user_dict_settings_edit_dialog_title)) }
         }
     )
     if (selectedWord != null) {

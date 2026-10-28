@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
+import helium314.keyboard.clackatoo.ui.SettingsHint
+import helium314.keyboard.clackatoo.ui.SettingsRow
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -174,35 +176,19 @@ fun ColorsScreen(
         },
         itemContent = { colorSetting ->
             if (colorSetting == null)
-                Text( // not a colorSetting, but still best done as part of the list
-                    stringResource(R.string.all_colors_warning),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsHint(stringResource(R.string.all_colors_warning)) // not a colorSetting, but still best done as part of the list
             else
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable { chosenColorString = Json.encodeToString(colorSetting) }
+                SettingsRow(
+                    title = colorSetting.displayName,
+                    subtitle = if (colorSetting.auto == true) stringResource(R.string.auto_user_color) else null,
+                    onClick = { chosenColorString = Json.encodeToString(colorSetting) },
+                    icon = null,
                 ) {
                     Spacer(
                         modifier = Modifier
                             .background(Color(colorSetting.displayColor()), shape = CircleShape)
-                            .size(50.dp)
+                            .size(36.dp)
                     )
-                    Column(Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp)) {
-                        Text(colorSetting.displayName)
-                        if (colorSetting.auto == true)
-                            CompositionLocalProvider(
-                                LocalTextStyle provides MaterialTheme.typography.bodyMedium,
-                                LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant
-                            ) {
-                                Text(stringResource(R.string.auto_user_color))
-                            }
-                    }
                     if (colorSetting.auto != null)
                         Switch(colorSetting.auto, onCheckedChange = { checked ->
                             val oldUserColors = KeyboardTheme.readUserColors(prefs, newThemeName.text)

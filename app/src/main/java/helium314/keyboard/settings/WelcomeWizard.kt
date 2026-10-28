@@ -37,7 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -45,7 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import helium314.keyboard.clackatoo.ui.settingsPanelColor
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.Theme
@@ -79,10 +79,12 @@ fun WelcomeWizard(
             }
     }
     val useWideLayout = isWideScreen()
-    val stepBackgroundColor = Color(ContextCompat.getColor(ctx, R.color.setup_step_background))
-    val textColor = Color(ContextCompat.getColor(ctx, R.color.setup_text_action))
-    val textColorDim = textColor.copy(alpha = 0.5f)
-    val titleColor = Color(ContextCompat.getColor(ctx, R.color.setup_text_title))
+    // Material 3 colours and panels like the rest of the settings; the wizard covers the screen, so it is opaque even with glass
+    val stepBackgroundColor = settingsPanelColor()
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textColorDim = MaterialTheme.colorScheme.onSurfaceVariant
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val panelShape = MaterialTheme.shapes.medium
     val appName = stringResource(ctx.applicationInfo.labelRes)
     @Composable fun bigText() {
         val resource = if (step == 0) R.string.setup_welcome_title else R.string.setup_steps_title
@@ -111,6 +113,7 @@ fun WelcomeWizard(
             Text("3", color = if (step == 3) titleColor else textColorDim)
         }
         Column(Modifier
+            .clip(panelShape)
             .background(color = stepBackgroundColor)
             .padding(16.dp)
         ) {
@@ -119,7 +122,7 @@ fun WelcomeWizard(
         }
         Spacer(Modifier.height(4.dp))
         Row(
-            Modifier.clickable { action() }
+            Modifier.clip(panelShape).clickable { action() }
                 .background(color = stepBackgroundColor)
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -160,7 +163,7 @@ fun WelcomeWizard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(
-                        Modifier.clickable { close() }
+                        Modifier.clip(panelShape).clickable { close() }
                             .background(color = stepBackgroundColor)
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -184,7 +187,7 @@ fun WelcomeWizard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(
-                        Modifier.clickable { finish() }
+                        Modifier.clip(panelShape).clickable { finish() }
                             .background(color = stepBackgroundColor)
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -200,7 +203,7 @@ fun WelcomeWizard(
                 }
             }
     }
-    Surface {
+    Surface(color = MaterialTheme.colorScheme.surface) {
         CompositionLocalProvider(
             LocalContentColor provides textColor,
             LocalTextStyle provides MaterialTheme.typography.titleLarge.merge(color = textColor),

@@ -103,6 +103,21 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   for that, a larger node cache for gestures in `DicNodesCache`, and `Suggest`
   continues a search only when nodes were cached). HeliBoard's gesture data
   gathering stays hidden and off (`GestureDataPolicy`).
+- 2026-10-27: redesigned the settings. Every settings screen, dialog and the
+  set-up wizard now use shared Material 3 components (grouped panels with the
+  default 12dp medium shape, rows with a state subtitle, M3 default dialogs);
+  the new home screen shows a status or set-up card and groups Typing, Voice
+  & writing and Look & feel with live state rows; the settings window shows
+  the wallpaper behind a tinted scrim (blurred on Android 12+ when the phone
+  allows it) with translucent panels, and the new switch "Glass background"
+  turns it off for solid surfaces. The settings activity theme is translucent
+  (`platformActivityTheme.Settings`). New files: the package
+  `helium314.keyboard.clackatoo.ui`, `res/values/strings-clackatoo-settings.xml`.
+  Changed: `SearchScreen`, `Preference`, `Theme`, `SettingsActivity`,
+  `SettingsNavHost`, `MainSettingsScreen`, `WelcomeWizard`,
+  `ThreeButtonAlertDialog` and the rows of the language, dictionary, personal
+  dictionary, colour and subtype screens. No preference key changed. The
+  Material 3 default shapes replace the square 6dp/4dp design rule.
 
 Upstream copyright
 ------------------

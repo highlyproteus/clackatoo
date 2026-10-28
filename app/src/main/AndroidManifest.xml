@@ -71,7 +71,7 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
 
         <!-- Activities -->
         <activity android:name="helium314.keyboard.settings.SettingsActivity"
-                android:theme="@style/platformActivityTheme"
+                android:theme="@style/platformActivityTheme.Settings"
                 android:icon="@mipmap/ic_launcher"
                 android:windowSoftInputMode="adjustResize"
                 android:exported="true">
@@ -83,7 +83,7 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
 
         <!-- separate activity that's used internally, only necessary in case the launcher icon is disabled on Android < 10 -->
         <activity android:name="helium314.keyboard.settings.SettingsActivity2"
-            android:theme="@style/platformActivityTheme"
+            android:theme="@style/platformActivityTheme.Settings"
             android:icon="@mipmap/ic_launcher"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">

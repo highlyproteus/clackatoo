@@ -16,6 +16,14 @@
         <item name="android:alertDialogTheme">@style/AlertDialogTheme</item>
     </style>
 
+    <!-- The settings: a translucent window that shows the wallpaper (glass); GlassWindowEffect sets the window background
+         (scrim or solid) and the blur at runtime, as the user can switch the glass off. -->
+    <style name="platformActivityTheme.Settings">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
     <style name="AlertDialogTheme" parent="@android:style/Theme.Material.Dialog.Alert">
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:background">@color/action_bar_color</item>

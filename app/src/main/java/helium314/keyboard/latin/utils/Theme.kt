@@ -4,6 +4,7 @@ package helium314.keyboard.latin.utils
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -37,7 +38,7 @@ fun Theme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit
             titleMedium = material3.titleMedium.copy(fontWeight = FontWeight.Bold),
             titleSmall = material3.titleSmall.copy(fontWeight = FontWeight.Bold)
         ),
-        //shapes = Shapes(),
+        shapes = Shapes(), // Material 3 defaults: 4, 8, 12 (panels), 16, 28 (dialogs)
         content = content
     )
 }

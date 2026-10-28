@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <!-- home screen -->
+    <string name="settings_search_hint">Search settings</string>
+    <string name="home_status_ready">%1$s is your keyboard</string>
+    <string name="home_setup_title">Set up %1$s</string>
+    <string name="home_setup_enable">Turn it on and choose it as your keyboard.</string>
+    <string name="home_setup_select">Choose it as your keyboard to start typing with it.</string>
+    <string name="home_setup_action">Set up</string>
+    <string name="home_group_typing">Typing</string>
+    <string name="home_group_voice_writing">Voice &amp; writing</string>
+    <string name="home_group_look_feel">Look &amp; feel</string>
+    <string name="home_state_on">On</string>
+    <string name="home_state_off">Off</string>
+    <string name="home_preferences_summary">Keys, popups, sound, clipboard</string>
+    <string name="home_correction_summary">Autocorrect, suggestions</string>
+    <string name="home_voice_ready">Ready · %1$s</string>
+    <string name="home_voice_live">Parakeet live text</string>
+    <string name="home_voice_whisper">Whisper</string>
+    <string name="home_model_not_downloaded">Model not downloaded</string>
+    <string name="home_grammar_ready">Ready</string>
+
+    <!-- glass settings background -->
+    <string name="glass_background">Glass background</string>
+    <string name="glass_background_summary">Show your wallpaper behind the settings. Off gives solid surfaces.</string>
+</resources>

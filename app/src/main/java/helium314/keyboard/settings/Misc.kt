@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,7 +68,8 @@ fun ActionRow(
         modifier = modifier
             .then(clickableModifier)
             .fillMaxWidth()
-            .heightIn(min = 44.dp),
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 16.dp),
         verticalAlignment = verticalAlignment,
         content = content
     )
@@ -114,6 +116,7 @@ fun <T>DropDownField(
     selectedItem: T,
     onSelected: (T) -> Unit,
     extraButton: @Composable (() -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(start = 8.dp, bottom = 4.dp),
     itemContent: @Composable (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -122,7 +125,7 @@ fun <T>DropDownField(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            modifier = Modifier.padding(contentPadding)
         ) {
             Box(Modifier.weight(1f)) {
                 itemContent(selectedItem)
@@ -153,3 +156,6 @@ fun isWideScreen(): Boolean {
 }
 
 val contentTextDirectionStyle = TextStyle(textDirection = TextDirection.Content)
+
+/** Padding of a drop-down field that sits in a settings group, like the rows around it. */
+val SettingsFieldPadding = PaddingValues(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)

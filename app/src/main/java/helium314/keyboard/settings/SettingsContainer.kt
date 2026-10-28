@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import helium314.keyboard.clackatoo.ui.createGlassSettings
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.settings.screens.createAboutSettings
 import helium314.keyboard.settings.screens.createAdvancedSettings
@@ -64,7 +65,7 @@ class Setting(
 // intentionally not putting individual debug settings in here so user knows the context
 private fun createSettings(context: Context) = createAboutSettings(context) + createAppearanceSettings(context) +
         createCorrectionSettings(context) + createPreferencesSettings(context) + createToolbarSettings(context) +
-        createLayoutSettings(context) + createAdvancedSettings(context) +
+        createLayoutSettings(context) + createAdvancedSettings(context) + createGlassSettings(context) +
         if (JniUtils.sHaveGestureLib) createGestureTypingSettings(context) else emptyList()
 
 object SettingsWithoutKey {

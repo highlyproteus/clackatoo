@@ -15,18 +15,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import helium314.keyboard.clackatoo.ui.GlassWindowEffect
+import helium314.keyboard.clackatoo.ui.LocalGlass
+import helium314.keyboard.clackatoo.ui.SettingsGroup
+import helium314.keyboard.clackatoo.ui.rememberGlassEnabled
 import helium314.keyboard.compat.locale
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet
@@ -93,7 +102,13 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
         setContentView(cv)
         cv.setContent {
             Theme {
-                Surface {
+                val glass = rememberGlassEnabled()
+                GlassWindowEffect(glass)
+                // glass: screens are transparent, so Scaffolds (which default to the background colour) must not paint over the wallpaper
+                val scheme = MaterialTheme.colorScheme
+                MaterialTheme(colorScheme = if (glass) scheme.copy(background = Color.Transparent) else scheme) {
+                CompositionLocalProvider(LocalGlass provides glass) {
+                Surface(color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface) {
                     val dictUri by dictUriFlow.collectAsState()
                     val crashReports by crashReportFiles.collectAsState()
                     val crashFilePicker = filePicker { saveCrashReports(it) }
@@ -102,23 +117,26 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                                 || !UncachedInputMethodManagerUtils.isThisImeEnabled(this, imm)
                     ) }
                     if (spellchecker)
-                        Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { innerPadding ->
+                        Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets.safeDrawing) { innerPadding ->
                             Column(Modifier.padding(innerPadding)) {
                                 TopAppBar(
                                     title = { Text(stringResource(R.string.android_spell_checker_settings)) },
                                     windowInsets = WindowInsets(0),
+                                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                                     navigationIcon = {
                                         BackButton { this@SettingsActivity.finish() }
                                     },
                                 )
-                                settingsContainer[Settings.PREF_USE_CONTACTS]!!.Preference()
-                                settingsContainer[Settings.PREF_USE_APPS]!!.Preference()
-                                settingsContainer[Settings.PREF_BLOCK_POTENTIALLY_OFFENSIVE]!!.Preference()
-                                settingsContainer[Settings.PREF_SPELLCHECK_SUGGEST]!!.Preference()
+                                SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                                    settingsContainer[Settings.PREF_USE_CONTACTS]!!.Preference()
+                                    settingsContainer[Settings.PREF_USE_APPS]!!.Preference()
+                                    settingsContainer[Settings.PREF_BLOCK_POTENTIALLY_OFFENSIVE]!!.Preference()
+                                    settingsContainer[Settings.PREF_SPELLCHECK_SUGGEST]!!.Preference()
+                                }
                             }
                         }
                     else {
-                        SettingsNavHost(onClickBack = { this.finish() })
+                        SettingsNavHost(onClickBack = { this.finish() }, onClickSetUp = { showWelcomeWizard = true })
                         if (showWelcomeWizard) {
                             WelcomeWizard(close = { showWelcomeWizard = false }, finish = this::finish)
                         } else if (crashReports.isNotEmpty()) {
@@ -149,6 +167,8 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                             mainLocale = null
                         )
                     }
+                }
+                }
                 }
             }
         }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
+import helium314.keyboard.clackatoo.ui.SettingsRow
 import android.content.Context
 import android.os.Build
 import android.view.inputmethod.InputMethodSubtype
@@ -86,30 +87,17 @@ fun LanguageScreen(
 @Composable
 private fun SubtypeRow(subtype: InputMethodSubtype, isEnabled: Boolean) {
     val ctx = LocalContext.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                SettingsDestination.navigateTo(SettingsDestination.Subtype + subtype.toSettingsSubtype().toPref())
-            }
-            .padding(vertical = 6.dp, horizontal = 16.dp)
+    var showNoDictDialog by remember { mutableStateOf(false) }
+    val description = if (SubtypeSettings.isAdditionalSubtype(subtype)) {
+        val secondaryLocales = subtype.getExtraValueOf(ExtraValue.SECONDARY_LOCALES)?.split(Separators.KV)
+            ?.joinToString(", ") { it.constructLocale().localizedDisplayName(ctx.resources) }
+        stringResource(R.string.custom_subtype) + (secondaryLocales?.let { "\n$it" } ?: "")
+    } else null
+    SettingsRow(
+        title = subtype.displayName(),
+        subtitle = description,
+        onClick = { SettingsDestination.navigateTo(SettingsDestination.Subtype + subtype.toSettingsSubtype().toPref()) },
     ) {
-        var showNoDictDialog by remember { mutableStateOf(false) }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(subtype.displayName(), style = MaterialTheme.typography.bodyLarge)
-            val description = if (SubtypeSettings.isAdditionalSubtype(subtype)) {
-                val secondaryLocales = subtype.getExtraValueOf(ExtraValue.SECONDARY_LOCALES)?.split(Separators.KV)
-                    ?.joinToString(", ") { it.constructLocale().localizedDisplayName(ctx.resources) }
-                stringResource(R.string.custom_subtype) + (secondaryLocales?.let { "\n$it" } ?: "")
-            } else null
-            if (description != null)
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-        }
         Switch(
             checked = isEnabled,
             onCheckedChange = {
@@ -119,9 +107,9 @@ private fun SubtypeRow(subtype: InputMethodSubtype, isEnabled: Boolean) {
                 else SubtypeSettings.removeEnabledSubtype(ctx, subtype)
             }
         )
-        if (showNoDictDialog)
-            MissingDictionaryDialog({ showNoDictDialog = false }, subtype.locale())
     }
+    if (showNoDictDialog)
+        MissingDictionaryDialog({ showNoDictDialog = false }, subtype.locale())
 }
 
 private fun dictsAvailable(locale: Locale, context: Context): Boolean {

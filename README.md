@@ -14,8 +14,11 @@ recognition and grammar correction all run on the device.
 
 ## Features
 
-- **System theming.** Square keys with a hairline edge and Inter labels, coloured from the system's Material 3
+- **System theming.** Keys with a hairline edge and Inter labels, coloured from the system's Material 3
   palette. The keyboard follows palette and dark-theme changes without a restart.
+- **Glass settings.** The settings are Material 3 panels over your wallpaper (blurred on Android 12+ where the phone
+  allows it), with a status card, live state rows and a "Glass background" switch for solid surfaces. Text keeps a
+  contrast of at least 4.5:1 over any wallpaper, in light and dark mode.
 - **Voice typing.** Speech to text with NVIDIA Parakeet TDT 0.6B v3 or, without it, Whisper (English and Spanish).
   With Parakeet the words appear in the voice panel while you speak and go into the field when you tap Stop. English
   transcripts are cleaned up by S1-mini by Superwhisper (filler words, self-corrections, punctuation, numbers).

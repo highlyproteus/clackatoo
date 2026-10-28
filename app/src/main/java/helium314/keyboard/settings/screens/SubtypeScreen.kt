@@ -1,5 +1,8 @@
 package helium314.keyboard.settings.screens
 
+import helium314.keyboard.clackatoo.ui.SettingsSectionHeader
+import helium314.keyboard.settings.SettingsFieldPadding
+import helium314.keyboard.clackatoo.ui.SettingsGroup
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -146,13 +149,13 @@ fun SubtypeScreen(
             contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
         ) { innerPadding ->
             Column(
-                modifier = Modifier.verticalScroll(scrollState).padding(horizontal = 12.dp)
+                modifier = Modifier.verticalScroll(scrollState).padding(horizontal = 16.dp, vertical = 8.dp)
                     .then(Modifier.padding(innerPadding)),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 MainLayoutRow(currentSubtype, customMainLayouts) { setCurrentSubtype(it) }
                 if (availableLocalesForScript.size > 1) {
-                    WithSmallTitle(stringResource(R.string.secondary_locale)) {
+                    SettingsGroup(title = stringResource(R.string.secondary_locale)) {
                         ActionRow(onClick = { showSecondaryLocaleDialog = true }) {
                             val text = getSecondaryLocales(currentSubtype.extraValues).joinToString(", ") {
                                 it.localizedDisplayName(ctx.resources)
@@ -164,7 +167,7 @@ fun SubtypeScreen(
                         }
                     }
                 }
-                WithSmallTitle(stringResource(R.string.popup_order_and_hint_source)) {
+                SettingsGroup(title = stringResource(R.string.popup_order_and_hint_source)) {
                     ActionRow(onClick = { showKeyOrderDialog = true }) {
                         Text(stringResource(R.string.popup_order),
                             modifier = Modifier
@@ -187,7 +190,7 @@ fun SubtypeScreen(
                     }
                 }
                 if (currentSubtype.locale.script() == ScriptUtils.SCRIPT_LATIN) {
-                    WithSmallTitle(stringResource(R.string.show_popup_keys_title)) {
+                    SettingsGroup(title = stringResource(R.string.show_popup_keys_title)) {
                         val explicitValue = currentSubtype.getExtraValueOf(ExtraValue.MORE_POPUPS)
                         val value = explicitValue ?: prefs.getString(
                             Settings.PREF_MORE_POPUP_KEYS,
@@ -207,7 +210,7 @@ fun SubtypeScreen(
                 }
                 if (LocaleKeyboardInfos.hasLocalizedNumberRow(currentSubtype.locale, ctx)) {
                     val checked = currentSubtype.getExtraValueOf(ExtraValue.LOCALIZED_NUMBER_ROW)?.toBoolean()
-                    WithSmallTitle(stringResource(R.string.number_row)) {
+                    SettingsGroup(title = stringResource(R.string.number_row)) {
                         ActionRow {
                             Text(stringResource(R.string.localized_number_row),
                                 modifier = Modifier
@@ -229,19 +232,16 @@ fun SubtypeScreen(
                         }
                     }
                 }
-                HorizontalDivider()
-                Text(
-                    stringResource(R.string.settings_screen_secondary_layouts),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                SettingsSectionHeader(stringResource(R.string.settings_screen_secondary_layouts), Modifier.padding(start = 12.dp))
                 LayoutType.entries.forEach { type ->
                     if (type == LayoutType.MAIN) return@forEach
-                    WithSmallTitle(stringResource(type.displayNameId)) {
+                    SettingsGroup(title = stringResource(type.displayNameId)) {
                         val explicitLayout = currentSubtype.layoutName(type)
                         val layout = explicitLayout ?: Settings.readDefaultLayoutName(type, prefs)
                         val defaultLayouts = LayoutUtils.getAvailableLayouts(type, ctx)
                         val customLayouts = LayoutUtilsCustom.getLayoutFiles(type, ctx).map { it.name }
                         DropDownField(
+                            contentPadding = SettingsFieldPadding,
                             items = defaultLayouts + customLayouts,
                             selectedItem = layout,
                             onSelected = {
@@ -401,7 +401,7 @@ private fun MainLayoutRow(
     setCurrentSubtype: (SettingsSubtype) -> Unit,
 ) {
     val ctx = LocalContext.current
-    WithSmallTitle(stringResource(R.string.keyboard_layout_set)) {
+    SettingsGroup(title = stringResource(R.string.keyboard_layout_set)) {
         val appLayouts = LayoutUtils.getAvailableLayouts(LayoutType.MAIN, ctx, currentSubtype.locale)
         var showAddLayoutDialog by remember { mutableStateOf(false) }
         var showLayoutEditDialog: Pair<String, String?>? by remember { mutableStateOf(null) }
@@ -409,6 +409,7 @@ private fun MainLayoutRow(
             showLayoutEditDialog = (name ?: "new layout") to content
         }
         DropDownField(
+            contentPadding = SettingsFieldPadding,
             items = appLayouts + customLayouts,
             selectedItem = currentSubtype.mainLayoutName() ?: SubtypeLocaleUtils.QWERTY,
             onSelected = { layout ->
