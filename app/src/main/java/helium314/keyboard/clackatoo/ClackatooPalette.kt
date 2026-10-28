@@ -39,18 +39,25 @@ data class ClackatooPalette(
     @ColorInt val popup: Int = surfaceContainerHighest,
     /** opacity (0-255) of the hairline edge of keys: 12% (dark) or 16% (light) unless a theme wants it stronger */
     val hairlineAlpha: Int = if (dark) 31 else 41,
+    /**
+     * what the suggestion strip, toolbar and panels carry their text on, drawn over [surface]. The surface of an opaque palette is
+     * that already; the glass theme's surface is clear, so it has a frosted [backing] of its own.
+     */
+    @ColorInt val backing: Int = surface,
 ) {
     /** The hairline edge of keys: 1 pixel of [onSurface] at [hairlineAlpha]. */
     @get:ColorInt val hairline get() = ColorUtils.setAlphaComponent(onSurface, hairlineAlpha)
 
     /**
-     * The surface as it can look: the colours may be translucent (the glass theme), and then what is behind the
-     * keyboard decides. These are the surface over white and over black, the worst cases; one colour if it is opaque.
+     * [background] (a key, the strip's backing; drawn over the surface) as it can look: the colours may be translucent (the glass
+     * theme), and then what is behind the keyboard decides. These are the looks over each of [BACKDROPS], the worst cases; one colour if
+     * everything is opaque.
      */
-    private fun surfaces() = listOf(WHITE, BLACK).map { ColorUtils.compositeColors(surface, it) }.distinct()
+    private fun onSurfaces(@ColorInt background: Int) =
+        BACKDROPS.map { ColorUtils.compositeColors(background, ColorUtils.compositeColors(surface, it)) }.distinct()
 
-    /** [background] (a key, drawn over the surface) over each of [surfaces]. */
-    private fun onSurfaces(@ColorInt background: Int) = surfaces().map { ColorUtils.compositeColors(background, it) }
+    /** What the strip's words, the toolbar's icons and the text of panels are drawn on. */
+    private fun backings() = onSurfaces(backing)
 
     private fun readable(@ColorInt text: Int, backgrounds: List<Int>) = backgrounds.all { contrast(text, it) >= MIN_TEXT_CONTRAST }
 
@@ -63,8 +70,8 @@ data class ClackatooPalette(
     /** The Enter key's glyph or label: [primary] where that is readable on [actionKey], else [onSurface]. */
     @get:ColorInt val actionKeyContent get() = if (readable(primary, onSurfaces(actionKey))) primary else onSurface
 
-    /** The selected suggestion: [primary] where that is readable on [surface], else [onSurface]. */
-    @get:ColorInt val selectedText get() = if (readable(primary, surfaces())) primary else onSurface
+    /** The selected suggestion: [primary] where that is readable on the strip's [backing], else [onSurface]. */
+    @get:ColorInt val selectedText get() = if (readable(primary, backings())) primary else onSurface
 
     /**
      * Guards the contrast of text (at least 4.5:1, WCAG AA) against odd system colours: labels fall back to black or
@@ -112,14 +119,14 @@ data class ClackatooPalette(
      * True if [text] can be a key label: readable on everything a key label is drawn on, and so is the suggestion strip's colour for
      * suggestions that are not the main one, which the keyboard makes from the label colour (a little brighter or darker).
      */
-    private fun labelReadable(@ColorInt text: Int) = readable(text, labelBackgrounds()) && readable(brightenOrDarken(text, true), surfaces())
+    private fun labelReadable(@ColorInt text: Int) = readable(text, labelBackgrounds()) && readable(brightenOrDarken(text, true), backings())
 
-    /** What a key label can be drawn on: surface and keys at rest, the Enter key, pressed keys and popups, each as it looks over white and over black. */
+    /** What a key label can be drawn on: the strip's backing and keys at rest, the Enter key, pressed keys and popups, each as it looks over white and over black. */
     private fun labelBackgrounds() = restingBackgrounds() + onSurfaces(actionKey) + onSurfaces(pressed(surfaceContainerHigh)) +
         onSurfaces(pressed(surfaceContainerHighest)) + onSurfaces(pressed(actionKey)) + onSurfaces(popup)
 
-    /** The surface and keys at rest: where hint letters (which the Enter key and pressed keys do not need) are drawn. */
-    private fun restingBackgrounds() = surfaces() + onSurfaces(surfaceContainerHigh) + onSurfaces(surfaceContainerHighest)
+    /** The strip's backing and keys at rest: where hint letters (which the Enter key and pressed keys do not need) are drawn. */
+    private fun restingBackgrounds() = backings() + onSurfaces(surfaceContainerHigh) + onSurfaces(surfaceContainerHighest)
 
     companion object {
         const val MIN_TEXT_CONTRAST = 4.5
@@ -128,6 +135,11 @@ data class ClackatooPalette(
         private const val ACTION_KEY_SHARE = 0.2f
         const val BLACK = 0xFF000000.toInt()
         const val WHITE = 0xFFFFFFFF.toInt()
+        /** What can be behind a translucent keyboard: white, black, mid grey and the saturated colours (red, green, blue, yellow, cyan, magenta). */
+        val BACKDROPS = listOf(
+            WHITE, BLACK, 0xFF808080.toInt(), 0xFFFF0000.toInt(), 0xFF00FF00.toInt(), 0xFF0000FF.toInt(),
+            0xFFFFFF00.toInt(), 0xFF00FFFF.toInt(), 0xFFFF00FF.toInt(),
+        )
 
         /** WCAG contrast ratio of [text] on [background] (taken as opaque, as system colours are). */
         fun contrast(@ColorInt text: Int, @ColorInt background: Int) =
