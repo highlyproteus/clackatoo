@@ -102,16 +102,6 @@ class ModelStoreTest {
         assertEquals(Catalog.S1_MINI.fileName, ModelCatalog.byId("s1-mini")?.fileName)
     }
 
-    @Test fun `the models offered when a role has none are recommended catalog models`() {
-        for (kind in listOf(ModelKind.SPEECH, ModelKind.GRAMMAR)) {
-            val offered = ModelCatalog.recommendedFor(kind)
-            assertTrue(offered.isNotEmpty(), "$kind")
-            assertTrue(offered.all { it.recommended && it.bundledAsset == null }, "$kind")
-        }
-        assertEquals(listOf("parakeet-tdt-0.6b-v3", "s1-mini"), ModelCatalog.recommendedFor(ModelKind.SPEECH).map { it.id })
-        assertEquals(listOf("qwen3.5-0.8b"), ModelCatalog.recommendedFor(ModelKind.GRAMMAR).map { it.id })
-    }
-
     @Test fun `a valid speech model is imported and found`() {
         assertEquals(ImportResult.Imported(speech), import("speech.bin", speechBytes))
         assertEquals(speech, store.best(ModelKind.SPEECH))

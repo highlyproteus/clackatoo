@@ -85,14 +85,6 @@ object ModelCatalog {
 
     /** The spec with catalog id [id], or null (also for the voice detector, which cannot be downloaded or chosen). */
     fun byId(id: String?): ModelSpec? = all.firstOrNull { it.id == id && it.bundledAsset == null }
-
-    /** The models offered when a feature has none: the recommended ones of a role that are not installed yet. */
-    fun recommendedFor(kind: ModelKind): List<ModelSpec> = when (kind) {
-        // live text with the best speech model, and the English clean-up that goes with it (concept: "Voice typing needs a model")
-        ModelKind.SPEECH -> listOf(Catalog.PARAKEET_TDT_V3.id, Catalog.S1_MINI.id)
-        ModelKind.GRAMMAR -> listOf(Catalog.QWEN3_5_0_8B.id)
-        else -> emptyList()
-    }.mapNotNull { byId(it) }
 }
 
 /** What is known about a model on this phone. */

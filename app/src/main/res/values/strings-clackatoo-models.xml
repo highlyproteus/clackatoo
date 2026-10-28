@@ -34,6 +34,7 @@
     <string name="models_sheet_choose_one">Choose at least one model.</string>
     <string name="models_sheet_item">%1$s \u2022 %2$s</string>
     <string name="models_label_parakeet">Parakeet live text</string>
+    <string name="models_label_whisper">Speech model</string>
     <string name="models_label_clean_up">Clean-up</string>
     <string name="models_label_grammar">Grammar model</string>
     <string name="models_label_other">Model</string>

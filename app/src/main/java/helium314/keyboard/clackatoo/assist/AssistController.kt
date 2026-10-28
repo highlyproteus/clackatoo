@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import helium314.keyboard.clackatoo.catalog.Catalog
 import helium314.keyboard.clackatoo.models.ModelChoice
+import helium314.keyboard.clackatoo.models.MissingModels
 import helium314.keyboard.clackatoo.models.ModelDownloads
 import helium314.keyboard.clackatoo.models.ModelState
 import helium314.keyboard.latin.LatinIME
@@ -357,11 +358,10 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
      * otherwise the panel offers to download the recommended models (the sheet), or to get the Clackatoo Models app.
      */
     private fun missingModel(kind: ModelKind, language: AssistLanguage, titleRes: Int, missingRes: Int) {
-        val offered = ModelCatalog.recommendedFor(kind).filter {
-            store.status(it) is ModelStatus.Missing && (it.kind != ModelKind.CLEAN_UP || language.cleanUpWithS1Mini)
+        val offered = when (val plan = MissingModels.plan(kind, language.cleanUpWithS1Mini, store::status, ModelChoice::runsHere)) {
+            is MissingModels.Plan.Offer -> plan.specs
+            MissingModels.Plan.Broken, MissingModels.Plan.Nothing -> return message(titleRes, missingModelText(kind, missingRes), settings = true)
         }
-        val broken = ModelCatalog.forKind(kind).any { store.status(it) is ModelStatus.Broken }
-        if (broken || offered.isEmpty()) return message(titleRes, missingModelText(kind, missingRes), settings = true)
         job = null
         recorder?.cancel()
         recorder = null
@@ -380,6 +380,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     private fun sheetLabel(spec: ModelSpec): String = ime.getString(
         when (spec.id) {
             Catalog.PARAKEET_TDT_V3.id -> R.string.models_label_parakeet
+            Catalog.WHISPER_SMALL.id -> R.string.models_label_whisper
             Catalog.S1_MINI.id -> R.string.models_label_clean_up
             Catalog.QWEN3_5_0_8B.id -> R.string.models_label_grammar
             else -> R.string.models_label_other

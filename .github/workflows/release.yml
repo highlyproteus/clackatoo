@@ -1,11 +1,16 @@
-# Builds Clackatoo, signs it with the release key and publishes one APK on a GitHub release.
+# Builds Clackatoo and its companion app Clackatoo Models, signs both with the release key and publishes the two APKs
+# (clackatoo-X.Y.Z.apk and clackatoo-models-X.Y.Z.apk) on a GitHub release.
 #
-# - A tag vX.Y.Z (X.Y.Z = versionName in app/build.gradle.kts) builds, signs and publishes the release.
-# - Run by hand (Actions > Release > Run workflow) it builds and checks an unsigned APK and keeps it as a workflow
+# - A tag vX.Y.Z (X.Y.Z = versionName in app/build.gradle.kts, which models/build.gradle.kts must repeat) builds, signs
+#   and publishes the release.
+# - Run by hand (Actions > Release > Run workflow) it builds and checks unsigned APKs and keeps them as a workflow
 #   artifact; nothing is signed or published.
+# - The keyboard APK must not ask for INTERNET (hard failure). The companion APK is the one with network access, and
+#   must ask for exactly the permissions in COMPANION_PERMISSIONS and for nothing else (hard failure). Both must declare
+#   the Clackatoo MODELS permission with protection level signature.
 #
 # The key comes from the repository secrets CLACKATOO_KEYSTORE_BASE64 and CLACKATOO_KEYSTORE_PASSWORD, and the signed
-# APK must carry the certificate in the repository variable RELEASE_CERT_SHA256. tools/make-release-key sets all three.
+# APKs must carry the certificate in the repository variable RELEASE_CERT_SHA256. tools/make-release-key sets all three.
 name: Release
 
 on:
@@ -21,6 +26,15 @@ env:
   CMAKE: '3.31.6'
   BUILD_TOOLS: '37.0.0'
   PACKAGE: io.github.highlyproteus.clackatoo
+  COMPANION_PACKAGE: io.github.highlyproteus.clackatoo.models
+  # the signature permission both apps declare, and the whole permission list of the companion
+  MODELS_PERMISSION: io.github.highlyproteus.clackatoo.permission.MODELS
+  COMPANION_PERMISSIONS: |
+    android.permission.FOREGROUND_SERVICE
+    android.permission.FOREGROUND_SERVICE_DATA_SYNC
+    android.permission.INTERNET
+    android.permission.POST_NOTIFICATIONS
+    io.github.highlyproteus.clackatoo.permission.MODELS
 
 jobs:
   release:
@@ -47,6 +61,8 @@ jobs:
             echo "::error::the tag is $GITHUB_REF_NAME but versionName is $name; the tag must be v$name"
             exit 1
           fi
+          companion=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' models/build.gradle.kts)
+          [ "$companion" = "$name" ] || { echo "::error::models/build.gradle.kts has versionName $companion, the keyboard has $name"; exit 1; }
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Install the NDK, CMake and build tools
@@ -56,30 +72,61 @@ jobs:
             "ndk;$NDK" "cmake;$CMAKE" "build-tools;$BUILD_TOOLS" > /dev/null
 
       - name: Build
-        run: ./gradlew --no-daemon :app:assembleNouserlib
+        run: ./gradlew --no-daemon :app:assembleNouserlib :models:assembleNouserlib
 
-      - name: Check the APK
+      - name: Check the APKs
         id: apk
         run: |
           shopt -s nullglob
-          apks=(app/build/outputs/apk/nouserlib/*.apk)
-          [ ${#apks[@]} -eq 1 ] || { echo "::error::expected one APK, found: ${apks[*]}"; exit 1; }
           bt=$ANDROID_HOME/build-tools/$BUILD_TOOLS
-          badging=$("$bt/aapt2" dump badging "${apks[0]}")
-          grep -q "^package: name='$PACKAGE' " <<<"$badging" || { echo "::error::wrong package name"; exit 1; }
-          grep -q "versionName='${{ steps.version.outputs.name }}'" <<<"$badging" || { echo "::error::wrong versionName"; exit 1; }
-          if "$bt/aapt2" dump permissions "${apks[0]}" | grep -q 'android.permission.INTERNET'; then
-            echo "::error::the APK asks for the INTERNET permission"; exit 1
-          fi
-          "$bt/zipalign" -p -f 4 "${apks[0]}" "$RUNNER_TEMP/unsigned.apk"
-          echo "unsigned=$RUNNER_TEMP/unsigned.apk" >> "$GITHUB_OUTPUT"
+          version=${{ steps.version.outputs.name }}
 
-      - name: Keep the unsigned APK
+          # One APK per module, then the checks that apply to both: package, version, the MODELS permission declared with
+          # protection level signature (0x2), and zipalign.
+          check() { # module package
+            local apks=("$1"/build/outputs/apk/nouserlib/*.apk "$1"/build/intermediates/apk/nouserlib/*.apk)
+            [ ${#apks[@]} -ge 1 ] || { echo "::error::no APK for $1" >&2; exit 1; }
+            local apk=${apks[0]}
+            local badging
+            badging=$("$bt/aapt2" dump badging "$apk")
+            grep -q "^package: name='$2' " <<<"$badging" || { echo "::error::$1: wrong package name" >&2; exit 1; }
+            grep -q "versionName='$version'" <<<"$badging" || { echo "::error::$1: wrong versionName" >&2; exit 1; }
+            "$bt/aapt2" dump permissions "$apk" | grep -q "^permission: $MODELS_PERMISSION$" ||
+              { echo "::error::$1: does not declare $MODELS_PERMISSION" >&2; exit 1; }
+            "$bt/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -A3 "E: permission" | grep -q "protectionLevel(0x01010009)=0x00000002" ||
+              { echo "::error::$1: the MODELS permission is not protectionLevel=signature" >&2; exit 1; }
+            echo "$apk"
+          }
+
+          keyboard=$(check app "$PACKAGE" | tail -n1)
+          companion=$(check models "$COMPANION_PACKAGE" | tail -n1)
+
+          # the keyboard must not be able to reach the internet
+          if "$bt/aapt2" dump permissions "$keyboard" | grep -q 'android.permission.INTERNET'; then
+            echo "::error::the keyboard APK asks for the INTERNET permission"; exit 1
+          fi
+          # the companion asks for exactly the allowed permissions (uses-permission lines, whatever their SDK qualifier)
+          asked=$("$bt/aapt2" dump permissions "$companion" | sed -n "s/^uses-permission[a-z0-9-]*: name='\(.*\)'.*/\1/p" | sort -u)
+          want=$(sort -u <<<"$COMPANION_PERMISSIONS" | sed '/^$/d')
+          if [ "$asked" != "$want" ]; then
+            echo "::error::the companion APK asks for other permissions than allowed"
+            echo "asked:"; echo "$asked"; echo "allowed:"; echo "$want"
+            exit 1
+          fi
+
+          "$bt/zipalign" -p -f 4 "$keyboard" "$RUNNER_TEMP/unsigned-keyboard.apk"
+          "$bt/zipalign" -p -f 4 "$companion" "$RUNNER_TEMP/unsigned-models.apk"
+          echo "keyboard=$RUNNER_TEMP/unsigned-keyboard.apk" >> "$GITHUB_OUTPUT"
+          echo "companion=$RUNNER_TEMP/unsigned-models.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the unsigned APKs
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: clackatoo-${{ steps.version.outputs.name }}-unsigned
-          path: ${{ steps.apk.outputs.unsigned }}
+          path: |
+            ${{ steps.apk.outputs.keyboard }}
+            ${{ steps.apk.outputs.companion }}
 
       - name: Sign
         if: github.ref_type == 'tag'
@@ -94,17 +141,24 @@ jobs:
           ks=$RUNNER_TEMP/release.p12
           trap 'rm -f "$ks"' EXIT
           base64 -d <<<"$KEYSTORE_BASE64" > "$ks"
-          out=clackatoo-${{ steps.version.outputs.name }}.apk
-          "$bt/apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias clackatoo \
-            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
-            --out "$out" "${{ steps.apk.outputs.unsigned }}"
-          rm -f "$out.idsig"
-          # apksigner prints one line per signature scheme ("Signer #1 certificate ..." or "V3.0 Signer: certificate ...")
-          cert=$("$bt/apksigner" verify --print-certs "$out" | sed -n 's/^.*[Ss]igner.*certificate SHA-256 digest: //p' | sort -u)
-          [ -n "$cert" ] && [ "$(wc -l <<<"$cert")" -eq 1 ] || { echo "::error::expected one signing certificate, got: $cert"; exit 1; }
           want=$(tr -d ': ' <<<"$EXPECTED_CERT" | tr 'A-F' 'a-f')
-          [ "$cert" = "$want" ] || { echo "::error::signed with $cert, expected $want"; exit 1; }
-          echo "APK=$out" >> "$GITHUB_ENV"
+          sign() { # unsigned output
+            "$bt/apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias clackatoo \
+              --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
+              --out "$2" "$1"
+            rm -f "$2.idsig"
+            # apksigner prints one line per signature scheme ("Signer #1 certificate ..." or "V3.0 Signer: certificate ...")
+            local cert
+            cert=$("$bt/apksigner" verify --print-certs "$2" | sed -n 's/^.*[Ss]igner.*certificate SHA-256 digest: //p' | sort -u)
+            [ -n "$cert" ] && [ "$(wc -l <<<"$cert")" -eq 1 ] || { echo "::error::expected one signing certificate in $2, got: $cert"; exit 1; }
+            [ "$cert" = "$want" ] || { echo "::error::$2 is signed with $cert, expected $want"; exit 1; }
+          }
+          version=${{ steps.version.outputs.name }}
+          sign "${{ steps.apk.outputs.keyboard }}" "clackatoo-$version.apk"
+          # the same key: the keyboard and the companion only talk to apps signed alike
+          sign "${{ steps.apk.outputs.companion }}" "clackatoo-models-$version.apk"
+          echo "APK=clackatoo-$version.apk" >> "$GITHUB_ENV"
+          echo "MODELS_APK=clackatoo-models-$version.apk" >> "$GITHUB_ENV"
           echo "CERT=$EXPECTED_CERT" >> "$GITHUB_ENV"
 
       - name: Publish
@@ -113,14 +167,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
+          models_sha=$(sha256sum "$MODELS_APK" | cut -d' ' -f1)
           cat > notes.md <<EOF
-          AppVerifier verification info:
+          AppVerifier verification info (both apps carry the same signing certificate):
 
           \`\`\`
           $PACKAGE
+          $COMPANION_PACKAGE
           $CERT
           \`\`\`
 
-          APK SHA-256: \`$sha\`
+          Clackatoo (the keyboard, no internet access): \`$APK\`, SHA-256 \`$sha\`
+
+          Clackatoo Models (optional companion that downloads the voice and grammar models for the keyboard): \`$MODELS_APK\`, SHA-256 \`$models_sha\`
           EOF
-          gh release create "$GITHUB_REF_NAME" "$APK" --title "Clackatoo ${{ steps.version.outputs.name }}" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" "$APK" "$MODELS_APK" --title "Clackatoo ${{ steps.version.outputs.name }}" --notes-file notes.md

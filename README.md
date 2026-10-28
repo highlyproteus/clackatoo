@@ -29,29 +29,51 @@ recognition and grammar correction all run on the device.
 
 ## Installation
 
-Clackatoo is distributed as a signed APK on the [releases page](https://github.com/highlyproteus/clackatoo/releases).
-Updates can be tracked with [Obtainium](https://github.com/ImranR98/Obtainium) using the repository URL
-`https://github.com/highlyproteus/clackatoo`.
+Clackatoo is distributed as two signed APKs on the [releases page](https://github.com/highlyproteus/clackatoo/releases):
 
-After installation, enable the keyboard under Settings > System > Keyboard > On-screen keyboard.
+| APK | App | Needs the internet |
+| --- | --- | --- |
+| `clackatoo-X.Y.Z.apk` | **Clackatoo**, the keyboard | No. It has no `INTERNET` permission. |
+| `clackatoo-models-X.Y.Z.apk` | **Clackatoo Models**, an optional companion that downloads the voice and grammar models | Yes, only to download the pinned model files |
 
-Each release lists the package name and signing certificate for verification with
+Install the keyboard, then enable it under Settings > System > Keyboard > On-screen keyboard. Install Clackatoo Models too if
+you want one-tap model downloads (see [Models](#models)); without it you can import model files by hand.
+
+Updates can be tracked with [Obtainium](https://github.com/ImranR98/Obtainium). Add the same repository URL twice,
+`https://github.com/highlyproteus/clackatoo`, once for each app, and give each a different APK filter under "Filter APKs by
+regular expression" (the app is identified by the APK it installs):
+
+| App | Filter APKs by regular expression |
+| --- | --- |
+| Clackatoo | `^clackatoo-[0-9].*\.apk$` |
+| Clackatoo Models | `^clackatoo-models-.*\.apk$` |
+
+Each release lists both package names and the signing certificate (the same for both apps) for verification with
 [AppVerifier](https://github.com/soupslurpr/AppVerifier).
 
 ### Models
 
-The voice and grammar models (about 1.2 GB in total, 2.0 GB with Parakeet) are not bundled. They are imported from
-Settings > Voice typing and Settings > Grammar check:
+The voice and grammar models are not bundled. Open Settings > Voice typing or Settings > Grammar check and tap Download
+next to a model (or tap the Voice or Check key without a model and choose Download in the panel). The keyboard asks
+Clackatoo Models to fetch it; Clackatoo Models downloads the exact file from Hugging Face, checks its size and SHA-256 and
+hands it to the keyboard, which checks it again before it installs it. If Clackatoo Models is not installed the button reads
+"Get Clackatoo Models" and opens this repository's releases page in your browser. Each role has several models to choose
+from; the starred ones are recommended:
 
-| Feature | File | Size |
-| --- | --- | --- |
-| Voice typing, live text (optional) | [tdt-0.6b-v3-q5_k.gguf](https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q5_k.gguf) | 742 MB |
-| Voice typing | [ggml-small-q5_1.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin) | 190 MB |
-| English clean-up (optional) | [s1-mini-q4_k_m.gguf](https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf) | 484 MB |
-| Grammar check | [Qwen3.5-0.8B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf) | 533 MB |
+| Role | Model | Maker, licence | Size |
+| --- | --- | --- | --- |
+| Voice typing, live text | Parakeet TDT 0.6B v3 (25 languages) ★ | NVIDIA, CC-BY-4.0 | 742 MB |
+| | Parakeet TDT 0.6B v2 (English) | NVIDIA, CC-BY-4.0 | 705 MB |
+| | Parakeet TDT-CTC 110M (English, fast) | NVIDIA, CC-BY-4.0 | 143 MB |
+| | Nemotron 3.5 ASR streaming 0.6B (35 languages) | NVIDIA, OpenMDW-1.1 | 785 MB |
+| Voice typing | Whisper small ★ | OpenAI, MIT | 190 MB |
+| | Whisper tiny, base, large v3 turbo | OpenAI, MIT | 32, 60, 574 MB |
+| English clean-up | S1-mini ★ | Superwhisper, Apache-2.0 | 484 MB |
+| Grammar check | Qwen3.5 0.8B ★ | Qwen team, Apache-2.0 | 533 MB |
+| | Qwen3.5 2B | Qwen team, Apache-2.0 | 1.28 GB |
 
-Only these exact files are accepted; each is pinned by size and SHA-256. The small Silero voice-detection model that
-Parakeet's live text needs ships inside the app. See [ml/README.md](ml/README.md).
+Every model is pinned by size and SHA-256 in `catalog/` (see [ml/README.md](ml/README.md) for the reference files and how
+to import one by hand). The small Silero voice-detection model that Parakeet's live text needs ships inside the keyboard.
 
 ## Theming
 
@@ -72,7 +94,12 @@ white where a system colour would not meet it.
 
 ## Privacy and security
 
-- **No network access.** The app does not request `INTERNET`; release builds fail if it appears.
+- **No network access.** The keyboard does not request `INTERNET`; the release workflow fails if it appears. Downloads
+  are done by the separate app Clackatoo Models, which asks for nothing but the network, a foreground service for the
+  download and notifications (the workflow fails on any other permission). It accepts only the id of a model from its
+  built-in catalog from the keyboard, never a URL, size or hash, follows redirects only to Hugging Face hosts, and
+  hands the file over only to the keyboard. The two apps talk through a signature permission, so only apps signed with
+  the Clackatoo key can use the link; the keyboard checks every file again before installing it.
 - **Isolated model process.** whisper.cpp, parakeet.cpp and llama.cpp run in an isolated process
   (`android:isolatedProcess="true"`) with no permissions and no access to the keyboard's files. Models are passed as
   read-only file descriptors and all output is treated as untrusted.
@@ -94,8 +121,8 @@ Requirements: JDK 21, Android SDK (platform 37, build-tools 37.0.0), NDK `28.0.1
 git submodule update --init --depth 1   # whisper.cpp, llama.cpp and parakeet.cpp
 git -C asr/native/parakeet.cpp submodule update --init --depth 1 third_party/ggml   # parakeet.cpp's ggml
 ./gradlew assembleDebugNoMinify         # debug build (io.github.highlyproteus.clackatoo.debug)
-./gradlew assembleNouserlib             # release build, unsigned
-./gradlew :app:testRunTestsUnitTest     # unit tests
+./gradlew assembleNouserlib             # release builds of the keyboard and Clackatoo Models, unsigned
+./gradlew :app:testRunTestsUnitTest :models:testDebugUnitTest :catalog:testDebugUnitTest   # unit tests
 ```
 
 Development notes are in [AGENTS.md](AGENTS.md).

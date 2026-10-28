@@ -12,10 +12,13 @@ GitHub releases. Design: square, not pills (6dp corner radius for keys and panel
    Authors`, `SPDX-License-Identifier: Apache-2.0`) so that other AOSP-derived keyboards can reuse them. Keep the
    modifications notice in README.md and NOTICE accurate (GPL-3.0 section 5a): add a dated line to NOTICE for every
    user-visible modification.
-2. **Never add the `INTERNET` permission**, or any network-capable component, library or dependency (the llama.cpp
-   build in `ml/` has its HTTP client, server and tools switched off; keep it that way). The release workflow fails if
-   the APK asks for INTERNET; check locally with `aapt2 dump permissions <apk>`.
-   Adding or widening any permission needs a security review.
+2. **Never add the `INTERNET` permission to the keyboard**, or any network-capable component, library or dependency (the
+   llama.cpp build in `ml/` has its HTTP client, server and tools switched off; keep it that way). The release workflow
+   fails if the keyboard APK asks for INTERNET; check locally with `aapt2 dump permissions <apk>`. Downloads are the
+   job of the companion app `models` ("Clackatoo Models"), which is the only module allowed INTERNET and whose
+   permission list is fixed exactly (INTERNET, FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC, POST_NOTIFICATIONS and
+   the signature permission below; the workflow fails on anything else). Adding or widening any permission, in either
+   app, needs a security review.
 3. **Keep upstream mergeable.** Prefer additive changes (new files, new style entries) to rewriting upstream code. The
    Clackatoo look is a dedicated style ("Clackatoo", `KeyboardTheme.STYLE_CLACKATOO`), not edits to the
    Material/Holo/Rounded styles. The Kotlin package stays `helium314.keyboard` and the Gradle namespace stays
@@ -32,6 +35,8 @@ GitHub releases. Design: square, not pills (6dp corner radius for keys and panel
    never starts without the recording panel on screen, and RECORD_AUDIO is requested on first use of the Voice key
    only. Never log text the user typed, said or that a model produced, in any build. Any change that touches the
    microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
+   Models are listed in the `catalog` module (`Catalog.kt`: id, file, size, SHA-256, Hugging Face repository and a
+   40-hex revision; `CatalogTest` pins the shape) and `ModelCatalog` is built on it; add a model there and in NOTICE.
 6. **No user-supplied native library in any build type.** `BuildConfig.ALLOW_USER_LIBRARY` is false for every build
    type, and `UserLibraryPolicy` (checked in `JniUtils` and the advanced settings screen) keeps HeliBoard's "load
    gesture typing library" closed: such a library would run inside the keyboard process and void the isolation
@@ -102,3 +107,25 @@ decoder on the same strokes and the decoding time.
   toast and the Voice/Check panel when adding UI.
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.
+
+## Models and the companion app
+
+- `catalog/` is the one list of downloadable models, shared by the keyboard and the companion app `models`
+  ("Clackatoo Models", application id `io.github.highlyproteus.clackatoo.models`). `ModelsProtocol` in it holds the few
+  names the two apps use to talk.
+- **The companion is untrusted by the keyboard and the keyboard by the companion.** The keyboard sends one Intent extra,
+  `id` (a catalog id), to the companion's `DownloadService`; `RequestParser` refuses any other extra, a data URI, a URL, a
+  size or a hash, and an unknown id. The companion downloads only the catalog's pinned URL (`DownloadPolicy`: https,
+  `huggingface.co` and `*.hf.co` only, also for redirects), checks exact size and SHA-256, and hands the file over as a
+  read-only descriptor to the keyboard's `ModelReceiverService`, which refuses anything but the documented calls and
+  installs through `ModelStore.import` (size, header, SHA-256 again). Then the companion deletes its copy. Progress is
+  numbers only; failure texts are written by the keyboard.
+- **Both directions need the signature permission** `io.github.highlyproteus.clackatoo.permission.MODELS` (debug builds:
+  `...clackatoo.debug.permission.MODELS`, because a debug and a release app are signed with different keys and one name
+  with two signatures would fail the install), declared by both apps. The keyboard also checks the companion's signature
+  before it talks to it, and the receiver checks the caller's package and signature on every call. Any change to this
+  link needs a security review.
+- `ModelDownloads` / `ModelState` / `ModelChoice` (package `helium314.keyboard.clackatoo.models`) are the keyboard-side
+  API that the settings screens and the panel use. A completed download becomes the chosen model of its role.
+- The release workflow builds both APKs with `assembleNouserlib`; `versionName` of `models/build.gradle.kts` must equal the
+  keyboard's.
