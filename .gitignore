@@ -18,8 +18,9 @@ tools/*.txt
 ml/.cxx
 asr/.cxx
 
-# Clackatoo: model files for development, never committed
-/models/
+# Clackatoo: model files for development, never committed (models/ itself is the Clackatoo Models companion app)
+/models/*.gguf
+/models/*.bin
 
 # Python bytecode (tools/gesture-eval)
 __pycache__/

@@ -1,4 +1,6 @@
 include ':app'
 include ':ml'
 include ':asr'
+include ':catalog'
+include ':models'
 include ':tools:make-emoji-keys'
