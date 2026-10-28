@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
+import helium314.keyboard.clackatoo.GlassWindow
 import helium314.keyboard.clackatoo.ThemeCatalog
 import helium314.keyboard.clackatoo.ThemeGroup
 import helium314.keyboard.clackatoo.ui.SettingsGroup
@@ -140,6 +141,9 @@ fun ThemePickerScreen(onClickBack: () -> Unit) {
                 for ((group, ids) in groups) {
                     SettingsSectionHeader(stringResource(groupTitle(group)), startPadding = 12.dp)
                     groupNote(group)?.let { SettingsHint(stringResource(it), startPadding = 12.dp) }
+                    // whether the glass keyboard blurs on this phone now (battery saver switches it off)
+                    if (group == ThemeGroup.GLASS)
+                        SettingsHint(stringResource(blurStatus(GlassWindow.blurAvailable(ctx))), startPadding = 12.dp)
                     // two tiles to a row
                     for (row in ids.chunked(2)) {
                         Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -307,6 +311,9 @@ private fun groupTitle(group: ThemeGroup) = when (group) {
     ThemeGroup.CLASSIC -> R.string.theme_picker_group_classic
     ThemeGroup.CUSTOM -> R.string.theme_picker_group_custom
 }
+
+/** The sentence that says whether the phone blurs what is behind the keyboard window now. */
+internal fun blurStatus(blurs: Boolean) = if (blurs) R.string.theme_picker_glass_blur_on else R.string.theme_picker_glass_blur_off
 
 private fun groupNote(group: ThemeGroup) = when (group) {
     ThemeGroup.GLASS -> R.string.theme_picker_glass_note

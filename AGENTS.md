@@ -136,10 +136,19 @@ decoder on the same strokes and the decoding time.
   (`ClackatooStyle.paletteColors`), so one contrast guard covers them all. Omarchy themes come from
   `tools/omarchy-themes/generate.py` at a pinned commit (colours only, MIT, `third_party/omarchy/`); never hand-edit
   `OmarchyThemeData.kt`, change the generator or the mapping in `OmarchyThemes.kt`.
-- Glass keyboard: the colours are translucent (`GlassPalette`), the keyboard window is transparent and the blur is a
-  separate small window behind the visible keyboard (`GlassWindow`; `Window.setBackgroundBlurRadius` on the keyboard
-  window itself blurs the whole screen, because that window is as tall as the screen). Where blur is off the tint is
-  nearly opaque. Labels must have 4.5:1 over white and over black behind the keyboard (`ThemePalettesTest`).
+- Glass keyboard: text and icons never sit on clear glass. The window is transparent and the blur is a separate small
+  window behind the visible keyboard (`GlassWindow`; `Window.setBackgroundBlurRadius` on the keyboard window itself
+  blurs the whole screen, because that window is as tall as the screen). The clear parts (gaps between keys, edges) are
+  a light tint (`GlassPalette.CLEAR_TINT_BLURRED`, about 26%; a heavier `CLEAR_TINT_PLAIN` where the phone cannot blur).
+  Everything that carries a label has a frosted backing, `GlassPalette.BACKING_ALPHA` (78%) with a hairline: keys (their
+  tiles; the emoji keys too), each button of the strip (every suggestion, toolbar key and emoji tab gets a chip of its
+  own, so the wallpaper shows between them; per word looked better than one bar under the whole strip), the strip under
+  the system's navigation icons, the voice and check panel's title and body, the clipboard's placeholder
+  (`GlassBacking`, `Colors.backing`). Popups, key previews and more-suggestions stay solid.
+  A new text surface needs a backing and a line in `ThemePalettesTest.assertGlassReadable`, which measures every label
+  on its own backing over white, black, mid grey and the saturated colours (`ClackatooPalette.BACKDROPS`), in light and
+  dark mode, with and without blur: a text surface without a test is a bug. The voice and check panel is clear glass and
+  hides the keys under it (alpha 0, not GONE: the blur and the touch region follow the keys being shown).
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.
 

@@ -8,20 +8,24 @@ import helium314.keyboard.clackatoo.ClackatooPalette.Companion.BLACK
 import helium314.keyboard.clackatoo.ClackatooPalette.Companion.WHITE
 
 /**
- * The colours of the glass keyboard: the keyboard window is translucent, letter and function keys are lighter glass
- * tiles with a strong hairline. What is behind the keyboard is unknown (white page, black page, a photo), so the tint is
- * made as opaque as it takes for the labels to keep 4.5:1 over white and over black (see [ClackatooPalette.withReadableText],
- * which looks at both). Where blur is available that is just enough; where it is not, the tint starts from a high opacity
- * so that the app behind does not shine through unblurred.
+ * The colours of the glass keyboard. Text and icons never sit on clear glass: the parts of the keyboard window that carry
+ * none (the gaps between keys, the edges) are clear, a light tint over the blurred app behind, and everything that carries
+ * a label (keys, the suggestion strip, the toolbar, panels) has a frosted backing, a tile that is mostly opaque
+ * ([BACKING_ALPHA]) with a hairline edge. What is behind the keyboard is unknown (white page, black page, a photo), so
+ * the backings are what the labels' 4.5:1 is measured on (see [ClackatooPalette.withReadableText], which looks at the
+ * backings over white, black, grey and saturated colours); the clear parts need no contrast and stay as clear as is pretty.
+ * Where the phone cannot blur, the clear parts get a heavier tint, so that the app behind does not shine through unblurred.
  */
 object GlassPalette {
     /** Radius of the blur behind the keyboard window, in dp. */
     const val BLUR_RADIUS_DP = 28
-    /** Opacity of the tint (0-1) to start from where the window can blur what is behind it, and where it cannot. */
-    private const val MIN_TINT_BLURRED = 0.40f
-    private const val MIN_TINT_PLAIN = 0.90f
-    private const val MAX_TINT = 0.97f
-    private const val TINT_STEP = 0.02f
+    /** Opacity of the tint (0-1) of the clear parts where the window can blur what is behind it, and where it cannot. */
+    const val CLEAR_TINT_BLURRED = 0.26f
+    const val CLEAR_TINT_PLAIN = 0.86f
+    /** Opacity (0-255) of the frosted backings: keys, strip, toolbar, panels. The same with and without blur. */
+    const val BACKING_ALPHA = 0xC7
+    private const val MAX_BACKING_ALPHA = 0xF2
+    private const val BACKING_ALPHA_STEP = 6
 
     /** The accent of the fixed dark and light glass themes (the follow-the-phone glass takes the phone's). */
     @get:ColorInt val ACCENT_DARK = 0xFF5BC8FF.toInt()
@@ -35,35 +39,36 @@ object GlassPalette {
 
     /** Glass tinted with the colours of [base] (a palette of the phone), with [blur] if the window can blur. */
     fun build(base: ClackatooPalette, blur: Boolean): ClackatooPalette {
-        var tint = if (blur) MIN_TINT_BLURRED else MIN_TINT_PLAIN
-        var palette = candidate(base, tint)
-        // the tint is as opaque as the labels need; hint letters, which are fainter, are raised instead of making the tint more opaque
-        while (tint < MAX_TINT && !palette.hasReadableLabels()) {
-            tint += TINT_STEP
-            palette = candidate(base, tint)
-        }
-        // if even the most opaque tint is not enough (odd system colours), black or white labels take over
+        // The backings are as opaque as the labels need, and the same with and without blur: the clearer tint is the worse case for
+        // them (a backing over a clear surface shows more of what is behind), so it decides. Hint letters, which are fainter, are
+        // raised instead of making the backings more opaque.
+        var alpha = BACKING_ALPHA
+        while (alpha + BACKING_ALPHA_STEP <= MAX_BACKING_ALPHA && !candidate(base, CLEAR_TINT_BLURRED, alpha).hasReadableLabels()) alpha += BACKING_ALPHA_STEP
+        val palette = candidate(base, if (blur) CLEAR_TINT_BLURRED else CLEAR_TINT_PLAIN, alpha)
+        // if even the most opaque backing is not enough (odd system colours), black or white labels take over
         return palette.withRaisedText().withReadableText()
     }
 
-    private fun candidate(base: ClackatooPalette, tint: Float): ClackatooPalette {
+    private fun candidate(base: ClackatooPalette, tint: Float, alpha: Int): ClackatooPalette {
         val dark = base.dark
         // the tint is the base surface, without its own translucency
         val surface = opaque(base.surface)
-        // Tiles are the tint made a little lighter (dark glass) or white (light glass) and more opaque than the tint around them, so the labels keep their
-        // contrast on tiles however light the app behind is; that lets the tint stay as translucent as the labels on the strip and toolbar allow.
-        fun tile(towards: Int, share: Float, alpha: Int) = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(surface, towards, share), alpha)
+        // Tiles are the surface made a little lighter (dark glass) or white (light glass), frosted: mostly opaque, so the labels keep their
+        // contrast on tiles however light or busy the app behind is, which leaves the surface around them free to be clear.
+        fun tile(towards: Int, share: Float) = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(surface, towards, share), alpha)
+        val letterKey = if (dark) tile(WHITE, 0.16f) else tile(WHITE, 1f)
         return ClackatooPalette(
             dark = dark,
             surface = ColorUtils.setAlphaComponent(surface, (tint * 255).toInt()),
-            surfaceContainerHigh = if (dark) tile(WHITE, 0.14f, 0x94) else tile(WHITE, 1f, 0xA6),
-            surfaceContainerHighest = if (dark) tile(WHITE, 0.24f, 0xA6) else tile(BLACK, 0.07f, 0x99),
+            surfaceContainerHigh = letterKey,
+            surfaceContainerHighest = if (dark) tile(WHITE, 0.26f) else tile(BLACK, 0.08f),
             onSurface = base.onSurface,
             onSurfaceVariant = base.onSurfaceVariant,
             primary = base.primary,
-            // popups are drawn over keys and over the app, so they are nearly opaque
-            popup = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(surface, if (dark) WHITE else BLACK, if (dark) 0.18f else 0.05f), 0xF2),
-            hairlineAlpha = if (dark) 0x5C else 0x47,
+            // popups and key previews are drawn over keys and over the app, so they are solid
+            popup = ColorUtils.blendARGB(surface, if (dark) WHITE else BLACK, if (dark) 0.18f else 0.05f),
+            hairlineAlpha = if (dark) 0x66 else 0x59,
+            backing = letterKey,
         )
     }
 

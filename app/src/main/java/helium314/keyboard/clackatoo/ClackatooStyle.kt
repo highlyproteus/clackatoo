@@ -4,6 +4,7 @@ package helium314.keyboard.clackatoo
 
 import android.content.Context
 import android.content.res.Resources
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -121,6 +122,7 @@ object ClackatooStyle {
             changeCheck = { resolve(it) != palette },
             translucentWindow = translucent,
             windowBlurRadiusDp = blurRadiusDp,
+            backing = if (translucent) palette.backing else Color.TRANSPARENT,
         )
     }
 

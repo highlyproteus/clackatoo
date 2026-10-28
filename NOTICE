@@ -165,6 +165,20 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   `KeyboardTheme`, `DefaultColors` and `Colors` (translucent window, blur
   radius; the strip is transparent on a translucent keyboard), `LatinIME`
   (window set-up and blur), the Appearance screen and the settings navigation.
+- 2026-10-28: Glass keyboard redesign. The clear parts of the keyboard (gaps
+  between keys, edges) are now a light tint (about 26%, 86% where the phone
+  cannot blur) and everything that carries text or icons has a frosted
+  backing (about 78% opaque with a hairline): keys, every suggestion, toolbar
+  key and emoji tab of the strip (a backing of its own each, no longer one
+  tint under the whole strip), the clipboard's placeholder, the strip under
+  the system's navigation icons and the text of the voice and check panel,
+  which is now clear glass instead of a solid panel. Popups stay solid (also
+  the Enter key's popup). The theme picker says whether the phone blurs
+  windows. New file `clackatoo/GlassBacking.kt`; `ClackatooPalette` (backing,
+  contrast checked over white, black, grey and saturated backdrops),
+  `GlassPalette`, `GlassWindow`, `Colors` and `DefaultColors` (backing),
+  `SuggestionStripView`, `EmojiPalettesView`, `ClipboardHistoryView` and
+  `AssistPanelView` were changed.
 - 2026-10-28: models are offered for download only where their native code
   ships (64-bit ARM or x86_64, Android 9 or newer); elsewhere the cards read
   "Not available on this phone" and the Voice and Check keys say why

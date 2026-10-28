@@ -56,6 +56,8 @@ interface Colors {
     val translucentWindow: Boolean get() = false
     /** radius in dp of the blur of what is behind the keyboard window, 0 for none; only used if [translucentWindow] */
     val windowBlurRadiusDp: Int get() = 0
+    /** the frosted backing of what carries text on a [translucentWindow] but is not a key (strip, toolbar, panels), transparent otherwise */
+    val backing: Int get() = Color.TRANSPARENT
 
     /** use to check whether colors have changed, for colors (in)directly derived from context,
      *  e.g. night mode or potentially changing system colors */
@@ -414,6 +416,7 @@ class DefaultColors (
     private val changeCheck: ((Context) -> Boolean)? = null,
     override val translucentWindow: Boolean = false,
     override val windowBlurRadiusDp: Int = 0,
+    override val backing: Int = Color.TRANSPARENT,
 ) : Colors {
     override val keyBorder: Int = keyBorderColor ?: brightenOrDarken(keyBackground, true)
     private val navBar: Int
@@ -440,6 +443,8 @@ class DefaultColors (
     private val keyStateList: ColorStateList
     private val functionalKeyStateList: ColorStateList
     private val actionKeyStateList: ColorStateList
+    /** the Enter key's colour over the popup colour, for popups, which are solid also where the keys are glass */
+    private val solidActionKeyStateList: ColorStateList
     private val spaceBarStateList: ColorStateList
     private val adjustedBackgroundStateList: ColorStateList
     private val stripBackgroundList: ColorStateList
@@ -504,6 +509,8 @@ class DefaultColors (
                 else pressedStateList(brightenOrDarken(actionKeyBackground, true), actionKeyBackground)
             spaceBarStateList = pressedStateList(brightenOrDarken(spaceBar, true), spaceBar)
         }
+        val solidActionKey = ColorUtils.compositeColors(actionKeyBackground, adjustedBackground)
+        solidActionKeyStateList = pressedStateList(pressed(solidActionKey), solidActionKey)
         keyTextFilter = colorFilter(keyText)
         actionKeyIconColorFilter = when {
             themeStyle == STYLE_HOLO -> keyTextFilter
@@ -532,7 +539,9 @@ class DefaultColors (
         SPACE_BAR_BACKGROUND -> spaceBar
         MORE_SUGGESTIONS_WORD_BACKGROUND, MAIN_BACKGROUND -> background
         KEY_BACKGROUND -> keyBackground
-        ACTION_KEY_POPUP_KEYS_BACKGROUND -> if (themeStyle == STYLE_HOLO) adjustedBackground else actionKeyBackground
+        // (a popup is solid also where the Enter key is glass)
+        ACTION_KEY_POPUP_KEYS_BACKGROUND -> if (themeStyle == STYLE_HOLO) adjustedBackground
+            else if (translucentWindow) ColorUtils.compositeColors(actionKeyBackground, adjustedBackground) else actionKeyBackground
         STRIP_BACKGROUND -> if (!hasKeyBorders && themeStyle == STYLE_MATERIAL) adjustedBackground else background
         NAVIGATION_BAR -> navBar
         SUGGESTION_AUTO_CORRECT -> autoCorrectText
@@ -551,7 +560,7 @@ class DefaultColors (
             POPUP_KEYS_BACKGROUND -> adjustedBackgroundStateList
             STRIP_BACKGROUND -> stripBackgroundList
             ACTION_KEY_POPUP_KEYS_BACKGROUND -> if (themeStyle == STYLE_HOLO) adjustedBackgroundStateList
-                else actionKeyStateList
+                else if (translucentWindow) solidActionKeyStateList else actionKeyStateList
             TOOL_BAR_KEY -> toolbarKeyStateList
             else -> null // use color filter
         }
@@ -578,7 +587,8 @@ class DefaultColors (
             KEY_PREVIEW_BACKGROUND, POPUP_KEYS_BACKGROUND -> view.background.colorFilter = adjustedBackgroundFilter
             FUNCTIONAL_KEY_BACKGROUND, KEY_BACKGROUND, MORE_SUGGESTIONS_WORD_BACKGROUND, SPACE_BAR_BACKGROUND, STRIP_BACKGROUND, CLIPBOARD_SUGGESTION_BACKGROUND -> setColor(view.background, color)
             ONE_HANDED_MODE_BUTTON -> setColor(view.background, if (keyboardBackground == null) MAIN_BACKGROUND else STRIP_BACKGROUND)
-            MORE_SUGGESTIONS_BACKGROUND -> view.background.colorFilter = backgroundFilter
+            // (the panel is a popup: solid also where the keyboard is glass)
+            MORE_SUGGESTIONS_BACKGROUND -> view.background.colorFilter = if (translucentWindow) adjustedBackgroundFilter else backgroundFilter
             MAIN_BACKGROUND -> {
                 if (keyboardBackground != null) {
                     if (!backgroundSetupDone) {

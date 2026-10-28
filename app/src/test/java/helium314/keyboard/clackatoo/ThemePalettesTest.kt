@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.clackatoo
 
+import android.graphics.Color
 import androidx.core.content.edit
 import androidx.core.graphics.ColorUtils
 import androidx.test.core.app.ApplicationProvider
@@ -128,7 +129,11 @@ class ThemePalettesTest {
 
     private val phonePalettes = listOf(true, false).map { ClackatooPalette.fallback(it) }
 
-    @Test fun glassKeepsLabelsReadableOverWhiteAndOverBlackWithAndWithoutBlur() {
+    /** [layers] drawn one over the other over [backdrop]: what a pixel looks like. */
+    private fun over(backdrop: Int, vararg layers: Int) = layers.fold(backdrop) { below, layer -> ColorUtils.compositeColors(layer, below) }
+
+    /** Every glass theme, in the phone's dark and light mode, with and without blur. */
+    private fun forEveryGlass(check: (palette: ClackatooPalette, colors: Colors, what: String) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<App>()
         for (id in ThemeCatalog.glass) for (dark in listOf(true, false)) for (blur in listOf(true, false)) {
             val palette = when (id) {
@@ -138,21 +143,122 @@ class ThemePalettesTest {
             }
             val colors = ClackatooStyle.paletteColors(context, KeyboardTheme.STYLE_CLACKATOO, true, null, true, if (blur) 28 else 0) { palette }
             assertTrue(colors.translucentWindow)
-            assertReadable(colors, "$id dark=$dark blur=$blur")
+            check(palette, colors, "$id dark=$dark blur=$blur")
         }
     }
 
-    @Test fun glassIsTranslucentAndWithoutBlurNearlyOpaque() {
+    /**
+     * Every piece of text or icon of the glass keyboard against what it is really drawn on: its own backing (a key's tile, the strip's
+     * backing, a popup) over the clear surface of the window over each backdrop that can be behind the keyboard.
+     * A text surface that is not listed here is not guarded.
+     */
+    private fun assertGlassReadable(colors: Colors, what: String) {
+        val main = colors.get(ColorType.MAIN_BACKGROUND)
+        val backing = colors.backing
+        val tile = colors.get(ColorType.KEY_BACKGROUND)
+        val functionKey = colors.get(ColorType.FUNCTIONAL_KEY_BACKGROUND)
+        val spaceBar = colors.get(ColorType.SPACE_BAR_BACKGROUND)
+        val enter = colors.get(ColorType.ACTION_KEY_BACKGROUND)
+        val popup = colors.get(ColorType.POPUP_KEYS_BACKGROUND)
+        // (name, text, layers it is drawn on, from the clear surface up; a popup is drawn over the app and not under the surface)
+        val surfaces = listOf(
+            // keys
+            Triple("key label on letter key", ColorType.KEY_TEXT, listOf(main, tile)),
+            Triple("hint letter on letter key", ColorType.KEY_HINT_TEXT, listOf(main, tile)),
+            Triple("key icon on letter key", ColorType.KEY_ICON, listOf(main, tile)),
+            Triple("label on function key", ColorType.FUNCTIONAL_KEY_TEXT, listOf(main, functionKey)),
+            Triple("hint letter on function key", ColorType.KEY_HINT_TEXT, listOf(main, functionKey)),
+            Triple("icon on function key", ColorType.KEY_ICON, listOf(main, functionKey)),
+            Triple("label on space bar", ColorType.KEY_TEXT, listOf(main, spaceBar)),
+            Triple("language name on space bar", ColorType.SPACE_BAR_TEXT, listOf(main, spaceBar)),
+            Triple("Enter on Enter key", ColorType.ACTION_KEY_ICON, listOf(main, enter)),
+            // the strip: suggestions and the toolbar, on its frosted backing
+            Triple("suggestion on strip", ColorType.SUGGESTED_WORD, listOf(main, backing)),
+            Triple("typed word on strip", ColorType.SUGGESTION_TYPED_WORD, listOf(main, backing)),
+            Triple("valid typed word on strip", ColorType.SUGGESTION_VALID_WORD, listOf(main, backing)),
+            Triple("selected suggestion on strip", ColorType.SUGGESTION_AUTO_CORRECT, listOf(main, backing)),
+            Triple("toolbar icon on strip", ColorType.TOOL_BAR_KEY, listOf(main, backing)),
+            Triple("toolbar arrow on strip", ColorType.TOOL_BAR_EXPAND_KEY, listOf(main, backing, colors.get(ColorType.TOOL_BAR_EXPAND_KEY_BACKGROUND))),
+            Triple("emoji tab icon on strip", ColorType.EMOJI_CATEGORY, listOf(main, backing)),
+            Triple("remove-suggestion icon on strip", ColorType.REMOVE_SUGGESTION_ICON, listOf(main, backing)),
+            // emoji grid and the clipboard
+            Triple("emoji on emoji key", ColorType.EMOJI_KEY_TEXT, listOf(main, tile)),
+            Triple("clip text on clip key", ColorType.KEY_TEXT, listOf(main, tile)),
+            Triple("clipboard placeholder", ColorType.KEY_TEXT, listOf(main, backing)),
+            Triple("clipboard icon on strip", ColorType.CLIPBOARD_SUGGESTION_ICON, listOf(main, backing, colors.get(ColorType.CLIPBOARD_SUGGESTION_BACKGROUND))),
+            // the voice and check panel: title, text and hints on the backing, buttons like keys
+            Triple("panel title and text", ColorType.KEY_TEXT, listOf(main, backing)),
+            Triple("panel hint (live text still being spoken)", ColorType.KEY_HINT_TEXT, listOf(main, backing)),
+            Triple("panel button", ColorType.KEY_TEXT, listOf(main, tile)),
+            Triple("panel main button", ColorType.ACTION_KEY_ICON, listOf(main, enter)),
+        )
+        for ((name, text, layers) in surfaces) for (backdrop in ClackatooPalette.BACKDROPS) {
+            val ratio = ColorUtils.calculateContrast(colors.get(text), over(backdrop, *layers.toIntArray()))
+            assertTrue(ratio >= MIN_TEXT_CONTRAST, "$what: $name has $ratio:1 over #${Integer.toHexString(backdrop)}")
+        }
+        // popups, key previews and the more-suggestions panel are solid, drawn over the keys and the app, and carry text of their own
+        for (type in listOf(ColorType.POPUP_KEYS_BACKGROUND, ColorType.KEY_PREVIEW_BACKGROUND, ColorType.MORE_SUGGESTIONS_BACKGROUND, ColorType.ACTION_KEY_POPUP_KEYS_BACKGROUND))
+            assertEquals(255, colors.get(type) ushr 24, "$what: $type is not solid")
+        val moreSuggestions = listOf(
+            "suggestion in more suggestions" to ColorType.SUGGESTED_WORD, "typed word in more suggestions" to ColorType.SUGGESTION_TYPED_WORD,
+            "valid word in more suggestions" to ColorType.SUGGESTION_VALID_WORD, "selected word in more suggestions" to ColorType.SUGGESTION_AUTO_CORRECT,
+            "hint in more suggestions" to ColorType.MORE_SUGGESTIONS_HINT,
+        )
+        val textOnPopups = moreSuggestions.map { (name, type) -> Triple(name, type, listOf(colors.get(ColorType.MORE_SUGGESTIONS_BACKGROUND), colors.get(ColorType.MORE_SUGGESTIONS_WORD_BACKGROUND))) } + listOf(
+            Triple("popup key label on popup", ColorType.POPUP_KEY_TEXT, listOf(popup)),
+            Triple("popup icon on popup", ColorType.POPUP_KEY_ICON, listOf(popup)),
+            Triple("popup key label on Enter popup", ColorType.POPUP_KEY_TEXT, listOf(colors.get(ColorType.ACTION_KEY_POPUP_KEYS_BACKGROUND))),
+            Triple("key preview", ColorType.KEY_PREVIEW_TEXT, listOf(colors.get(ColorType.KEY_PREVIEW_BACKGROUND))),
+        )
+        for ((name, text, layers) in textOnPopups) for (backdrop in ClackatooPalette.BACKDROPS) {
+            val ratio = ColorUtils.calculateContrast(colors.get(text), over(backdrop, *layers.toIntArray()))
+            assertTrue(ratio >= MIN_TEXT_CONTRAST, "$what: $name has $ratio:1 over #${Integer.toHexString(backdrop)}")
+        }
+    }
+
+    @Test fun glassKeepsEveryTextSurfaceReadableOverWhiteBlackGreyAndSaturatedBackdropsWithAndWithoutBlur() {
+        forEveryGlass { _, colors, what -> assertGlassReadable(colors, what) }
+    }
+
+    @Test fun theTestCoversWorstCasesOfEveryKind() {
+        // white, black, mid grey, the three primaries and the three secondaries
+        assertEquals(9, ClackatooPalette.BACKDROPS.distinct().size)
+        assertTrue(WHITE in ClackatooPalette.BACKDROPS && BLACK in ClackatooPalette.BACKDROPS && 0xFF808080.toInt() in ClackatooPalette.BACKDROPS)
+    }
+
+    @Test fun glassIsClearBetweenTheBackingsAndTintedHeavierWithoutBlur() {
         for (dark in listOf(true, false)) {
             val blurred = GlassPalette.build(ClackatooPalette.fallback(dark), true)
             val plain = GlassPalette.build(ClackatooPalette.fallback(dark), false)
-            assertTrue((blurred.surface ushr 24) in 80..240, "dark=$dark blurred tint ${blurred.surface ushr 24}/255")
-            assertTrue((plain.surface ushr 24) >= (0.9f * 255).toInt(), "dark=$dark plain tint ${plain.surface ushr 24}/255")
-            assertTrue((blurred.surface ushr 24) < (plain.surface ushr 24))
-            // tiles are glass too
-            assertTrue((blurred.surfaceContainerHigh ushr 24) in 1..254)
-            // and popups, which are drawn over keys, stay nearly opaque
-            assertTrue((blurred.popup ushr 24) >= 0xE0)
+            val tintBlurred = (blurred.surface ushr 24) / 255f
+            val tintPlain = (plain.surface ushr 24) / 255f
+            // the clear parts: 20-35% where the window blurs
+            assertTrue(tintBlurred in 0.20f..0.35f, "dark=$dark blurred tint $tintBlurred")
+            // heavier without blur, so that the unblurred app does not shine through
+            assertTrue(tintPlain >= 0.5f && tintPlain > tintBlurred + 0.2f, "dark=$dark plain tint $tintPlain")
+            // frosted backings: 70-80% (more only where the labels need it), the same with and without blur for the fixed themes
+            for (p in listOf(blurred, plain)) {
+                val backing = (p.backing ushr 24) / 255f
+                assertTrue(backing in 0.70f..0.95f, "dark=$dark backing $backing")
+                assertEquals(p.backing, p.surfaceContainerHigh, "the strip's backing is the letter keys' tile")
+                assertTrue((p.surfaceContainerHigh ushr 24) in 0xB4..0xF2 && (p.surfaceContainerHighest ushr 24) in 0xB4..0xF2)
+                // popups are drawn over keys and over the app, so they are solid
+                assertEquals(255, p.popup ushr 24)
+            }
+            val fixedBlurred = GlassPalette.fixed(dark, true)
+            val fixedPlain = GlassPalette.fixed(dark, false)
+            assertEquals(fixedBlurred.backing, fixedPlain.backing, "dark=$dark: the backings do not change without blur")
+            assertEquals(fixedBlurred.surfaceContainerHighest, fixedPlain.surfaceContainerHighest)
+            assertTrue((fixedBlurred.surface ushr 24) < (fixedPlain.surface ushr 24))
+        }
+    }
+
+    @Test fun otherThemesHaveNoBacking() {
+        val context = ApplicationProvider.getApplicationContext<App>()
+        for (name in listOf(KeyboardTheme.THEME_DARK, KeyboardTheme.THEME_CLACKATOO, OmarchyThemes.all.first().id)) {
+            context.prefs().edit { putString(Settings.PREF_THEME_COLORS, name) }
+            val colors = KeyboardTheme.getColorsForCurrentTheme(context)
+            assertEquals(Color.TRANSPARENT, colors.backing, name)
         }
     }
 
