@@ -118,12 +118,12 @@ fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier, startPad
 
 /** Explanatory text between rows or panels, on the window background (so in the main text colour). */
 @Composable
-fun SettingsHint(text: String, modifier: Modifier = Modifier) {
+fun SettingsHint(text: String, modifier: Modifier = Modifier, startPadding: Dp = 28.dp) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(horizontal = 28.dp, vertical = 6.dp),
+        modifier = modifier.padding(start = startPadding, end = 28.dp, top = 6.dp, bottom = 6.dp),
     )
 }
 

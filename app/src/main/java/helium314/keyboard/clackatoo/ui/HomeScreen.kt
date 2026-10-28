@@ -3,6 +3,7 @@
 package helium314.keyboard.clackatoo.ui
 
 import android.content.Context
+import android.os.Build
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import helium314.keyboard.clackatoo.ThemeCatalog
 import helium314.keyboard.latin.BuildConfig
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.settings.Defaults
@@ -45,7 +47,6 @@ import helium314.keyboard.latin.utils.SubtypeLocaleUtils.displayName
 import helium314.keyboard.latin.utils.SubtypeSettings
 import helium314.keyboard.latin.utils.UncachedInputMethodManagerUtils
 import helium314.keyboard.latin.utils.getActivity
-import helium314.keyboard.latin.utils.getStringResourceOrName
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.SettingsActivity
 import helium314.keyboard.settings.screens.gesturedata.END_DATE_EPOCH_MILLIS
@@ -63,6 +64,7 @@ class HomeActions(
     val onDictionaries: () -> Unit,
     val onVoiceTyping: () -> Unit,
     val onGrammarCheck: () -> Unit,
+    val onTheme: () -> Unit,
     val onAppearance: () -> Unit,
     val onToolbar: () -> Unit,
     val onAdvanced: () -> Unit,
@@ -111,9 +113,12 @@ fun HomeContent(actions: HomeActions) {
         }
 
         SettingsGroup(title = stringResource(R.string.home_group_look_feel)) {
-            val styleName = prefs.getString(Settings.PREF_THEME_STYLE, Defaults.PREF_THEME_STYLE)!!
-                .getStringResourceOrName("style_name_", ctx)
-            HomeRow(R.string.settings_screen_appearance, actions.onAppearance, R.drawable.ic_settings_appearance, styleName)
+            val dayNight = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && prefs.getBoolean(Settings.PREF_THEME_DAY_NIGHT, Defaults.PREF_THEME_DAY_NIGHT)
+            val day = ThemeCatalog.displayName(ctx, prefs.getString(Settings.PREF_THEME_COLORS, Defaults.PREF_THEME_COLORS)!!)
+            val night = ThemeCatalog.displayName(ctx, prefs.getString(Settings.PREF_THEME_COLORS_NIGHT, Defaults.PREF_THEME_COLORS_NIGHT)!!)
+            // day and night only when they differ
+            HomeRow(R.string.theme_picker_title, actions.onTheme, R.drawable.ic_settings_appearance, if (dayNight && day != night) "$day / $night" else day)
+            HomeRow(R.string.settings_screen_appearance, actions.onAppearance, R.drawable.ic_settings_layout)
             HomeRow(R.string.settings_screen_toolbar, actions.onToolbar, R.drawable.ic_settings_toolbar)
             SettingsActivity.settingsContainer[GlassStyle.PREF_GLASS]?.Preference()
         }

@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,10 +47,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import helium314.keyboard.clackatoo.ThemeCatalog
 import helium314.keyboard.clackatoo.ThemeGroup
+import helium314.keyboard.clackatoo.ui.SettingsGroup
+import helium314.keyboard.clackatoo.ui.SettingsHint
+import helium314.keyboard.clackatoo.ui.SettingsRow
+import helium314.keyboard.clackatoo.ui.SettingsSectionHeader
+import helium314.keyboard.clackatoo.ui.settingsPanelColor
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.KeyboardTheme
 import helium314.keyboard.latin.R
@@ -114,45 +118,28 @@ fun ThemePickerScreen(onClickBack: () -> Unit) {
         content = {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
                 if (canDayNight) {
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            dayNight = !dayNight
-                            prefs.edit { putBoolean(Settings.PREF_THEME_DAY_NIGHT, dayNight) }
-                            KeyboardSwitcher.getInstance().setThemeNeedsReload()
-                        }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.theme_picker_day_night), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                stringResource(R.string.theme_picker_day_night_summary),
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = dayNight, onCheckedChange = null)
-                    }
-                }
-                if (dayNight) {
-                    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = !night, onClick = { night = false }, label = { Text(stringResource(R.string.theme_picker_day)) })
-                        FilterChip(selected = night, onClick = { night = true }, label = { Text(stringResource(R.string.theme_picker_night)) })
+                    SettingsGroup(Modifier.padding(top = 8.dp)) {
+                        SettingsRow(
+                            title = stringResource(R.string.theme_picker_day_night),
+                            subtitle = stringResource(R.string.theme_picker_day_night_summary),
+                            onClick = {
+                                dayNight = !dayNight
+                                prefs.edit { putBoolean(Settings.PREF_THEME_DAY_NIGHT, dayNight) }
+                                KeyboardSwitcher.getInstance().setThemeNeedsReload()
+                            },
+                        ) { Switch(checked = dayNight, onCheckedChange = null) }
+                        if (dayNight)
+                            Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = !night, onClick = { night = false }, label = { Text(stringResource(R.string.theme_picker_day)) })
+                                FilterChip(selected = night, onClick = { night = true }, label = { Text(stringResource(R.string.theme_picker_night)) })
+                            }
                     }
                 }
 
                 val groups = themesByGroup(ctx, editsNight, userThemes, selected)
                 for ((group, ids) in groups) {
-                    Text(
-                        stringResource(groupTitle(group)),
-                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                    )
-                    groupNote(group)?.let {
-                        Text(
-                            stringResource(it), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
+                    SettingsSectionHeader(stringResource(groupTitle(group)), startPadding = 12.dp)
+                    groupNote(group)?.let { SettingsHint(stringResource(it), startPadding = 12.dp) }
                     // two tiles to a row
                     for (row in ids.chunked(2)) {
                         Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -205,9 +192,9 @@ private fun ThemeTile(
             contentDescription = if (selected) "$name, $selectedLabel" else name
             this.selected = selected
         },
-        shape = RoundedCornerShape(12.dp),
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = MaterialTheme.shapes.medium,
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(Dp.Hairline, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = settingsPanelColor()),
     ) {
         Column(Modifier.padding(8.dp)) {
             if (colors != null) MiniKeyboard(colors, Modifier.fillMaxWidth().aspectRatio(1.7f))
