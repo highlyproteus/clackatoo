@@ -15,9 +15,11 @@ import helium314.keyboard.latin.utils.locale
  *
  * The rules come from measurements, see "Which model for which phone" in `ml/README.md`. The numbers in [PEAK_MB] are the
  * peak resident memory of the isolated model process (`VmHWM`, cold start) with that one model loaded and run on the test
- * clip, on an arm64 emulator with 4 cores. The model process keeps what it has loaded for a minute, so Voice typing holds
- * the speech model and the English clean-up model together; the rules therefore keep the pair within [BUDGET_PERCENT] of the
- * phone's RAM (the rest is for Android and the app in front), and the grammar model alone within the same share.
+ * clip, on an arm64 emulator with 4 cores. The model process keeps only the models of the current use resident
+ * ([helium314.keyboard.clackatoo.assist.ModelResidency]): Voice typing holds the speech model, the voice detector and the
+ * English clean-up model together, a grammar check holds the grammar model alone and frees the voice models first. The rules
+ * therefore keep the voice pair within [BUDGET_PERCENT] of the phone's RAM (the rest is for Android and the app in front),
+ * and the grammar model alone within the same share.
  * Live text (Parakeet) also needs the Arm dot-product instructions on arm64 and at least [LIVE_MIN_CORES] cores: it decodes the
  * growing utterance while you speak (4.5 s of recognition for the 5.2 s test clip on four cores).
  */

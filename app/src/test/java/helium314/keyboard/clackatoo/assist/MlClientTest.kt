@@ -149,7 +149,7 @@ class MlClientTest {
         val model = modelFile()
         val before = openDescriptors()
         repeat(3) {
-            assertFailsWith<MlException> { runBlocking { client.generate(model, 2048, prompt(), 16) } }
+            assertFailsWith<MlException> { runBlocking { client.generate(model, 2048, prompt(), 16, MlProtocol.PURPOSE_GRAMMAR) } }
         }
         assertEquals(before, openDescriptors(), "the model descriptor and both pipe ends of each request are closed")
     }
@@ -160,7 +160,7 @@ class MlClientTest {
         val model = modelFile()
         val before = openDescriptors()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val requests = List(3) { scope.async { client.generate(model, 2048, prompt(), 16) } }
+        val requests = List(3) { scope.async { client.generate(model, 2048, prompt(), 16, MlProtocol.PURPOSE_GRAMMAR) } }
         assertTrue(openDescriptors() > before, "the queued requests hold descriptors (${openDescriptors()} vs $before)")
         context.connection!!.onServiceDisconnected(ComponentName("x", "y"))
         runBlocking { requests.forEach { assertFailsWith<MlException> { it.await() } } }
@@ -173,7 +173,7 @@ class MlClientTest {
         val model = modelFile()
         val before = openDescriptors()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val request = scope.async { client.generate(model, 2048, prompt(), 16) }
+        val request = scope.async { client.generate(model, 2048, prompt(), 16, MlProtocol.PURPOSE_GRAMMAR) }
         assertTrue(openDescriptors() > before)
         client.release()
         runBlocking { assertFailsWith<MlException> { request.await() } }

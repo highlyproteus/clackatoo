@@ -333,15 +333,45 @@ alone (248 MB).
 | Qwen3.5 0.8B (grammar) | 1,318 MB | 1,233 MB | 2.0 s for 390 characters |
 
 A 484 MB or 533 MB text model takes about 1 to 1.3 GB because the weights are mapped from the file and then repacked for the
-CPU's matrix kernels. The model process keeps what it has loaded for a minute, so Voice typing holds a speech model and
-S1-mini together (Whisper or Parakeet stay loaded when clean-up runs), and a Check right after a dictation holds the grammar
-model as well: the worst case on a phone is all three (938 + 1,010 + 1,318 MB with Parakeet v3, about 3.3 GB). Where a model
+CPU's matrix kernels. The model process keeps the models of the current use resident (see "Only the models of the current use stay in memory"), so Voice
+typing holds a speech model and S1-mini together and a Check holds the grammar model alone: the worst case on a phone is the
+larger of the two (938 + 1,010 MB with Parakeet v3, about 1.9 GB measured), not all three. Where a model
 was too big for the memory it was killed on the same 4 GB emulator (Qwen3.5 2B, about 2.5 GB, see above), which is the only
 failure observed; the real phone was not measured.
 
+#### Only the models of the current use stay in memory (`ModelResidency`)
+
+The model process used to keep every model it had loaded until it exited (a minute after the last request), so Voice then Check
+left the speech model, the voice detector, S1-mini and Qwen in memory together, and every further custom text model added to it.
+`ModelResidency` now keeps one use resident: **voice** = one speech engine (Whisper or Parakeet) + the voice detector + the clean-up
+model; **check** = the grammar model. `MSG_GENERATE` carries the purpose (`KEY_PURPOSE`: `PURPOSE_CLEAN_UP` or `PURPOSE_GRAMMAR`; any
+other value is `ERR_BAD_REQUEST`), a request frees everything that is not part of its use first, and a slot that holds another
+file is freed before the new one loads (so at most one text model per purpose). The freeing happens on the worker thread before the
+request registers anything for cancelling, and the leaked-detector rule of live text is unchanged.
+
+Measured on the same emulator (2026-10-28, debug build, `:ml` process started cold, `VmRSS` / `VmHWM` from `/proc/<pid>/status`
+after each step, no waiting for the idle exit; Parakeet v3 + S1-mini for voice, Qwen3.5 0.8B and two custom Qwen3-0.6B files
+(Q4_K_M "A", Q3_K_S "B") for grammar):
+
+| Step | Before: RSS / HWM | After: RSS / HWM |
+| --- | --- | --- |
+| 1 voice (v3 + S1-mini) | 1,941 / 1,945 MB | 1,936 / 1,936 MB |
+| 2 check (Qwen3.5 0.8B) | 1,943 / 2,301 MB | 1,346 / 1,934 MB |
+| 3 voice again | 2,499 / 2,509 MB | 1,466 / 1,934 MB |
+| 4 check, custom grammar A | (process had exited, not measured) | 1,258 / 1,934 MB |
+| 5 check, custom grammar B | 860 / 863 MB (new process) | 824 / 1,934 MB |
+| 6 check, Qwen3.5 0.8B | 2,018 / 2,018 MB (new process) | 1,263 / 1,934 MB |
+
+Before, the process after a Check held about 1.94 GB of resident memory (nothing was freed) and the second Voice took it to 2.5 GB;
+after, a Check leaves about 1.3 GB (Qwen alone) and the peak never exceeds the voice pair's 1.94 GB. (The "before" run lost its
+process at step 4 because the settings screens took longer than the process's one-minute idle exit, so steps 5 and 6 there started
+from a fresh process; the growth is already visible in steps 2 and 3.) The price is load time when the use changes: the first
+Voice after a Check loads Parakeet v3 and S1-mini again, 0.45 s and 1.0 s (it was 0 s while they were resident), and the first Check
+after a Voice loads the grammar model (about the same as a first Check); repeating the same use costs nothing.
+
 The rules, from those numbers (`ModelSuggestions`, `ModelSuggestionsTest`):
 
-- **Budget:** the models of one use together may take 45 percent of the phone's RAM (`totalMem`); the rest is for Android
+- **Budget:** the models of one use (the only ones resident at a time) together may take 45 percent of the phone's RAM (`totalMem`); the rest is for Android
   and the app in front. For Voice typing that is the speech model plus S1-mini (when one of the keyboards is English, because
   S1-mini only cleans up English), for the grammar check the grammar model alone.
 - **Speech:** the first of Parakeet v3, Parakeet 110M, Whisper small, base, tiny that speaks every keyboard language and fits

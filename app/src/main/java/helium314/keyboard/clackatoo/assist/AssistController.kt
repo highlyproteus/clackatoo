@@ -331,9 +331,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
             try {
                 val styling = AssistSettings.styling(ime.prefs())
                 val cleaned = if (cleanUp.ownTemplate) { // an experimental custom model: its own chat template
-                    client.chat(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.turns(text, styling), MAX_NEW_TOKENS_CLEAN_UP)
+                    client.chat(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.turns(text, styling), MAX_NEW_TOKENS_CLEAN_UP, MlProtocol.PURPOSE_CLEAN_UP)
                 } else {
-                    client.generate(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.build(text, styling), MAX_NEW_TOKENS_CLEAN_UP)
+                    client.generate(store.file(cleanUp), cleanUp.contextTokens, S1MiniPrompt.build(text, styling), MAX_NEW_TOKENS_CLEAN_UP, MlProtocol.PURPOSE_CLEAN_UP)
                 }
                 Log.i(TAG, "cleaned in ${cleaned.runMs} ms (load ${cleaned.loadMs} ms)")
                 text = OutputSanitizer.clean(S1MiniPrompt.parse(cleaned.text), multiLine, maxChars)
@@ -478,8 +478,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                     }
                     val maxNew = (chunk.toByteArray().size + 48).coerceAtMost(MlProtocol.MAX_NEW_TOKENS)
                     val result = try {
-                        if (grammar.ownTemplate) client.chat(store.file(grammar), grammar.contextTokens, GrammarPrompt.turns(chunk), maxNew)
-                        else client.generate(store.file(grammar), grammar.contextTokens, GrammarPrompt.build(format, chunk), maxNew)
+                        if (grammar.ownTemplate) client.chat(store.file(grammar), grammar.contextTokens, GrammarPrompt.turns(chunk), maxNew, MlProtocol.PURPOSE_GRAMMAR)
+                        else client.generate(store.file(grammar), grammar.contextTokens, GrammarPrompt.build(format, chunk), maxNew, MlProtocol.PURPOSE_GRAMMAR)
                     } catch (e: MlException) {
                         if (e.modelFailedWhileLoading) store.markBroken(grammar)
                         throw e
