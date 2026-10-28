@@ -54,6 +54,19 @@ void stt_free(Stt *stt);
 Status stt_transcribe(Stt *stt, const float *pcm, int n_samples, const char *language,
                       const std::atomic<bool> &cancel, std::string &out, std::string &error);
 
+struct Vad;
+/** Samples per voice-activity window: the detector gives one speech probability for each. */
+constexpr int kVadWindowSamples = 512;
+/** Takes ownership of [fd], also when loading fails. The Silero model is pinned by size and SHA-256 by the app. */
+Vad *vad_load(int fd, int n_threads, std::string &error);
+/** Feeds 16 kHz mono float PCM in [-1, 1] to the detector, keeping its state from the previous call. [n] must be a
+ *  positive multiple of [kVadWindowSamples], else Status::Error ("bad sample count"). [probs] gets one speech
+ *  probability per window. */
+Status vad_feed(Vad *vad, const float *pcm, int n, std::vector<float> &probs, std::string &error);
+/** Forgets the audio fed so far (the detector's memory), for the next recording. */
+void vad_reset(Vad *vad);
+void vad_free(Vad *vad);
+
 /** Whether the first bytes of a Whisper ggml file are a header this code is willing to hand to whisper.cpp: the
  *  magic, and mel filters of 80 or 128 bands and 201 FFT bins. whisper.cpp trusts these numbers from the file and
  *  sizes buffers by them, so a crafted file with other values overflows a buffer. [n] is the number of bytes in

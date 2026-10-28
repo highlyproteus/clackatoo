@@ -10,6 +10,9 @@ package helium314.keyboard.clackatoo.ml
  * open the app's files. [llmLoad] and [sttLoad] take over the descriptor (detach it from its ParcelFileDescriptor
  * first) and close it, also when loading fails.
  *
+ * [vadLoad] likewise takes over its descriptor. A voice-activity detector keeps its state between [vadFeed] calls until
+ * [vadReset]; it is not thread safe and not cancellable (a call takes a few milliseconds).
+ *
  * Cancelling: [llmCancel] and [sttCancel] set a flag that the running call polls; the flag is NOT reset by a new
  * call, so the caller resets it (cancel = false) before starting one. A cancelled generate/transcribe returns null.
  * The caller must not free a handle while a cancel can still reach it.
@@ -40,6 +43,13 @@ object NativeMl {
     external fun sttFree(handle: Long)
     external fun sttCancel(handle: Long, cancel: Boolean)
     private external fun sttTranscribeBytes(handle: Long, pcm16: ShortArray, language: String): ByteArray?
+
+    /** Silero voice-activity detector. Feed multiples of 512 samples; the speech probabilities come back one per 512. */
+    external fun vadLoad(fd: Int, threads: Int): Long
+    /** pcm16[offset, offset + count): 16 kHz mono samples, [count] a positive multiple of 512. Null when detection failed. */
+    external fun vadFeed(handle: Long, pcm16: ShortArray, offset: Int, count: Int): FloatArray?
+    external fun vadReset(handle: Long)
+    external fun vadFree(handle: Long)
 
     /** Null when cancelled. */
     fun llmGenerate(handle: Long, texts: List<String>, special: List<Boolean>, maxNewTokens: Int): String? {
