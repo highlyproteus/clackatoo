@@ -64,11 +64,12 @@ Check key ──► AssistController ──► read selection or field ──►
   - The ggml CPU backends are `dlopen`ed from the app's native library directory by the isolated process. On the
     emulator (x86_64) the single CPU backend is also a separate library (`libggml-cpu.so`), so the emulator exercises
     the same loading code as the phone.
-- **No user-supplied native library, in any build type.** HeliBoard lets the user provide `libjni_latinime.so`, which
-  is then loaded into the keyboard's own process (swipe typing, a non-goal here); the isolation is only worth
-  something if nothing else can load native code there. `BuildConfig.ALLOW_USER_LIBRARY` is false for every build
-  type (`app/build.gradle.kts`), `JniUtils` and the advanced settings screen check it through `UserLibraryPolicy`, and
-  the setting is hidden. Shipped builds are still built with `assembleNouserlib` (upstream's own switch for the same).
+- **No user-supplied native library, in any build type.** HeliBoard lets the user provide `libjni_latinime.so` (for
+  Google's swipe decoder), which is then loaded into the keyboard's own process; Clackatoo decodes swipes with its own
+  built-in decoder instead. The isolation is only worth something if nothing else can load native code there.
+  `BuildConfig.ALLOW_USER_LIBRARY` is false for every build type (`app/build.gradle.kts`), `JniUtils` and the advanced
+  settings screen check it through `UserLibraryPolicy`, and the setting is hidden. Shipped builds are still built with
+  `assembleNouserlib` (upstream's own switch for the same).
 - **Replies are read as three integers.** The keyboard's reply endpoint (`ReplyBinder` in `MlClient.kt`) answers the
   Messenger call itself and reads `what`, `arg1` and `arg2` only; a message that carries an object is dropped unread.
 - Code: `app/src/main/java/helium314/keyboard/clackatoo/assist/`. Prompt building and output parsing (`Prompts.kt`),
