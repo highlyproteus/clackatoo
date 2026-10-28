@@ -35,6 +35,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import helium314.keyboard.latin.R
 
@@ -59,6 +62,8 @@ fun ModelCard(
     title: String,
     subtitle: String,
     @DrawableRes icon: Int,
+    /** What a screen reader says for the title: the model's full name. */
+    fullName: String,
     state: ModelCardState,
     downloadLabel: String,
     onDownload: () -> Unit,
@@ -75,27 +80,31 @@ fun ModelCard(
     val select = if (installed && selectable) Modifier.clickable(role = Role.RadioButton, onClick = onSelect) else Modifier
     SettingsPanel(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
-            Modifier.fillMaxWidth().then(select).padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.fillMaxWidth().then(select).padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(48.dp).clip(MaterialTheme.shapes.small)
+                Modifier.size(40.dp).clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(painterResource(icon), null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurface)
+                Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
+                    title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { contentDescription = fullName },
                 )
+                if (state !is ModelCardState.Downloading)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
                 when (state) {
-                    is ModelCardState.Downloading -> DownloadProgress(state, onCancel)
+                    is ModelCardState.Downloading -> DownloadProgress(state)
                     is ModelCardState.Installing -> {
                         LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 10.dp))
                         Text(
@@ -120,6 +129,7 @@ fun ModelCard(
             when (state) {
                 is ModelCardState.NotInstalled, is ModelCardState.Failed ->
                     if (!buttonBelow) FilledTonalButton(onClick = onDownload) { Text(downloadLabel) }
+                is ModelCardState.Downloading -> TextButton(onClick = onCancel) { Text(stringResource(R.string.models_cancel)) }
                 is ModelCardState.Installed -> {
                     if (selectable) RadioButton(selected = selected, onClick = onSelect)
                     else Text(stringResource(R.string.models_ready), style = MaterialTheme.typography.labelLarge)
@@ -134,26 +144,19 @@ fun ModelCard(
 private const val SHORT_LABEL = 12
 
 @Composable
-private fun DownloadProgress(state: ModelCardState.Downloading, onCancel: () -> Unit) {
+private fun DownloadProgress(state: ModelCardState.Downloading) {
     val ctx = LocalContext.current
     val fraction = if (state.total > 0) (state.bytes.toFloat() / state.total).coerceIn(0f, 1f) else 0f
-    Column(Modifier.padding(top = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
-            Text("${(fraction * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(
-                    R.string.model_card_progress,
-                    Formatter.formatShortFileSize(ctx, state.bytes), Formatter.formatShortFileSize(ctx, state.total)
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.models_cancel)) }
-        }
+    Column(Modifier.padding(top = 2.dp)) {
+        Text(
+            stringResource(
+                R.string.model_card_progress,
+                Formatter.formatShortFileSize(ctx, state.bytes), Formatter.formatShortFileSize(ctx, state.total)
+            ) + " \u00b7 ${(fraction * 100).toInt()}%",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
     }
 }
 

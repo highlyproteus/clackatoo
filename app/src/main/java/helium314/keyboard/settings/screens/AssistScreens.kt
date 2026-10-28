@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -29,8 +30,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,6 +44,7 @@ import helium314.keyboard.clackatoo.assist.ImportResult
 import helium314.keyboard.clackatoo.assist.ModelCatalog
 import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelSpec
+import helium314.keyboard.clackatoo.catalog.MULTILINGUAL
 import helium314.keyboard.clackatoo.assist.ModelStatus
 import helium314.keyboard.clackatoo.assist.RejectReason
 import helium314.keyboard.clackatoo.assist.S1Styling
@@ -194,7 +199,13 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
     val installed = specs.filter { store.status(it) is ModelStatus.Installed }
     val chosen = remember(refresh, tick, states) { ModelChoice.active(ctx, kind)?.id }
     val companion = ModelDownloads.isCompanionInstalled(ctx)
-    specs.forEach { spec ->
+    // shown: what is on the phone or on its way, then the recommended ones; the rest folds into "More models"
+    fun busy(spec: ModelSpec) = ModelDownloads.state(spec.id).value.let { it is ModelState.Downloading || it is ModelState.Installing || it is ModelState.Failed }
+    val shown = specs.filter { it in installed || busy(it) || it.recommended }
+        .sortedBy { if (it in installed || busy(it)) 0 else 1 }
+    val more = specs - shown.toSet()
+    var expanded by rememberSaveable(kind) { mutableStateOf(false) }
+    @Composable fun card(spec: ModelSpec) {
         val download = ModelDownloads.state(spec.id).collectAsState().value
         val status = store.status(spec)
         val cardState = when {
@@ -206,7 +217,8 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
             else -> ModelCardState.NotInstalled
         }
         ModelCard(
-            title = spec.displayName,
+            title = spec.shortName,
+            fullName = spec.displayName,
             subtitle = modelSubtitle(ctx, spec),
             icon = modelIcon(spec),
             state = cardState,
@@ -219,6 +231,16 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
             onSelect = { if (ModelChoice.select(ctx, kind, spec.id)) tick++ },
         )
     }
+    shown.forEach { card(it) }
+    if (more.isNotEmpty()) {
+        SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            SettingsRow(
+                title = stringResource(R.string.models_more, more.size),
+                onClick = { expanded = !expanded },
+            ) { Icon(painterResource(R.drawable.ic_arrow_left), null, Modifier.rotate(if (expanded) 90f else -90f)) }
+        }
+        if (expanded) more.forEach { card(it) }
+    }
 }
 
 @DrawableRes
@@ -229,18 +251,24 @@ private fun modelIcon(spec: ModelSpec) = when {
     else -> R.drawable.ic_grammar_check
 }
 
-/** What the model is for, then who made it and how big it is (the maker as text, never a logo). */
+/** One line of facts: what it does, languages, size, maker (the maker as text, never a logo). */
 private fun modelSubtitle(ctx: Context, spec: ModelSpec): String {
     val what = ctx.getString(
         when {
-            spec.engine == SpeechEngine.PARAKEET -> R.string.model_desc_live
-            spec.kind == ModelKind.SPEECH -> R.string.model_desc_speech
-            spec.kind == ModelKind.CLEAN_UP -> R.string.model_desc_cleanup
-            else -> R.string.model_desc_grammar
+            spec.id == "parakeet-tdt-ctc-110m" -> R.string.model_facts_live_fast
+            spec.engine == SpeechEngine.PARAKEET -> R.string.model_facts_live
+            spec.kind == ModelKind.SPEECH -> R.string.model_facts_speech
+            spec.kind == ModelKind.CLEAN_UP -> R.string.model_facts_cleanup
+            else -> R.string.model_facts_grammar
         }
     )
-    val by = if (spec.maker.isBlank()) "" else ctx.getString(R.string.model_card_by, spec.maker) + " \u00b7 "
-    return "$what\n$by${Formatter.formatShortFileSize(ctx, spec.sizeBytes)}"
+    val languages = when {
+        spec.languages == listOf("en") -> ctx.getString(R.string.model_lang_english)
+        spec.languages.isEmpty() || MULTILINGUAL in spec.languages -> ctx.getString(R.string.model_lang_multilingual)
+        else -> ctx.getString(R.string.model_lang_count, spec.languages.size)
+    }
+    val by = if (spec.maker.isBlank()) "" else " \u00b7 " + ctx.getString(R.string.model_card_by, spec.maker.substringBefore(","))
+    return "$what \u00b7 $languages \u00b7 ${Formatter.formatShortFileSize(ctx, spec.sizeBytes)}$by"
 }
 
 @Composable

@@ -47,12 +47,29 @@ data class ModelSpec(
     val languages: List<String> = emptyList(),
     val maker: String = "",
     val recommended: Boolean = false,
+    /** The short name cards show; [displayName] stays the full name (accessibility description, licence screen). */
+    val shortName: String = displayName,
 ) {
     /** True when the model is meant for [languageCode]. Models without language data are not excluded. */
     fun supports(languageCode: String) = languages.isEmpty() || MULTILINGUAL in languages || languageCode in languages
 }
 
 object ModelCatalog {
+    /** Short names for the cards of the settings, by catalog id. */
+    private val SHORT_NAMES = mapOf(
+        "parakeet-tdt-0.6b-v3" to "Parakeet v3",
+        "parakeet-tdt-0.6b-v2" to "Parakeet v2",
+        "parakeet-tdt-ctc-110m" to "Parakeet 110M",
+        "nemotron-3.5-asr-streaming-0.6b" to "Nemotron 3.5",
+        "whisper-tiny" to "Whisper tiny",
+        "whisper-base" to "Whisper base",
+        "whisper-small" to "Whisper small",
+        "whisper-large-v3-turbo" to "Whisper large v3 turbo",
+        "s1-mini" to "S1-mini",
+        "qwen3.5-0.8b" to "Qwen3.5 0.8B",
+        "qwen3.5-2b" to "Qwen3.5 2B",
+    )
+
     private fun CatalogModel.toSpec() = ModelSpec(
         kind = when (kind) {
             CatalogKind.SPEECH -> ModelKind.SPEECH
@@ -66,7 +83,7 @@ object ModelCatalog {
             CatalogEngine.PARAKEET -> SpeechEngine.PARAKEET
             CatalogEngine.LLAMA -> null
         },
-        id = id, languages = languages, maker = maker, recommended = recommended,
+        id = id, languages = languages, maker = maker, recommended = recommended, shortName = SHORT_NAMES[id] ?: displayName,
     )
 
     /** Silero voice-activity detector that cuts the live text into utterances. Ships inside the APK, is not downloadable. */

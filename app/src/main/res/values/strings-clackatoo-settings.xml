@@ -29,12 +29,17 @@
     <string name="model_card_progress">%1$s of %2$s</string>
     <string name="model_card_more">More options</string>
     <string name="model_card_by">by %1$s</string>
-    <string name="model_desc_live">Shows your words while you speak</string>
-    <string name="model_desc_speech">Turns speech into text when you tap Stop</string>
-    <string name="model_desc_cleanup">Removes ums and fixes punctuation</string>
-    <string name="model_desc_grammar">Finds and fixes mistakes</string>
     <string name="assist_speech_models">Speech models</string>
     <string name="assist_cleanup_models">Clean-up</string>
     <string name="assist_grammar_models">Grammar models</string>
     <string name="assist_options">Options</string>
+    <string name="models_more">More models (%1$d)</string>
+    <string name="model_facts_live">Live text</string>
+    <string name="model_facts_live_fast">Live text, fast</string>
+    <string name="model_facts_speech">After Stop</string>
+    <string name="model_facts_cleanup">Clean-up</string>
+    <string name="model_facts_grammar">Grammar</string>
+    <string name="model_lang_english">English only</string>
+    <string name="model_lang_multilingual">Multilingual</string>
+    <string name="model_lang_count">%1$d languages</string>
 </resources>
