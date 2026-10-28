@@ -4,3 +4,7 @@
 [submodule "ml/native/whisper.cpp"]
 	path = ml/native/whisper.cpp
 	url = https://github.com/ggml-org/whisper.cpp
+[submodule "asr/native/parakeet.cpp"]
+	path = asr/native/parakeet.cpp
+	url = https://github.com/highlyproteus/parakeet.cpp
+	branch = clackatoo

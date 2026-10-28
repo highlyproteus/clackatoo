@@ -1,0 +1,1 @@
+-keep class helium314.keyboard.clackatoo.asr.NativeAsr { native <methods>; }

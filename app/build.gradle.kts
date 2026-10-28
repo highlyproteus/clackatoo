@@ -139,6 +139,8 @@ android {
 dependencies {
     // Clackatoo: whisper.cpp and llama.cpp (offline voice typing and grammar check)
     implementation(project(":ml"))
+    // Clackatoo: NVIDIA Parakeet speech engine (parakeet.cpp with its own ggml), for live text while speaking
+    implementation(project(":asr"))
 
     // androidx
     implementation("androidx.core:core-ktx:1.17.0") // 1.18.0 requires minSdk 23
