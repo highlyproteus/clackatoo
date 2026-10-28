@@ -38,6 +38,8 @@ internal fun interface HttpSource {
 }
 
 /** The real thing: `HttpURLConnection`, no redirects, no cookies, no body encoding. */
+internal const val USER_AGENT = "ClackatooModels"
+
 internal object HttpUrlSource : HttpSource {
     private val contentRange = Regex("bytes (\\d+)-(\\d+)/(\\d+)")
 
@@ -47,6 +49,8 @@ internal object HttpUrlSource : HttpSource {
         connection.useCaches = false
         connection.connectTimeout = 20_000
         connection.readTimeout = 30_000
+        // a fixed User-Agent: the default one carries the Android version and the device model
+        connection.setRequestProperty("User-Agent", USER_AGENT)
         connection.setRequestProperty("Accept-Encoding", "identity") // so Content-Length is the file's size
         if (rangeStart > 0) connection.setRequestProperty("Range", "bytes=$rangeStart-")
         val status = connection.responseCode
@@ -116,9 +120,13 @@ internal class Downloader(
                 }
             }
         } catch (_: IOException) {
-            return keepPartial(ModelsProtocol.FAIL_NETWORK)
+            return networkFailure(target, isCancelled)
         }
     }
+
+    /** A broken connection keeps the partial file for a retry, unless the user cancelled meanwhile. */
+    private fun networkFailure(target: File, isCancelled: () -> Boolean): DownloadOutcome =
+        if (isCancelled()) fail(target, ModelsProtocol.FAIL_CANCELLED) else keepPartial(ModelsProtocol.FAIL_NETWORK)
 
     private fun fail(target: File, reason: Int): DownloadOutcome {
         target.delete()
@@ -150,7 +158,7 @@ internal class Downloader(
             FileOutputStream(target, skip > 0).use { out ->
                 while (true) {
                     if (isCancelled()) return fail(target, ModelsProtocol.FAIL_CANCELLED)
-                    val n = try { body.read(buffer) } catch (e: IOException) { keep = true; out.flush(); throw e }
+                    val n = try { body.read(buffer) } catch (e: IOException) { keep = !isCancelled(); out.flush(); throw e }
                     if (n < 0) break
                     received += n
                     if (received > model.sizeBytes) return fail(target, ModelsProtocol.FAIL_SIZE)
@@ -162,7 +170,7 @@ internal class Downloader(
                 out.fd.sync()
             }
             // a body that ended early is a broken connection: the partial file is the start of the right file
-            if (received < model.sizeBytes) { keep = true; return keepPartial(ModelsProtocol.FAIL_NETWORK) }
+            if (received < model.sizeBytes) { keep = true; return networkFailure(target, isCancelled) }
             if (!digest.digest().joinToString("") { "%02x".format(it) }.equals(model.sha256, ignoreCase = true)) {
                 return fail(target, ModelsProtocol.FAIL_DIGEST)
             }

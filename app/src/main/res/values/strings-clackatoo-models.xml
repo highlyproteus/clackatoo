@@ -15,6 +15,7 @@
     <string name="models_failed_space">There is not enough free storage.</string>
     <string name="models_failed_host">The download was redirected to an address that is not trusted, and was stopped.</string>
     <string name="models_failed_other">The download failed.</string>
+    <string name="models_failed_later">Please wait a moment before trying this download again.</string>
     <string name="models_failed_stalled">Clackatoo Models stopped answering.</string>
     <string name="models_failed_start">Clackatoo Models could not be started.</string>
     <string name="models_failed_install">The model could not be installed.</string>

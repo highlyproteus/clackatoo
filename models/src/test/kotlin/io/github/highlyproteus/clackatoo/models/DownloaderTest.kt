@@ -220,6 +220,27 @@ class DownloaderTest {
         assertTrue(nothingLeft())
     }
 
+    @Test fun `a connection that breaks while the user cancels is a cancel, and the partial file goes`() {
+        var cancelled = false
+        routes[cdn] = { _ ->
+            HttpAnswer(200, null, content.size.toLong(), object : InputStream() {
+                override fun read(): Int = throw IOException("reset")
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    cancelled = true // the cancel lands just before the connection breaks
+                    System.arraycopy(content, 0, b, off, 500)
+                    if (b.isNotEmpty() && off == 0 && cancelled && len > 0 && target.length() == 0L) return 500
+                    throw IOException("reset")
+                }
+            })
+        }
+        assertEquals(DownloadOutcome.Failed(ModelsProtocol.FAIL_CANCELLED), download(cancelled = { cancelled }))
+        assertTrue(nothingLeft())
+    }
+
+    @Test fun `every request carries the fixed User-Agent and nothing identifying`() {
+        assertEquals("ClackatooModels", USER_AGENT)
+    }
+
     @Test fun `cancelling stops the transfer and deletes the partial file`() {
         var calls = 0
         val outcome = download(cancelled = { calls++ > 3 })

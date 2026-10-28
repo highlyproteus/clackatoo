@@ -31,12 +31,16 @@
         </activity>
 
         <!--
-          Starts a download of one catalog model. The Intent carries the model id and nothing else (RequestParser refuses
-          unknown ids and any other extra, URL or data); the signature permission keeps every other app out.
+          The keyboard binds this service and asks for a download (a catalog id and nothing else) with a Binder call;
+          DownloadBinder checks the caller's package and signature on every call, and the signature permission keeps every
+          other app from binding at all. Start intents only make it a foreground service and carry nothing it reads.
         -->
         <service android:name=".DownloadService"
             android:exported="true"
             android:permission="${modelsPermission}"
             android:foregroundServiceType="dataSync" />
+
+        <!-- the Cancel button of the download notification (own PendingIntent only) -->
+        <receiver android:name=".CancelReceiver" android:exported="false" />
     </application>
 </manifest>

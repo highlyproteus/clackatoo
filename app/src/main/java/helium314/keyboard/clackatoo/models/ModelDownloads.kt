@@ -91,12 +91,19 @@ object ModelDownloads {
         }
         if (!isCompanionInstalled(app)) return openReleasesPage(app, id)
         states.requested(id, spec.sizeBytes)
-        try {
-            ContextCompat.startForegroundService(app, request(ModelsProtocol.ACTION_DOWNLOAD, id))
-        } catch (e: Exception) { // not allowed to start it right now, or the permission is missing
-            Log.w(TAG, "could not start the download: ${e.javaClass.simpleName}")
-            cancelStallCheck(id)
-            states.failed(id, app.getString(R.string.models_failed_start))
+        CompanionRequests.send(app, companionPackage, ModelsProtocol.ACTION_DOWNLOAD, id) { result ->
+            when (result) {
+                ModelsProtocol.REQUEST_OK -> try {
+                    // the download is queued; this makes the companion's service a foreground one (the Intent carries nothing it reads)
+                    ContextCompat.startForegroundService(app, Intent().setComponent(ComponentName(companionPackage, ModelsProtocol.DOWNLOAD_SERVICE_CLASS)))
+                } catch (e: Exception) {
+                    Log.w(TAG, "could not start the download service: ${e.javaClass.simpleName}")
+                    CompanionRequests.send(app, companionPackage, ModelsProtocol.ACTION_CANCEL, id) { }
+                    failStart(app, id, R.string.models_failed_start)
+                }
+                ModelsProtocol.REQUEST_LATER -> failStart(app, id, R.string.models_failed_later)
+                else -> failStart(app, id, R.string.models_failed_start)
+            }
         }
     }
 
@@ -109,11 +116,7 @@ object ModelDownloads {
         cancelStallCheck(id)
         states.cancelled(id)
         if (!isCompanionInstalled(app)) return
-        try {
-            ContextCompat.startForegroundService(app, request(ModelsProtocol.ACTION_CANCEL, id))
-        } catch (e: Exception) {
-            Log.w(TAG, "could not send the cancel: ${e.javaClass.simpleName}")
-        }
+        CompanionRequests.send(app, companionPackage, ModelsProtocol.ACTION_CANCEL, id) { }
     }
 
     /** Deletes the installed file of [id]. A running download is cancelled first. */
@@ -126,9 +129,12 @@ object ModelDownloads {
         states.refresh(listOf(id))
     }
 
-    private fun request(action: String, id: String) = Intent(action)
-        .setComponent(ComponentName(companionPackage, ModelsProtocol.DOWNLOAD_SERVICE_CLASS))
-        .putExtra(ModelsProtocol.EXTRA_ID, id)
+    private fun failStart(app: Context, id: String, message: Int) {
+        mainHandler.post {
+            cancelStallCheck(id)
+            holder(app).failed(id, app.getString(message))
+        }
+    }
 
     private fun openReleasesPage(context: Context, id: String) {
         try {

@@ -140,9 +140,12 @@ decoder on the same strokes and the decoding time.
 - `catalog/` is the one list of downloadable models, shared by the keyboard and the companion app `models`
   ("Clackatoo Models", application id `io.github.highlyproteus.clackatoo.models`). `ModelsProtocol` in it holds the few
   names the two apps use to talk.
-- **The companion is untrusted by the keyboard and the keyboard by the companion.** The keyboard sends one Intent extra,
-  `id` (a catalog id), to the companion's `DownloadService`; `RequestParser` refuses any other extra, a data URI, a URL, a
-  size or a hash, and an unknown id. The companion downloads only the catalog's pinned URL (`DownloadPolicy`: https,
+- **The companion is untrusted by the keyboard and the keyboard by the companion.** The keyboard binds the companion's
+  `DownloadService` and makes one Binder call (an action and a catalog id, nothing else); `DownloadBinder` checks the
+  caller's package and signature, `RequestParser` refuses a URL, a size or a hash, an unknown id and leftover data, and
+  `RequestLimiter` ignores a model already queued or running, enforces a 30 s cool-down after a cancel or failure and at
+  most 20 new downloads an hour. Start intents carry nothing the service reads. Downloads send the fixed User-Agent
+  `ClackatooModels`, resume only within one run, and a run that does not succeed deletes its partial file. The companion downloads only the catalog's pinned URL (`DownloadPolicy`: https,
   `huggingface.co` and `*.hf.co` only, also for redirects), checks exact size and SHA-256, and hands the file over as a
   read-only descriptor to the keyboard's `ModelReceiverService`, which refuses anything but the documented calls and
   installs through `ModelStore.import` (size, header, SHA-256 again). Then the companion deletes its copy. Progress is

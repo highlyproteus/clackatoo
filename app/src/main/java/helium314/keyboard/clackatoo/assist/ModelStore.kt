@@ -88,7 +88,7 @@ class ModelStore(
         // a bundled model only ever comes from the APK: a file with its name is treated like any unknown file
         val spec = catalog.firstOrNull { it.fileName.equals(displayName, ignoreCase = true) && it.bundledAsset == null }
             ?: return ImportResult.Rejected(RejectReason.UNKNOWN_FILE_NAME)
-        return install(spec, input)
+        return synchronized(INSTALL_LOCK) { install(spec, input) }
     }
 
     /**
@@ -101,7 +101,7 @@ class ModelStore(
         val file = file(spec)
         if (status(spec) is ModelStatus.Installed && file.length() == spec.sizeBytes) return true
         return try {
-            openAsset(asset).use { install(spec, it) } is ImportResult.Imported
+            openAsset(asset).use { synchronized(INSTALL_LOCK) { install(spec, it) } } is ImportResult.Imported
         } catch (_: IOException) {
             false
         }
@@ -161,6 +161,8 @@ class ModelStore(
     private fun ByteArray.toHex() = joinToString("") { "%02x".format(it) }
 
     companion object {
+        /** One install at a time in the whole process: several hand-overs at once would each write a temporary file of the model's size. */
+        private val INSTALL_LOCK = Any()
         const val PART_SUFFIX = ".part"
         const val STALE_PART_MS = 60 * 60 * 1000L
     }
