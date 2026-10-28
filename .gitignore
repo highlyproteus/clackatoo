@@ -19,3 +19,6 @@ ml/.cxx
 
 # Clackatoo: model files for development, never committed
 /models/
+
+# Python bytecode (tools/gesture-eval)
+__pycache__/
