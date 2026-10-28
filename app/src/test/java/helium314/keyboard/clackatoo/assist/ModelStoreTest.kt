@@ -264,7 +264,7 @@ class ModelStoreTest {
         assertNull(store.best(ModelKind.SPEECH, speech.id) { false })
     }
 
-    @Test fun `the chosen model must also be meant for the language, else another that is is used, else the chosen one`() {
+    @Test fun `the chosen model must also be meant for the language, else another that is is used, else none`() {
         val english = speech.copy(languages = listOf("en"))
         val multi = speechBig.copy(languages = listOf(MULTILINGUAL))
         val s = ModelStore(dir, object : BrokenMarks {
@@ -280,7 +280,9 @@ class ModelStoreTest {
             override fun get(fileName: String): String? = null
             override fun set(fileName: String, value: String?) {}
         }, listOf(english)) { Long.MAX_VALUE }
-        assertEquals(english, only.best(ModelKind.SPEECH, english.id, "es")) // better than no model at all
+        assertNull(only.best(ModelKind.SPEECH, english.id, "es")) // English only: Spanish gets the missing-model prompt
+        assertEquals(english, only.best(ModelKind.SPEECH, english.id, "en"))
+        assertEquals(english, only.best(ModelKind.SPEECH, english.id, null)) // no language asked: any installed one
     }
 
     @Test fun `deleting a model removes the file and the broken mark`() {

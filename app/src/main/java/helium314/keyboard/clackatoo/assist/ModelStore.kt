@@ -46,10 +46,11 @@ class ModelStore(
     }
 
     /**
-     * The model to use for [kind], or null when none is installed: the one the user chose ([preferredId]) if it is
-     * installed, usable on this phone and (when [languageCode] is given) meant for that language; otherwise the first
-     * installed model of the catalog order that is; otherwise, as a last resort, the first installed one whatever its
-     * language. [usable] is for things only the caller knows, such as the phone's CPU.
+     * The model to use for [kind], or null when none fits: the one the user chose ([preferredId]) if it is installed,
+     * usable on this phone and (when [languageCode] is given) meant for that language; otherwise the first such model of
+     * the catalog order. A model for another language is never used: with a [languageCode] and no installed model meant
+     * for it the answer is null, so the caller offers a fitting model instead. [usable] is for things only the caller
+     * knows, such as the phone's CPU.
      */
     fun best(
         kind: ModelKind,
@@ -60,7 +61,6 @@ class ModelStore(
         val installed = catalog.filter { it.kind == kind && status(it) is ModelStatus.Installed && usable(it) }
         val fitting = installed.filter { languageCode == null || it.supports(languageCode) }
         return fitting.firstOrNull { it.id == preferredId } ?: fitting.firstOrNull()
-            ?: installed.firstOrNull { it.id == preferredId } ?: installed.firstOrNull()
     }
 
     /** Removes the installed file of [spec] (and any broken mark). True when no file is left afterwards. */
