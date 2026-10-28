@@ -73,6 +73,31 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     )
     private var starting: PendingStart? = null
     private var startToken = 0
+    /** While recording: a pre-draw listener that ends the recording on the first frame in which the panel is no longer on screen. */
+    private var levelWatch: Pair<android.view.ViewTreeObserver, android.view.ViewTreeObserver.OnPreDrawListener>? = null
+
+    private fun watchPanel(view: AssistPanelView) {
+        stopWatchingPanel()
+        val observer = view.viewTreeObserver
+        val onPreDraw = android.view.ViewTreeObserver.OnPreDrawListener {
+            if (mode == Mode.LISTENING && !view.isOnScreen()) close()
+            true
+        }
+        observer.addOnPreDrawListener(onPreDraw)
+        levelWatch = observer to onPreDraw
+    }
+
+    private fun stopWatchingPanel() {
+        val (observer, listener) = levelWatch ?: return
+        levelWatch = null
+        if (observer.isAlive) observer.removeOnPreDrawListener(listener)
+    }
+
+    /** Everything that waits for or watches the panel ends: a pending start and the frame watch of a recording. */
+    private fun endWatches() {
+        endPendingStart()
+        stopWatchingPanel()
+    }
     internal val isListening get() = mode == Mode.LISTENING
     internal val isIdle get() = mode == Mode.NONE
     /** A start is waiting for its panel to be on screen; the microphone is closed. */
@@ -148,7 +173,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         job?.cancel()
         job = scope.launch {
             val installed = withContext(Dispatchers.IO) { store.ensureBundled(ModelCatalog.SILERO_VAD) }
-            if (mySession != session || mode != Mode.NONE) return@launch
+            if (mySession != session || mode != Mode.NONE || view !== panel) return@launch
             if (!installed) return@launch message(R.string.assist_voice_title, ime.getString(R.string.assist_vad_unavailable))
             // the live call is created only once the microphone opens, which is once the panel is on screen
             startListening(view, factory = factory, newLiveCall = {
@@ -190,7 +215,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
      * Asks for a recording and shows the recording state on [view]; [onResult] gets the outcome, on the main thread, either
      * at once or later. The microphone opens only once the panel is on screen (laid out, visible, with area up the whole
      * chain, in a shown window): until then the start is pending (mode STARTING) with the microphone closed, nothing recorded
-     * and no live call. The panel's first pre-draw after it was shown (its layout is done by then) is when this is checked,
+     * and no live call. The panel's pre-draws after it was shown (its layout has run by then: `!isLayoutRequested`) are when this is checked,
      * with a timeout of [START_TIMEOUT_MS]; a start that cannot show the panel in time is cancelled with the microphone still
      * closed and reported as [ListeningStart.PANEL_HIDDEN]. Every way out of STARTING ([close]) removes the listener and the
      * timeout, and a late callback of a cancelled start does nothing (token). Once recording, the recording lasts only while the
@@ -213,7 +238,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
         val shownAt = elapsedRealtime()
         fun openIfOnScreen(): Boolean {
-            if (token != startToken || mode != Mode.STARTING || !view.isOnScreen()) return false
+            // isLayoutRequested: a panel that was shown before keeps its old size while it is GONE, so "has area" alone says nothing
+            // about a panel that has just been made visible again: its layout must have run since (making it visible requests one)
+            if (token != startToken || mode != Mode.STARTING || view.isLayoutRequested || !view.isLaidOut || !view.isOnScreen()) return false
             endPendingStart()
             openMicrophone(view, newLiveCall, factory, shownAt, onResult)
             return true
@@ -247,15 +274,16 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         view: AssistPanelView, newLiveCall: (() -> LiveCall)?, factory: RecorderFactory, shownAt: Long, onResult: (ListeningStart) -> Unit,
     ) {
         val call = newLiveCall?.invoke()
+        var recorderOfThisStart: VoiceRecorder? = null // set below: callbacks of an older recorder do nothing to a newer recording
         val rec = factory(
             { level ->
                 main.post {
-                    if (mode == Mode.LISTENING) {
+                    if (mode == Mode.LISTENING && recorder === recorderOfThisStart) {
                         if (panel?.isOnScreen() == true) panel?.setLevel(level) else close()
                     }
                 }
             },
-            { main.post { if (mode == Mode.LISTENING) onStop() } },
+            { main.post { if (mode == Mode.LISTENING && recorder === recorderOfThisStart) onStop() } },
             call?.let { c -> { block, count -> c.write(block, count) } },
         )
         if (!rec.start()) {
@@ -264,9 +292,11 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
             return onResult(ListeningStart.MIC_UNAVAILABLE)
         }
         recorder = rec
+        recorderOfThisStart = rec
         liveCall = call
         mode = Mode.LISTENING
-        Log.d(TAG, "microphone opened ${elapsedRealtime() - shownAt} ms after the panel was shown")
+        watchPanel(view)
+        Log.d(TAG, "microphone opened ${elapsedRealtime() - shownAt} ms after the panel was shown, layout pending: ${view.isLayoutRequested}")
         if (!view.isShown) { // the panel went away while the microphone was opening
             close()
             return onResult(ListeningStart.PANEL_HIDDEN)
@@ -287,6 +317,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     override fun onStop() {
         if (mode == Mode.STARTING) return close() // Stop while the panel is still coming up: nothing was recorded
         val rec = recorder ?: return
+        stopWatchingPanel()
         val pcm = rec.stop()
         recorder = null
         val language = language ?: return close()
@@ -338,6 +369,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         val info = ime.currentInputEditorInfo
         if (info == null || InputTypeUtils.isAnyPasswordInputType(info.inputType)) return close()
         val mySession = session
+        endWatches()
         mode = Mode.WORKING
         panel?.showWorking(ime.getString(R.string.assist_transcribing))
         launchVoiceJob(mySession) {
@@ -356,6 +388,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     /** Debug builds' WAV entry point: the chosen speech model decides between the live path and the Whisper path. */
     fun debugTranscribe(pcm: ShortArray, language: AssistLanguage) {
         this.language = language // the model is chosen for this language
+        if (mode != Mode.NONE) close() // a recording or a pending start never survives a debug transcription
         if (speechModel()?.engine == SpeechEngine.PARAKEET) debugLive(pcm, language) else transcribeAndInsert(pcm, language)
     }
 
@@ -654,7 +687,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     /** Stops everything and shows the keyboard again. Safe to call at any time. */
     fun close() {
-        endPendingStart()
+        endWatches()
         job?.cancel()
         job = null
         sheetJob?.cancel()
@@ -690,6 +723,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     }
 
     private fun message(titleRes: Int, text: CharSequence, settings: Boolean = false) {
+        endWatches()
         job = null
         recorder?.cancel()
         recorder = null

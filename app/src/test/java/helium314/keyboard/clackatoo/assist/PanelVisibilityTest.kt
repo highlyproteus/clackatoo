@@ -79,6 +79,12 @@ class PanelVisibilityTest {
         idle()
         setWindowVisibility(View.VISIBLE)
         layOut()
+        // a panel that was shown and hidden before keeps the size of its last layout while it is GONE
+        panel.visibility = View.VISIBLE
+        layOut()
+        panel.hide()
+        idle()
+        assertTrue(panel.width > 0 && panel.height > 0, "the hidden panel keeps its old size")
     }
 
     /**
@@ -519,5 +525,78 @@ class PanelVisibilityTest {
         idle()
         assertEquals(1, recorders.single().cancelled)
         assertTrue(controller.isIdle)
+    }
+
+    @Test fun `a second start does not open the microphone on the stale size of the hidden panel`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        assertEquals(AssistController.ListeningStart.STARTED, start(controller))
+        assertEquals(1, recorders.size)
+        controller.close() // hides the panel: GONE, but it keeps its old width and height
+        assertTrue(panel.width > 0 && panel.height > 0)
+        var result: AssistController.ListeningStart? = null
+        controller.startListening(panel) { result = it }
+        // no layout or draw has run yet since the panel was made visible again
+        assertTrue(panel.isLayoutRequested)
+        assertEquals(1, recorders.size, "no second recorder before the layout")
+        assertTrue(controller.isStarting)
+        assertEquals(null, result)
+        idle()
+        assertEquals(2, recorders.size)
+        assertEquals(AssistController.ListeningStart.STARTED, result)
+        assertFalse(panel.isLayoutRequested, "the microphone opened after the layout")
+    }
+
+    @Test fun `many starts in a row each wait for their layout`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        repeat(5) { n ->
+            controller.startListening(panel) { }
+            assertEquals(n, recorders.size, "start ${n + 1}: nothing before the layout")
+            idle()
+            assertEquals(n + 1, recorders.size)
+            controller.close()
+        }
+    }
+
+    @Test fun `the window being hidden while a start is pending cancels it, microphone closed`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        controller.startListening(panel) { }
+        assertTrue(controller.isStarting)
+        setWindowVisibility(View.GONE)
+        idle()
+        assertTrue(controller.isIdle)
+        setWindowVisibility(View.VISIBLE)
+        idle(); idleFor(AssistController.START_TIMEOUT_MS + 100)
+        assertEquals(0, recorders.size)
+    }
+
+    @Test fun `a recording whose panel loses its area ends on the next frame, without waiting for a level update`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        assertEquals(AssistController.ListeningStart.STARTED, start(controller))
+        assertTrue(controller.isListening)
+        wrapper.layoutParams = FrameLayout.LayoutParams(-1, 0)
+        idle() // the next layout and draw: the panel has no area any more
+        assertTrue(controller.isIdle)
+        assertEquals(1, recorders.single().cancelled)
+        assertEquals(0, recorders.single().stopped)
+    }
+
+    @Test fun `the frame watch ends with the recording and with every other way out of listening`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        start(controller)
+        controller.close()
+        // a later frame without area must not touch a new pending start or anything else
+        wrapper.layoutParams = FrameLayout.LayoutParams(-1, 0)
+        idle()
+        assertTrue(controller.isIdle)
+        assertEquals(1, recorders.single().cancelled)
+        restoreLayout()
+        start(controller)
+        assertEquals(2, recorders.size)
+        assertTrue(controller.isListening)
     }
 }

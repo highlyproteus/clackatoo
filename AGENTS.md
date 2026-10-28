@@ -34,10 +34,11 @@ switches), see Style notes.
    only, text through a size-limited pipe, sanitised by `OutputSanitizer`). Model files are pinned by size and SHA-256
    in `ModelCatalog`; changing a model means changing both there and in NOTICE. Audio is only in memory, recording
    never starts without the recording panel on screen, and RECORD_AUDIO is requested on first use of the Voice key
-   only. The microphone opens only after the panel is on screen (laid out, visible, with area up the whole chain, in a shown
-   window): the Voice key shows the panel and the start waits for it (mode STARTING, microphone closed, no live call), and a
+   only. The microphone opens only after the panel is on screen (its layout has run since it was shown, it is visible and
+   has area up the whole chain, in a shown window): the Voice key shows the panel and the start waits for it (mode STARTING, microphone closed, no live call), and a
    start that cannot show the panel within 1 s (`AssistController.START_TIMEOUT_MS`) is cancelled with the microphone still
-   closed. Once recording, the recording ends as soon as the panel is no longer on screen. Never log text the user typed,
+   closed. Once recording, the recording ends on the first frame in which the panel is no longer on screen (a pre-draw
+   check), and at the latest at the next level update (100 ms); hiding or detaching it ends it at once. Never log text the user typed,
    said or that a model produced, in any build. Any change that touches the microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
    **Catalog model files are pinned by size and SHA-256. Custom (experimental) model files are allowed only through two
    user-started paths, labelled "Experimental · not verified", and always run in the isolated process:** (1) "Import file" in
