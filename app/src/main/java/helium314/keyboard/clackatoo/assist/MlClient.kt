@@ -67,7 +67,6 @@ class MlClient(context: Context) {
     }
 
     private val pending = HashMap<Int, Pending>()
-    private var nextId = 1
     private var service: Messenger? = null
     private var connecting = false
     /** A request that waits for the connection: [run] sends it; [discard] closes what it holds when it will never be sent. */
@@ -326,7 +325,7 @@ class MlClient(context: Context) {
         val resultPipe = if (readResultPipe) ParcelFileDescriptor.createPipe() else null
         val resultRead = resultPipe?.get(0)
         val resultWrite = resultPipe?.get(1)
-        val id = nextId++
+        val id = nextRequestId()
         val entry = Pending(completion)
         val data = Bundle().apply {
             putParcelable(MlProtocol.KEY_MODEL_FD, modelFd)
@@ -507,6 +506,14 @@ class MlClient(context: Context) {
 
     companion object {
         const val IDLE_MS = 60_000L
+
+        /**
+         * One counter for the whole process: the model process matches cancels and its running request on the id alone, so
+         * two clients of the same process (the keyboard's own and the test load of a custom model) must never share ids.
+         */
+        private val ids = java.util.concurrent.atomic.AtomicInteger(0)
+
+        internal fun nextRequestId(): Int = ids.incrementAndGet()
     }
 }
 

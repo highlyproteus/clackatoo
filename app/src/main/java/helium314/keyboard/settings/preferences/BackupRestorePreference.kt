@@ -208,6 +208,8 @@ private fun restoreLauncher(onError: (String) -> Unit): ManagedActivityResultLau
                                 prefs.edit { clear() }
                                 anyMatch = true
                                 readJsonLinesToSettings(prefLines, prefs)
+                                // a restored backup must not switch on custom models without the notice: the user sees it again
+                                prefs.edit { remove(helium314.keyboard.clackatoo.assist.AssistSettings.PREF_CUSTOM_MODELS_CONFIRMED) }
                             } else if (entry.name == PROTECTED_PREFS_FILE_NAME) {
                                 val prefLines = String(zip.readBytes()).split("\n")
                                 val protectedPrefs = ctx.protectedPrefs()

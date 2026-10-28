@@ -390,7 +390,7 @@ role; the radio on the card chooses another), never as a fallback, and the menu 
 are told English-only by their header and are not used for Spanish. A custom text model is prompted with **its own chat
 template**: `llm_chat` applies the template stored in the model file with llama.cpp's `llama_chat_apply_template` (which knows
 the common templates, it is not a Jinja interpreter) with markers in place of the texts and tokenises only the template's own
-pieces as special tokens, so text in a field cannot forge turns; a model with no usable template gets ChatML, and a template
+pieces as special tokens, so text in a field cannot inject special tokens (a model whose template uses plain-text markers such as `[INST]` or `### Instruction:` can still be prompt-injected by typed text; accepted for experimental models, whose output is sanitised and shown or limited as for every model); a model with no usable template gets ChatML, and a template
 that mentions `enable_thinking` (Qwen3 family) gets the empty think block after the assistant's opening, which is what the
 template does with thinking off. Results depend on the model; the clean-up and grammar prompts are the same system prompts as
 for the catalog models.

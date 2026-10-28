@@ -55,7 +55,9 @@ struct ChatTurn {
 /** Like [llm_generate], but the prompt is laid out with the chat template stored in the model file (llama.cpp's
  *  `llama_chat_apply_template`, which knows the common templates but is no Jinja interpreter). Only the template's own
  *  markers are tokenised as special tokens: every [ChatTurn::content] is tokenised as plain text, so text in a field
- *  cannot forge turns. A model with no template, or one llama.cpp cannot apply, gets ChatML ("<|im_start|>role"). When
+ *  cannot inject special tokens. A model whose template uses plain-text markers (`[INST]`, `### Instruction:`, `USER:`)
+ *  can still be prompt-injected by typed text that contains the same characters; that is accepted for experimental custom
+ *  models, whose output is sanitised and shown or limited as for every model. A model with no template, or one llama.cpp cannot apply, gets ChatML ("<|im_start|>role"). When
  *  the template mentions `enable_thinking` (Qwen3 family) an empty think block is added after the assistant's opening,
  *  which is what the template does with thinking switched off. Roles other than the three above are an error. */
 Status llm_chat(Llm *llm, const std::vector<ChatTurn> &turns, int max_new_tokens, const std::atomic<bool> &cancel,

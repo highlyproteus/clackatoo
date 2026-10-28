@@ -106,9 +106,8 @@ internal class KeyboardLink(context: Context, private val keyboardPackage: Strin
                 data.writeInterfaceToken(ModelsProtocol.RECEIVER_DESCRIPTOR)
                 writeArguments(data)
                 data.writeFileDescriptor(pfd.fileDescriptor)
-                remote.transact(code, data, reply, 0)
-                reply.readException()
-                return reply.readInt()
+                val handled = remote.transact(code, data, reply, 0)
+                return readHandoverReply(handled, reply)
             }
         } catch (_: RemoteException) {
             return null
@@ -119,6 +118,22 @@ internal class KeyboardLink(context: Context, private val keyboardPackage: Strin
         } finally {
             data.recycle()
             reply.recycle()
+        }
+    }
+
+    companion object {
+        /**
+         * The `HANDOVER_*` code in [reply], or null when there is no answer: the keyboard did not handle the call
+         * ([handled] false: an older keyboard that does not know the transaction, or a malformed parcel), or its reply is
+         * empty. An empty parcel reads as 0, which is `HANDOVER_OK`, so it must never be read as an answer.
+         */
+        internal fun readHandoverReply(handled: Boolean, reply: Parcel): Int? {
+            if (!handled) return null
+            reply.setDataPosition(0)
+            if (reply.dataSize() == 0) return null
+            reply.readException()
+            if (reply.dataAvail() < 4) return null
+            return reply.readInt()
         }
     }
 
