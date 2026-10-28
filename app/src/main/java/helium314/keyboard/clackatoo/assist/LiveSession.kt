@@ -17,8 +17,8 @@ import java.io.OutputStream
  * and throws [Cancelled] after [cancel], [Failed] when a native call fails or [output] is gone.
  *
  * [cancel] may be called from any thread: the reader stops at its next read, the decoder after the recognition that
- * is running (there is no way into the native call). A reader still blocked in a read when [run] returns leaves the
- * detector alone, so the caller may reuse it.
+ * is running (there is no way into the native call). A reader still blocked in a read when [run] returns is reported by
+ * [readerStillRunning]: the caller must then leak the detector (never reset, free or reuse it).
  */
 class LiveSession(
     private val input: InputStream,
@@ -126,8 +126,14 @@ class LiveSession(
             runCatching { input.close() }
             runCatching { output.close() }
             reader?.let {
-                it.join(readerJoinMs)
-                readerStillRunning = it.isAlive
+                readerStillRunning = true // until proven otherwise: an interrupted join must not count as "finished"
+                try {
+                    it.join(readerJoinMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                } finally {
+                    readerStillRunning = it.isAlive
+                }
             }
         }
     }

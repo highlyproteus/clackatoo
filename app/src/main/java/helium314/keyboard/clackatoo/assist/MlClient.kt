@@ -113,6 +113,7 @@ class MlClient(context: Context) {
     suspend fun generate(model: File, contextTokens: Int, prompt: List<PromptPart>, maxNewTokens: Int, purpose: Int): MlResult {
         require(contextTokens in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT && maxNewTokens in 1..MlProtocol.MAX_NEW_TOKENS)
         require(prompt.isNotEmpty() && prompt.size <= MlProtocol.MAX_PROMPT_PARTS)
+        require(purpose == MlProtocol.PURPOSE_CLEAN_UP || purpose == MlProtocol.PURPOSE_GRAMMAR)
         return request(MlProtocol.MSG_GENERATE, model, extras = {
             putInt(MlProtocol.KEY_CONTEXT, contextTokens)
             putStringArray(MlProtocol.KEY_PROMPT_TEXTS, Array(prompt.size) { prompt[it].text })
@@ -130,6 +131,7 @@ class MlClient(context: Context) {
     suspend fun chat(model: File, contextTokens: Int, turns: List<ChatPrompt.Turn>, maxNewTokens: Int, purpose: Int): MlResult {
         require(contextTokens in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT && maxNewTokens in 1..MlProtocol.MAX_NEW_TOKENS)
         require(turns.isNotEmpty() && turns.size <= MlProtocol.MAX_CHAT_TURNS && turns.all { it.role in MlProtocol.CHAT_ROLES })
+        require(purpose == MlProtocol.PURPOSE_CLEAN_UP || purpose == MlProtocol.PURPOSE_GRAMMAR)
         return request(MlProtocol.MSG_GENERATE, model, extras = {
             putInt(MlProtocol.KEY_CONTEXT, contextTokens)
             putStringArray(MlProtocol.KEY_CHAT_ROLES, Array(turns.size) { turns[it].role })

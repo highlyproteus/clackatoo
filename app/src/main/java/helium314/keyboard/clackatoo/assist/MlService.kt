@@ -485,7 +485,11 @@ class MlService : Service() {
     private fun generate(req: Request): String {
         val t0 = SystemClock.elapsedRealtime()
         ensureNative()
-        val slot = if (req.purpose == MlProtocol.PURPOSE_GRAMMAR) ModelResidency.Slot.GRAMMAR else ModelResidency.Slot.CLEAN_UP
+        val slot = when (req.purpose) {
+            MlProtocol.PURPOSE_GRAMMAR -> ModelResidency.Slot.GRAMMAR
+            MlProtocol.PURPOSE_CLEAN_UP -> ModelResidency.Slot.CLEAN_UP
+            else -> throw IllegalStateException("unknown purpose") // decode() already refuses it; never guess a slot
+        }
         makeRoom(slot, req.modelKey)
         val held = if (slot == ModelResidency.Slot.GRAMMAR) grammarKey else cleanUpKey
         if (held != req.modelKey) {
