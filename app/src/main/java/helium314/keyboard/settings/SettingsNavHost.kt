@@ -37,6 +37,7 @@ import helium314.keyboard.settings.screens.PersonalDictionaryScreen
 import helium314.keyboard.settings.screens.PreferencesScreen
 import helium314.keyboard.settings.screens.SecondaryLayoutScreen
 import helium314.keyboard.settings.screens.SubtypeScreen
+import helium314.keyboard.settings.screens.ThemePickerScreen
 import helium314.keyboard.settings.screens.TextCorrectionScreen
 import helium314.keyboard.settings.screens.ToolbarScreen
 import helium314.keyboard.settings.screens.gesturedata.GestureDataScreen
@@ -150,6 +151,9 @@ fun SettingsNavHost(
         composable(SettingsDestination.Layouts) {
             SecondaryLayoutScreen(onClickBack = ::goBack)
         }
+        composable(SettingsDestination.ThemePicker) {
+            ThemePickerScreen(onClickBack = ::goBack)
+        }
         composable(SettingsDestination.Colors + "{theme}") {
             ColorsScreen(isNight = false, theme = it.arguments?.getString("theme"), onClickBack = ::goBack)
         }
@@ -176,6 +180,7 @@ object SettingsDestination {
     const val Advanced = "advanced"
     const val Debug = "debug"
     const val Appearance = "appearance"
+    const val ThemePicker = "theme_picker"
     const val Colors = "colors/"
     const val ColorsNight = "colors_night/"
     const val PersonalDictionaries = "personal_dictionaries"

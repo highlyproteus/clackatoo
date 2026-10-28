@@ -36,6 +36,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import helium314.keyboard.clackatoo.OmarchyThemes
+import helium314.keyboard.clackatoo.ThemeCatalog
 import helium314.keyboard.keyboard.ColorSetting
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.KeyboardTheme
@@ -80,7 +82,7 @@ fun ColorThemePickerDialog(
     if ((b?.value ?: 0) < 0)
         Log.v("irrelevant", "stupid way to trigger recomposition on preference change")
 
-    val defaultColors = KeyboardTheme.getAvailableDefaultColors(prefs, isNight)
+    val defaultColors = KeyboardTheme.getAvailableDefaultColors(prefs, isNight) + ThemeCatalog.glass + OmarchyThemes.all.map { it.id }
 
     // prefs.all is null in preview only
     val userColors = (prefs.all ?: mapOf(Settings.PREF_USER_COLORS_PREFIX + "usercolor" to "") ).keys.mapNotNull {
@@ -223,7 +225,7 @@ private fun ColorItemRow(onDismissRequest: () -> Unit, item: String, isSelected:
             }
         )
         Text(
-            text = item.getStringResourceOrName("theme_name_", ctx),
+            text = ThemeCatalog.displayName(ctx, item),
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )

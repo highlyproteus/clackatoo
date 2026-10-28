@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import helium314.keyboard.clackatoo.ThemeCatalog
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.KeyboardTheme
 import helium314.keyboard.keyboard.KeyboardTypeface
@@ -31,6 +32,7 @@ import helium314.keyboard.settings.Setting
 import helium314.keyboard.settings.preferences.Preference
 import helium314.keyboard.settings.SearchSettingsScreen
 import helium314.keyboard.settings.SettingsActivity
+import helium314.keyboard.settings.SettingsDestination
 import helium314.keyboard.settings.preferences.SliderPreference
 import helium314.keyboard.settings.preferences.SwitchPreference
 import helium314.keyboard.latin.utils.Theme
@@ -67,8 +69,7 @@ fun AppearanceScreen(
             Settings.PREF_THEME_KEY_BORDERS else null, // the Clackatoo style always has key borders
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             Settings.PREF_THEME_DAY_NIGHT else null,
-        Settings.PREF_THEME_COLORS,
-        if (dayNightMode) Settings.PREF_THEME_COLORS_NIGHT else null,
+        SettingsWithoutKey.THEME_PICKER, // the picker replaces the lists of theme colours; those stay in the settings search
         Settings.PREF_NAVBAR_COLOR,
         SettingsWithoutKey.BACKGROUND_IMAGE,
         SettingsWithoutKey.BACKGROUND_IMAGE_LANDSCAPE,
@@ -157,6 +158,22 @@ fun createAppearanceSettings(context: Context) = listOf(
             CustomizeIconsDialog(setting.key) { showDialog = false }
         }
     },
+    // opens the theme picker, which sets the same preferences as the two lists below
+    Setting(context, SettingsWithoutKey.THEME_PICKER, R.string.theme_picker_title) { setting ->
+        val ctx = LocalContext.current
+        val prefs = ctx.prefs()
+        val b = (ctx.getActivity() as? SettingsActivity)?.prefChanged?.collectAsState()
+        if ((b?.value ?: 0) < 0)
+            Log.v("irrelevant", "stupid way to trigger recomposition on preference change")
+        val dayNight = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && prefs.getBoolean(Settings.PREF_THEME_DAY_NIGHT, Defaults.PREF_THEME_DAY_NIGHT)
+        val day = ThemeCatalog.displayName(ctx, prefs.getString(Settings.PREF_THEME_COLORS, Defaults.PREF_THEME_COLORS)!!)
+        val night = ThemeCatalog.displayName(ctx, prefs.getString(Settings.PREF_THEME_COLORS_NIGHT, Defaults.PREF_THEME_COLORS_NIGHT)!!)
+        Preference(
+            name = setting.title,
+            description = if (dayNight) "$day / $night" else day,
+            onClick = { SettingsDestination.navigateTo(SettingsDestination.ThemePicker) },
+        )
+    },
     Setting(context, Settings.PREF_THEME_COLORS, R.string.theme_colors) { setting ->
         val ctx = LocalContext.current
         val prefs = ctx.prefs()
@@ -166,7 +183,7 @@ fun createAppearanceSettings(context: Context) = listOf(
         var showDialog by rememberSaveable { mutableStateOf(false) }
         Preference(
             name = setting.title,
-            description = prefs.getString(setting.key, Defaults.PREF_THEME_COLORS)!!.getStringResourceOrName("theme_name_", ctx),
+            description = ThemeCatalog.displayName(ctx, prefs.getString(setting.key, Defaults.PREF_THEME_COLORS)!!),
             onClick = { showDialog = true }
         )
         if (showDialog)
@@ -186,7 +203,7 @@ fun createAppearanceSettings(context: Context) = listOf(
         var showDialog by rememberSaveable { mutableStateOf(false) }
         Preference(
             name = setting.title,
-            description = prefs.getString(setting.key, Defaults.PREF_THEME_COLORS_NIGHT)!!.getStringResourceOrName("theme_name_", ctx),
+            description = ThemeCatalog.displayName(ctx, prefs.getString(setting.key, Defaults.PREF_THEME_COLORS_NIGHT)!!),
             onClick = { showDialog = true }
         )
         if (showDialog)

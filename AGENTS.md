@@ -2,7 +2,8 @@
 
 Clackatoo is a standalone Android keyboard, a fork of HeliBoard v4.2 (<https://github.com/HeliBorg/HeliBoard>, remote
 `upstream`). It is published at <https://github.com/highlyproteus/clackatoo> and installed with Obtainium from its
-GitHub releases. Design: Material 3 default shapes (see Style notes), not custom square or pill shapes.
+GitHub releases. Design: Material 3 shapes (keys and key-like buttons 8dp, cards and panels 12dp; stock buttons and
+switches), see Style notes.
 
 ## Rules
 
@@ -121,6 +122,16 @@ decoder on the same strokes and the decoding time.
   `GlassStyleTest` checks it, so change the alphas only together with that test. Text directly on the window uses
   `onSurface`; `onSurfaceVariant` only inside panels. Models are shown as `ModelCard`s (Voice typing, Grammar check). In glass mode the theme's `background` colour is transparent so
   Scaffolds do not paint over the wallpaper.
+- Themes: the theme preferences (`theme_colors`, `theme_colors_night`) hold a name: HeliBoard's built-in names, `clackatoo`,
+  `glass`, `glass_dark`, `glass_light`, `omarchy_<name>`, or the name of a user theme (a user theme always wins over a
+  built-in one of the same name; new user themes cannot take built-in names). Every Clackatoo theme is a `ClackatooPalette`
+  (`ClackatooStyle.paletteColors`), so one contrast guard covers them all. Omarchy themes come from
+  `tools/omarchy-themes/generate.py` at a pinned commit (colours only, MIT, `third_party/omarchy/`); never hand-edit
+  `OmarchyThemeData.kt`, change the generator or the mapping in `OmarchyThemes.kt`.
+- Glass keyboard: the colours are translucent (`GlassPalette`), the keyboard window is transparent and the blur is a
+  separate small window behind the visible keyboard (`GlassWindow`; `Window.setBackgroundBlurRadius` on the keyboard
+  window itself blurs the whole screen, because that window is as tall as the screen). Where blur is off the tint is
+  nearly opaque. Labels must have 4.5:1 over white and over black behind the keyboard (`ThemePalettesTest`).
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.
 

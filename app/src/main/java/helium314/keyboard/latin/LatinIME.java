@@ -100,6 +100,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import helium314.keyboard.clackatoo.GlassWindow;
 import helium314.keyboard.clackatoo.assist.AssistController;
 import helium314.keyboard.clackatoo.assist.DebugWavReceiver;
 
@@ -720,6 +721,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
+        GlassWindow.hideBlur();
         mAssist.onDestroy();
         if (mDebugWavReceiver != null) unregisterReceiver(mDebugWavReceiver);
         mClipboardHistoryManager.onDestroy();
@@ -789,6 +791,7 @@ public class LatinIME extends InputMethodService implements
     public void setInputView(final View view) {
         super.setInputView(view);
         mInputView = view;
+        GlassWindow.apply(getWindow().getWindow(), Settings.getValues().mColors);
         mInsetsUpdater = ViewOutlineProviderUtilsKt.setInsetsOutlineProvider(view);
         KtxKt.updateSoftInputWindowLayoutParameters(this, mInputView);
         updateSuggestionStripView(view);
@@ -1043,6 +1046,7 @@ public class LatinIME extends InputMethodService implements
             if (mInputView != null && Settings.getValues().mIsFloatingKeyboard)
                 FloatingKeyboardUtils.setFloating(mInputView);
             setNavigationBarColor();
+            GlassWindow.apply(getWindow().getWindow(), Settings.getValues().mColors);
             workaroundForHuaweiStatusBarIssue();
         }
     }
@@ -1057,6 +1061,7 @@ public class LatinIME extends InputMethodService implements
             mainKeyboardView.closing();
         }
         clearNavigationBarColor();
+        GlassWindow.hideBlur();
     }
 
     void onFinishInputInternal() {
@@ -1266,9 +1271,12 @@ public class LatinIME extends InputMethodService implements
         // Has to be subtracted after calculating touchableRegion
         visibleTopY -= getEmojiSearchActivityHeight();
 
+        final int keyboardTopY = visibleTopY + getEmojiSearchActivityHeight();
         outInsets.contentTopInsets = visibleTopY;
         outInsets.visibleTopInsets = visibleTopY;
         mInsetsUpdater.setInsets(outInsets);
+        // the glass theme blurs what is behind the visible keyboard
+        GlassWindow.updateBlur(this, Settings.getValues().mColors, visibleKeyboardView.isShown() ? keyboardTopY : null);
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
