@@ -176,5 +176,5 @@ https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
 ----------------------------------------------------------------------
 
 Parakeet TDT 0.6B v3 by NVIDIA, licensed under CC-BY-4.0
-(https://creativecommons.org/licenses/by/4.0/). The file used here is a 4-bit
+(https://creativecommons.org/licenses/by/4.0/). The file used here is a 5-bit
 quantised GGUF conversion (changed from the original).

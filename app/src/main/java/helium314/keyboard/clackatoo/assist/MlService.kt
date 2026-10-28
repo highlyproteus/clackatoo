@@ -80,6 +80,8 @@ object MlProtocol {
     const val EVENT_END = 3
     /** The largest payload of one event frame. */
     const val MAX_EVENT_BYTES = 4096
+    /** The most event frames of one live call (about 4 per second of the longest recording); the keyboard cancels the call above it. */
+    const val MAX_EVENTS = 4096
 
     const val SAMPLE_RATE = 16000
     /** Upper bound for one recording, in samples. */
@@ -366,7 +368,13 @@ class MlService : Service() {
             output = ParcelFileDescriptor.AutoCloseOutputStream(req.eventFd),
             vadFeed = { pcm, offset, count -> NativeMl.vadFeed(vad, pcm, offset, count) },
             vadReset = { NativeMl.vadReset(vad) },
-            transcribe = { pcm, offset, count -> NativeAsr.transcribe(asr, pcm, offset, count) },
+            transcribe = { pcm, offset, count ->
+                val t = SystemClock.elapsedRealtime()
+                NativeAsr.transcribe(asr, pcm, offset, count).also {
+                    // numbers only; never the text
+                    Log.d(TAG, "live: recognised $count samples in ${SystemClock.elapsedRealtime() - t} ms")
+                }
+            },
         )
         liveSession = req.id to session
         // a cancel that came before the session was published must not be lost

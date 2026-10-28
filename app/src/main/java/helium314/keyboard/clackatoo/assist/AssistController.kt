@@ -126,7 +126,26 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
             when (started) {
                 ListeningStart.PANEL_HIDDEN -> panelHidden()
                 ListeningStart.MIC_UNAVAILABLE -> message(R.string.assist_voice_title, ime.getString(R.string.assist_mic_unavailable))
-                ListeningStart.STARTED -> Log.d(TAG, "live recording started; speech model ${speech.fileName}")
+                ListeningStart.STARTED -> {
+                    Log.d(TAG, "live recording started; speech model ${speech.fileName}")
+                    liveCall?.let { watchLive(it, speech, mySession) }
+                }
+            }
+        }
+    }
+
+    /**
+     * A live call can only end by itself before Stop if something went wrong (the model could not be loaded, the model
+     * process died): say so now instead of recording on until the user taps Stop.
+     */
+    private fun watchLive(call: LiveCall, speech: ModelSpec, mySession: Int) {
+        scope.launch {
+            try {
+                call.await()
+            } catch (e: MlException) {
+                if (e.cancelled || mySession != session || mode != Mode.LISTENING || liveCall !== call) return@launch
+                if (e.modelFailedWhileLoading) store.markBroken(speech)
+                message(R.string.assist_voice_title, failureText(e), settings = e.modelFailedWhileLoading)
             }
         }
     }
@@ -210,6 +229,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                 call.await()
             } catch (e: MlException) {
                 if (e.modelFailedWhileLoading && speech != null) store.markBroken(speech)
+                throw e
+            } catch (e: CancellationException) {
+                call.cancel() // the panel was closed or the field changed: the model process stops decoding
                 throw e
             }
             // no transcripts in any log, in any build

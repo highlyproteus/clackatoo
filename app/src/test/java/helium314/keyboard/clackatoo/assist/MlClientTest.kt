@@ -269,6 +269,13 @@ class MlClientTest {
         assertEnds(call, service, unexpected)
     }
 
+    @Test fun `too many events cancel the live call`() {
+        val one = frame(MlProtocol.EVENT_PARTIAL, "x".toByteArray())
+        val all = ByteArray(one.size * (MlProtocol.MAX_EVENTS + 1)) { one[it % one.size] }
+        val (call, service) = liveCallWithEvents(all)
+        assertEnds(call, service, unexpected)
+    }
+
     @Test fun `frames are shown in order and the call returns the committed text`() {
         val texts = ArrayList<Pair<String, String>>()
         val bytes = frame(MlProtocol.EVENT_PARTIAL, "so um".toByteArray()) +

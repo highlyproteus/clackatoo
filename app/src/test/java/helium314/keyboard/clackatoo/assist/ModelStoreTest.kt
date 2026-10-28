@@ -74,8 +74,8 @@ class ModelStoreTest {
         // the reference files, by name: a change here is a change of the model and must be made in NOTICE too
         val pinned = ModelCatalog.all.associate { it.fileName to Triple(it.kind, it.sizeBytes, it.sha256) }
         assertEquals(
-            Triple(ModelKind.SPEECH, 675_200_864L, "993d73feb4206dadda865ab25bd64b50c48dc4d013c3bf6126a721f28b1d5ee8"),
-            pinned["tdt-0.6b-v3-q4_k.gguf"],
+            Triple(ModelKind.SPEECH, 741_867_360L, "5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4"),
+            pinned["tdt-0.6b-v3-q5_k.gguf"],
         )
         assertEquals(
             Triple(ModelKind.SPEECH, 190_085_487L, "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"),
@@ -89,7 +89,7 @@ class ModelStoreTest {
 
     @Test fun `the catalog lists Parakeet before Whisper and only the voice detector ships in the APK`() {
         assertEquals(
-            listOf("tdt-0.6b-v3-q4_k.gguf", "ggml-small-q5_1.bin", "s1-mini-q4_k_m.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf", "ggml-silero-v6.2.0.bin"),
+            listOf("tdt-0.6b-v3-q5_k.gguf", "ggml-small-q5_1.bin", "s1-mini-q4_k_m.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf", "ggml-silero-v6.2.0.bin"),
             ModelCatalog.all.map { it.fileName },
         )
         assertEquals(

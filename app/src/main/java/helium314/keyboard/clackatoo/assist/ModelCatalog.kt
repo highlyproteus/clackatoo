@@ -41,11 +41,11 @@ data class ModelSpec(
 object ModelCatalog {
     /**
      * Reference download, pinned to a revision:
-     * https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q4_k.gguf
+     * https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q5_k.gguf
      */
     val PARAKEET_TDT_0_6B_V3 = ModelSpec(
-        ModelKind.SPEECH, "tdt-0.6b-v3-q4_k.gguf", "Parakeet TDT 0.6B v3 (live text, 4-bit)", "CC-BY-4.0 (NVIDIA)", 675_200_864L,
-        "993d73feb4206dadda865ab25bd64b50c48dc4d013c3bf6126a721f28b1d5ee8", engine = SpeechEngine.PARAKEET,
+        ModelKind.SPEECH, "tdt-0.6b-v3-q5_k.gguf", "Parakeet TDT 0.6B v3 (live text, 5-bit)", "CC-BY-4.0 (NVIDIA)", 741_867_360L,
+        "5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4", engine = SpeechEngine.PARAKEET,
     )
     val SPEECH_SMALL = ModelSpec(
         ModelKind.SPEECH, "ggml-small-q5_1.bin", "Whisper small (multilingual, 5-bit)", "MIT", 190_085_487L,

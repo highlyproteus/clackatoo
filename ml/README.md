@@ -5,7 +5,7 @@ the device, and no model is downloaded by the app.
 
 | | What | Runtime | Model | Licence | Size |
 | --- | --- | --- | --- | --- | --- |
-| Voice typing, live text (optional) | speech to text with the words shown while you speak | parakeet.cpp (MIT), module `asr` | Parakeet TDT 0.6B v3, 4-bit (`tdt-0.6b-v3-q4_k.gguf`) | CC-BY-4.0 (NVIDIA) | 675 MB |
+| Voice typing, live text (optional) | speech to text with the words shown while you speak | parakeet.cpp (MIT), module `asr` | Parakeet TDT 0.6B v3, 5-bit (`tdt-0.6b-v3-q5_k.gguf`) | CC-BY-4.0 (NVIDIA) | 742 MB |
 | Voice typing | speech to text, English and Spanish | whisper.cpp (MIT) | Whisper small, multilingual, 5-bit (`ggml-small-q5_1.bin`) | MIT | 190 MB |
 | Voice typing, English only | clean-up of the transcript: fillers, self-corrections, punctuation, numbers | llama.cpp (MIT) | S1-mini by Superwhisper (`s1-mini-q4_k_m.gguf`) | Apache-2.0 + naming term | 484 MB (462 MiB) |
 | Grammar check | spelling and grammar, English and Spanish | llama.cpp (MIT) | Qwen3.5 0.8B, 4-bit (`Qwen3.5-0.8B-Q4_K_M.gguf`) | Apache-2.0 | 533 MB |
@@ -108,7 +108,7 @@ Stop ─► LiveCall.finish ─► the model process decodes the rest, sends END
 - **Silero VAD** (`ggml-silero-v6.2.0.bin`, 885,098 bytes, MIT) is in `app/src/main/assets/models/`. On first live use
   `ModelStore.ensureBundled` copies it into the model folder through the same checks as an import (exact size and SHA-256);
   it cannot be imported by hand. It runs in the `ml` library through whisper.cpp (`vadLoad` / `vadFeed` in `NativeMl`).
-- Memory: Parakeet q4_k reads its 675 MB file into memory and then into its own buffers while loading, so the peak is
+- Memory: Parakeet q5_k reads its 742 MB file into memory and then into its own buffers while loading, so the peak is
   about twice the file; the isolated process keeps only one speech engine loaded.
 
 ### Languages
@@ -148,16 +148,16 @@ Two ways to put files there:
    $ADB shell rm /data/local/tmp/ggml-small-q5_1.bin
    ```
 
-   Repeat for `tdt-0.6b-v3-q4_k.gguf` (Parakeet, live text), `s1-mini-q4_k_m.gguf` and `Qwen3.5-0.8B-Q4_K_M.gguf` (kept in a `models/` folder outside the
+   Repeat for `tdt-0.6b-v3-q5_k.gguf` (Parakeet, live text), `s1-mini-q4_k_m.gguf` and `Qwen3.5-0.8B-Q4_K_M.gguf` (kept in a `models/` folder outside the
    repository). Files placed with adb skip the import checks (development only; nothing restores or transfers models by itself, since
    they are excluded from backup). The isolated model process still protects the keyboard, and whisper.cpp's header
    check still runs.
 
 Reference downloads (free; these exact files match the pinned sizes and digests):
 
-- <https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q4_k.gguf>
-  (the same revision also has `tdt-0.6b-v3-q5_k.gguf`, 741,867,360 bytes, SHA-256
-  `5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4`, if q4_k proves too inaccurate)
+- <https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q5_k.gguf>
+  (741,867,360 bytes; the q4_k file of the same revision, 675 MB, was tried first and mis-heard the test sentence in two
+  more places than Whisper small, see "Measured times")
 - <https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin>
 - <https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf>
 - <https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf>
@@ -235,6 +235,21 @@ Emulator (x86_64, 4 virtual cores = 2 model threads, AVX without AVX2; not repre
 | Whisper small, Spanish | 4.4 s clip | 12.3 s |
 | S1-mini clean-up | 1 sentence | 2.8 s (+2.7 s first load) |
 | Grammar check (Qwen3.5 0.8B) | 55 characters | 2.4 s |
+
+Parakeet live text, emulator `clackatoo-test` (arm64-v8a under Apple virtualisation, 4 cores, 4 GB, with the Arm
+dot-product instructions; 2026-10-27), the 5.2 s English test clip fed at real time, model process started cold:
+
+| Step | Time |
+| --- | --- |
+| Parakeet q5_k (742 MB) and Silero VAD load, in the model process | 0.74 s and 0.80 s in two runs (process start not included) |
+| First partial text, from the start of the recording | 1.5 s and 1.1 s in two runs |
+| Recognition of the whole clip, all partial passes added | 5.8 s for 5.2 s of audio |
+| Text ready after the audio ended (the keyboard waits for this after Stop) | 1.8 s (Whisper small, same clip: 8.2 s) |
+| 28 s dictation of several sentences | 34.6 s of recognition in total; text ready 7.4 s after the audio ended, because the last utterance had been growing for 12 s |
+
+The q4_k file (675 MB) of the same Parakeet revision heard the clip worse than Whisper small ("So I might need ...",
+"make the Thursday"), so q5_k is the catalog model; q5_k's differences are "by a Friday" for "by uh Friday" and "make the" for
+"make that" (Whisper small has the first too). The host `parakeet-cli` produced the same text as the emulator for both files.
 
 Whisper always encodes a full 30 s window, so the time barely depends on the clip length. On a desktop CPU (16 cores,
 4 threads) the same clips take 2.3 s and a grammar sentence 0.65 s. Limiting Whisper's encoder to the clip

@@ -37,12 +37,12 @@ Each release lists the package name and signing certificate for verification wit
 
 ### Models
 
-The voice and grammar models (about 1.2 GB in total, 1.9 GB with Parakeet) are not bundled. They are imported from
+The voice and grammar models (about 1.2 GB in total, 2.0 GB with Parakeet) are not bundled. They are imported from
 Settings > Voice typing and Settings > Grammar check:
 
 | Feature | File | Size |
 | --- | --- | --- |
-| Voice typing, live text (optional) | [tdt-0.6b-v3-q4_k.gguf](https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q4_k.gguf) | 675 MB |
+| Voice typing, live text (optional) | [tdt-0.6b-v3-q5_k.gguf](https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q5_k.gguf) | 742 MB |
 | Voice typing | [ggml-small-q5_1.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin) | 190 MB |
 | English clean-up (optional) | [s1-mini-q4_k_m.gguf](https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf) | 484 MB |
 | Grammar check | [Qwen3.5-0.8B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf) | 533 MB |

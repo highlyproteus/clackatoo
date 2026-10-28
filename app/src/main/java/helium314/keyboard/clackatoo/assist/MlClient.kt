@@ -182,12 +182,14 @@ class MlClient(context: Context) {
         val committed = ArrayList<String>()
         var partial = ""
         var segmentBytes = 0
+        var events = 0
         var failure: String? = null
         var ended = false
         try {
             ParcelFileDescriptor.AutoCloseInputStream(read).use { input ->
                 while (!ended && !call.stopped) {
                     val frame = LiveFrames.read(input) ?: break
+                    if (++events > MlProtocol.MAX_EVENTS) throw LiveFrames.ProtocolException("too many events")
                     when (frame) {
                         is LiveFrames.Frame.End -> ended = true
                         is LiveFrames.Frame.Partial -> partial = OutputSanitizer.clean(frame.text, multiLine = false)

@@ -9,6 +9,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.StaticLayout
 import android.text.TextUtils
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
@@ -77,7 +79,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         listeningBox.orientation = LinearLayout.VERTICAL
         listeningBox.addView(meter, LinearLayout.LayoutParams(-1, 0, 1f))
         liveText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-        liveText.maxLines = 3
+        liveText.maxLines = LIVE_TEXT_LINES
         liveText.ellipsize = TextUtils.TruncateAt.START
         liveText.visibility = GONE
         listeningBox.addView(liveText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
@@ -194,8 +196,21 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
             val start = text.length - partial.length
             spannable.setSpan(ForegroundColorSpan(colors.get(ColorType.KEY_HINT_TEXT)), start, text.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-        liveText.text = spannable
+        liveText.text = lastLines(spannable)
         liveText.visibility = if (text.isEmpty()) GONE else VISIBLE
+    }
+
+    /**
+     * The last [LIVE_TEXT_LINES] lines of [text] with "…" in front when something is cut, so the newest words always show.
+     * (A TextView only ellipsizes the start of a single line, so a multi-line text has to be cut here.)
+     */
+    private fun lastLines(text: Spannable): CharSequence {
+        val width = liveText.width - liveText.paddingLeft - liveText.paddingRight
+        if (width <= 0 || text.isEmpty()) return text
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, liveText.paint, width).build()
+        if (layout.lineCount <= LIVE_TEXT_LINES) return text
+        val start = layout.getLineStart(layout.lineCount - LIVE_TEXT_LINES)
+        return SpannableStringBuilder("…").append(text, start, text.length)
     }
 
     fun showWorking(titleText: CharSequence) {
@@ -288,6 +303,10 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     }
 
     val isShowing get() = visibility == VISIBLE
+
+    private companion object {
+        const val LIVE_TEXT_LINES = 3
+    }
 
     /** Recent input levels as square bars. */
     private class LevelMeterView(context: Context) : View(context) {

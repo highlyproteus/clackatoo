@@ -18,6 +18,8 @@
 #include <android/log.h>
 static void log_cb(ggml_log_level level, const char *text, void *) {
     // never log prompts, transcripts or audio: ggml only logs model loading and errors here
+    // (live text feeds the voice detector ten times a second; its five lines per call are not worth logging)
+    if (level != GGML_LOG_LEVEL_ERROR && level != GGML_LOG_LEVEL_WARN && strncmp(text, "whisper_vad_detect_speech", 25) == 0) return;
     int prio = level == GGML_LOG_LEVEL_ERROR ? ANDROID_LOG_ERROR
              : level == GGML_LOG_LEVEL_WARN ? ANDROID_LOG_WARN : ANDROID_LOG_DEBUG;
     __android_log_write(prio, "ClackatooMl", text);

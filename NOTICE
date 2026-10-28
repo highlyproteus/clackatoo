@@ -139,15 +139,15 @@ Material Design "spellcheck" icon (app/src/main/res/drawable/ic_grammar_check.xm
 Model files (not part of this repository or the APK; the user imports them, see
 ml/README.md for the reference downloads). Each file is pinned by exact size and SHA-256 in ModelCatalog.kt; the digests are
 listed below.
-    Parakeet TDT 0.6B v3, 4-bit quantised GGUF (tdt-0.6b-v3-q4_k.gguf, 675 MB)
+    Parakeet TDT 0.6B v3, 5-bit quantised GGUF (tdt-0.6b-v3-q5_k.gguf, 742 MB)
         https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
         "Parakeet TDT 0.6B v3 by NVIDIA", CC-BY-4.0 (attribution: NVIDIA; the
         quantised GGUF conversion is from
         https://huggingface.co/mudler/parakeet-cpp-gguf, revision
         c77726e46ceaab96b5a5a3328915edb44c73209d; changed: quantised to
-        4 bits). Speech to text with live text while speaking; used before
+        5 bits). Speech to text with live text while speaking; used before
         Whisper when installed. Credited in Settings > Voice typing and here.
-        SHA-256 993d73feb4206dadda865ab25bd64b50c48dc4d013c3bf6126a721f28b1d5ee8
+        SHA-256 5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4
     Whisper small, multilingual, 5-bit quantised ggml build (ggml-small-q5_1.bin,
         190 MB). Weights by OpenAI (https://github.com/openai/whisper),
         Copyright (c) 2022 OpenAI, MIT licence; ggml conversion and
@@ -169,7 +169,7 @@ listed below.
         quantisation from https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF.
         Grammar and spelling check for English and Spanish.
         SHA-256 bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517
-    Total of the three files without Parakeet: about 1.21 GB; Parakeet adds 675 MB.
+    Total of the three files without Parakeet: about 1.21 GB; Parakeet adds 742 MB.
 
 Test material only (nothing of this is shipped or committed): the English and
 Spanish test recordings were made with the Piper text-to-speech voices
