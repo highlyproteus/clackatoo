@@ -2,6 +2,8 @@
 
 package helium314.keyboard.clackatoo.assist
 
+import helium314.keyboard.clackatoo.catalog.Catalog
+import helium314.keyboard.clackatoo.catalog.MULTILINGUAL
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -65,39 +67,39 @@ class ModelStoreTest {
     private fun import(name: String?, bytes: ByteArray) = store.import(name, ByteArrayInputStream(bytes))
     private fun noPartFiles() = dir.listFiles().orEmpty().none { it.name.endsWith(".part") }
 
-    @Test fun `the shipped catalog pins exact sizes and digests`() {
+    @Test fun `the shipped catalog is the shared catalog plus the bundled voice detector`() {
         for (spec in ModelCatalog.all) {
             assertTrue(spec.sizeBytes > 0)
             assertTrue(Regex("[0-9a-f]{64}").matches(spec.sha256), spec.fileName)
         }
         assertEquals(ModelCatalog.all.size, ModelCatalog.all.map { it.sha256 }.toSet().size)
-        // the reference files, by name: a change here is a change of the model and must be made in NOTICE too
-        val pinned = ModelCatalog.all.associate { it.fileName to Triple(it.kind, it.sizeBytes, it.sha256) }
+        // every downloadable model of the shared catalog is here with its exact size and digest; nothing else but the VAD
         assertEquals(
-            Triple(ModelKind.SPEECH, 741_867_360L, "5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4"),
-            pinned["tdt-0.6b-v3-q5_k.gguf"],
-        )
-        assertEquals(
-            Triple(ModelKind.SPEECH, 190_085_487L, "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"),
-            pinned["ggml-small-q5_1.bin"],
+            Catalog.all.map { Triple(it.id, it.sizeBytes, it.sha256) },
+            ModelCatalog.all.filter { it.bundledAsset == null }.map { Triple(it.id, it.sizeBytes, it.sha256) },
         )
         assertEquals(
             Triple(ModelKind.VAD, 885_098L, "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987"),
-            pinned["ggml-silero-v6.2.0.bin"],
+            ModelCatalog.SILERO_VAD.let { Triple(it.kind, it.sizeBytes, it.sha256) },
         )
     }
 
     @Test fun `the catalog lists Parakeet before Whisper and only the voice detector ships in the APK`() {
-        assertEquals(
-            listOf("tdt-0.6b-v3-q5_k.gguf", "ggml-small-q5_1.bin", "s1-mini-q4_k_m.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf", "ggml-silero-v6.2.0.bin"),
-            ModelCatalog.all.map { it.fileName },
-        )
-        assertEquals(
-            listOf(SpeechEngine.PARAKEET, SpeechEngine.WHISPER),
-            ModelCatalog.forKind(ModelKind.SPEECH).map { it.engine },
-        )
+        val speech = ModelCatalog.forKind(ModelKind.SPEECH)
+        assertEquals(SpeechEngine.PARAKEET, speech.first().engine)
+        assertEquals("parakeet-tdt-0.6b-v3", speech.first().id)
+        val firstWhisper = speech.indexOfFirst { it.engine == SpeechEngine.WHISPER }
+        assertTrue(speech.take(firstWhisper).all { it.engine == SpeechEngine.PARAKEET })
+        assertTrue(speech.drop(firstWhisper).all { it.engine == SpeechEngine.WHISPER })
         assertEquals(listOf(ModelCatalog.SILERO_VAD), ModelCatalog.all.filter { it.bundledAsset != null })
         assertEquals(listOf(ModelCatalog.SILERO_VAD), ModelCatalog.forKind(ModelKind.VAD))
+        assertEquals(ModelCatalog.SILERO_VAD, ModelCatalog.all.last())
+    }
+
+    @Test fun `the voice detector cannot be looked up by id as a downloadable model`() {
+        assertNull(ModelCatalog.byId(ModelCatalog.SILERO_VAD.id))
+        assertNull(ModelCatalog.byId("nope"))
+        assertEquals(Catalog.S1_MINI.fileName, ModelCatalog.byId("s1-mini")?.fileName)
     }
 
     @Test fun `a valid speech model is imported and found`() {
@@ -228,6 +230,58 @@ class ModelStoreTest {
         import("speech.bin", speechBytes)
         assertEquals(speech, store.best(ModelKind.SPEECH))
         assertNull(store.best(ModelKind.GRAMMAR))
+    }
+
+    @Test fun `the chosen model wins over catalog order when it is installed`() {
+        import("speech-big.bin", speechBigBytes)
+        import("speech.bin", speechBytes)
+        assertEquals(speech, store.best(ModelKind.SPEECH, preferredId = speech.id))
+        assertEquals(speechBig, store.best(ModelKind.SPEECH, preferredId = speechBig.id))
+        assertEquals(speech, store.best(ModelKind.SPEECH, preferredId = null)) // no choice: catalog order
+    }
+
+    @Test fun `a chosen model that is not installed, broken or unusable falls back to another installed one`() {
+        import("speech.bin", speechBytes)
+        assertEquals(speech, store.best(ModelKind.SPEECH, preferredId = speechBig.id)) // chosen but not installed
+        assertEquals(speech, store.best(ModelKind.SPEECH, preferredId = "unknown-id"))
+        import("speech-big.bin", speechBigBytes)
+        store.markBroken(speechBig)
+        assertEquals(speech, store.best(ModelKind.SPEECH, preferredId = speechBig.id)) // chosen but crashed the model process
+        store.markBroken(speech)
+        assertNull(store.best(ModelKind.SPEECH, preferredId = speech.id))
+        import("speech.bin", speechBytes) // a new import clears the broken mark
+        import("speech-big.bin", speechBigBytes)
+        assertEquals(speechBig, store.best(ModelKind.SPEECH, speech.id) { it != speech }) // the chosen one cannot run on this phone
+        assertNull(store.best(ModelKind.SPEECH, speech.id) { false })
+    }
+
+    @Test fun `the chosen model must also be meant for the language, else another that is is used, else the chosen one`() {
+        val english = speech.copy(languages = listOf("en"))
+        val multi = speechBig.copy(languages = listOf(MULTILINGUAL))
+        val s = ModelStore(dir, object : BrokenMarks {
+            override fun get(fileName: String): String? = null
+            override fun set(fileName: String, value: String?) {}
+        }, listOf(english, multi)) { Long.MAX_VALUE }
+        s.import("speech.bin", ByteArrayInputStream(speechBytes))
+        s.import("speech-big.bin", ByteArrayInputStream(speechBigBytes))
+        assertEquals(english, s.best(ModelKind.SPEECH, english.id, "en"))
+        assertEquals(multi, s.best(ModelKind.SPEECH, english.id, "es")) // the chosen model is English only
+        assertEquals(english, s.best(ModelKind.SPEECH, english.id, null))
+        val only = ModelStore(dir, object : BrokenMarks {
+            override fun get(fileName: String): String? = null
+            override fun set(fileName: String, value: String?) {}
+        }, listOf(english)) { Long.MAX_VALUE }
+        assertEquals(english, only.best(ModelKind.SPEECH, english.id, "es")) // better than no model at all
+    }
+
+    @Test fun `deleting a model removes the file and the broken mark`() {
+        import("speech.bin", speechBytes)
+        store.markBroken(speech)
+        assertTrue(store.delete(speech))
+        assertEquals(ModelStatus.Missing, store.status(speech))
+        assertTrue(store.delete(speech)) // already gone is fine
+        import("speech.bin", speechBytes)
+        assertIs<ModelStatus.Installed>(store.status(speech))
     }
 
     @Test fun `two imports of one model never share a temporary file`() {

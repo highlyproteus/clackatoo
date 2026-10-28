@@ -45,9 +45,31 @@ class ModelStore(
         return ModelStatus.Installed(file, file.length())
     }
 
-    /** The preferred usable model of [kind], or null. */
-    fun best(kind: ModelKind): ModelSpec? =
-        catalog.firstOrNull { it.kind == kind && status(it) is ModelStatus.Installed }
+    /**
+     * The model to use for [kind], or null when none is installed: the one the user chose ([preferredId]) if it is
+     * installed, usable on this phone and (when [languageCode] is given) meant for that language; otherwise the first
+     * installed model of the catalog order that is; otherwise, as a last resort, the first installed one whatever its
+     * language. [usable] is for things only the caller knows, such as the phone's CPU.
+     */
+    fun best(
+        kind: ModelKind,
+        preferredId: String? = null,
+        languageCode: String? = null,
+        usable: (ModelSpec) -> Boolean = { true },
+    ): ModelSpec? {
+        val installed = catalog.filter { it.kind == kind && status(it) is ModelStatus.Installed && usable(it) }
+        val fitting = installed.filter { languageCode == null || it.supports(languageCode) }
+        return fitting.firstOrNull { it.id == preferredId } ?: fitting.firstOrNull()
+            ?: installed.firstOrNull { it.id == preferredId } ?: installed.firstOrNull()
+    }
+
+    /** Removes the installed file of [spec] (and any broken mark). True when no file is left afterwards. */
+    fun delete(spec: ModelSpec): Boolean {
+        val file = file(spec)
+        val gone = !file.exists() || file.delete()
+        if (gone) marks.set(spec.fileName, null)
+        return gone
+    }
 
     /** Called when the model process died while loading [spec]: do not try this exact file again. */
     fun markBroken(spec: ModelSpec) {

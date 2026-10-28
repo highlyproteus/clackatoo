@@ -42,8 +42,7 @@ class DebugWavReceiver private constructor(private val context: Context, private
             return Log.w(TAG, "debug wav: ${e.message}")
         }
         Log.i(TAG, "debug wav: ${pcm.size} samples, language ${language.code}")
-        if (assist.speechModel()?.engine == SpeechEngine.PARAKEET) assist.debugLive(pcm, language)
-        else assist.transcribeAndInsert(pcm, language)
+        assist.debugTranscribe(pcm, language)
     }
 
     companion object {

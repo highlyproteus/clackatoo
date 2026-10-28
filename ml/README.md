@@ -1,7 +1,8 @@
 # Offline voice typing and grammar check
 
-Both features run completely on the phone. The keyboard has no `INTERNET` permission, audio and text never leave
-the device, and no model is downloaded by the app.
+Both features run completely on the phone. The keyboard has no `INTERNET` permission and audio and text never leave
+the device. Models are downloaded by the separate app Clackatoo Models (see "Getting models onto the phone") or imported
+by hand; the keyboard itself never fetches anything.
 
 | | What | Runtime | Model | Licence | Size |
 | --- | --- | --- | --- | --- | --- |
@@ -121,12 +122,25 @@ get Whisper's own punctuation.
 
 ### Adding a model
 
-Add a `ModelSpec` to `ModelCatalog.all` (file name, display name, licence, **exact size and SHA-256 of the reference
-download**, prompt format) and a licence entry with the digest in NOTICE. "Import model file" accepts only files with a
-catalog name, the exact size and the exact digest (`sha256sum file`): native code parses these files, so no other file
-may reach it. A Whisper file's header is also checked (`ModelValidator.whisperFiltersOk`, repeated in `ml_core.cpp`
+Add a `CatalogModel` to `Catalog.all` in the `catalog` module (id, kind, engine, file name, display name, maker, licence,
+languages, **exact size and SHA-256 of the reference download**, Hugging Face repository and the **40-hex commit** the
+file is pinned to; size and digest come from `https://huggingface.co/api/models/<repo>/tree/<commit>`) and a licence entry
+with the digest in NOTICE. `ModelCatalog` in the app is built from it. `CatalogTest` checks that every entry is an
+https `huggingface.co/.../resolve/<40 hex>/<file>` address with a 64-hex digest. Then run the model on the emulator (below)
+before it ships. "Import model file" and the hand-over from Clackatoo Models accept only files with a catalog name, the
+exact size and the exact digest (`sha256sum file`): native code parses these files, so no other file may reach it. A Whisper file's header is also checked (`ModelValidator.whisperFiltersOk`, repeated in `ml_core.cpp`
 before whisper.cpp reads anything): 80 or 128 mel bands and 201 FFT bins, because whisper.cpp sizes buffers by these
 numbers from the file.
+
+## Getting models onto the phone
+
+1. **Clackatoo Models** (the companion app, module `models`): Download next to a model in Settings > Voice typing or
+   Grammar check, or in the panel that the Voice and Check keys show when there is no model. The keyboard sends only the
+   catalog id; the companion downloads the pinned file (https, Hugging Face hosts only), checks size and SHA-256, hands it
+   to the keyboard as a read-only file descriptor and deletes its copy; the keyboard checks it again (`ModelStore.import`).
+   Needs about twice the model's size free for a moment (the companion's copy and the keyboard's). The choice per role
+   (`ModelChoice`) is kept in the keyboard's preferences; a finished download becomes the chosen model of its role.
+2. **Import model file** and 3. **adb**, below.
 
 ## Models on the device
 
@@ -134,7 +148,7 @@ The app reads models from its private files folder, `files/models/` (`/data/user
 which is also where `run-as` starts; checked on the Android 17 emulator: the app's `filesDir`, with its dictionaries
 and clipboard files, is under `/data/user/0`, not `/data/user_de`, although the manifest asks for device-protected
 storage). The folder is excluded from backup and device transfer in both domains (`file` and `device_file`).
-Two ways to put files there:
+Besides the download, there are two ways to put files there:
 
 1. **Import model file** in Settings > Voice typing or Settings > Grammar check (system file picker, no permission).
    The file is copied to a temporary file of its own, checked (known name, model header, exact size, SHA-256) and only
@@ -154,14 +168,19 @@ Two ways to put files there:
    they are excluded from backup). The isolated model process still protects the keyboard, and whisper.cpp's header
    check still runs.
 
-Reference downloads (free; these exact files match the pinned sizes and digests):
+Reference downloads (free; these exact files match the pinned sizes and digests). The URLs are the catalog's
+(`Catalog.all[...].url`), all `https://huggingface.co/<repo>/resolve/<commit>/<file>`:
 
-- <https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/c77726e46ceaab96b5a5a3328915edb44c73209d/tdt-0.6b-v3-q5_k.gguf>
-  (741,867,360 bytes; the q4_k file of the same revision, 675 MB, was tried first and mis-heard the test sentence in two
-  more places than Whisper small, see "Measured times")
-- <https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin>
-- <https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/main/s1-mini-q4_k_m.gguf>
-- <https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf>
+| File | Repository @ commit |
+| --- | --- |
+| `tdt-0.6b-v3-q5_k.gguf` (741,867,360 bytes), `tdt-0.6b-v2-q5_k.gguf`, `tdt_ctc-110m-q5_k.gguf`, `nemotron-3.5-asr-streaming-0.6b-q5_k.gguf` | `mudler/parakeet-cpp-gguf` @ `c77726e46ceaab96b5a5a3328915edb44c73209d` |
+| `ggml-tiny-q5_1.bin`, `ggml-base-q5_1.bin`, `ggml-small-q5_1.bin`, `ggml-large-v3-turbo-q5_0.bin` | `ggerganov/whisper.cpp` @ `5359861c739e955e79d9a303bcbc70fb988958b1` |
+| `s1-mini-q4_k_m.gguf` | `superwhisper/s1-mini-GGUF` @ `34add00a48a2e5d24e5a4ee5405a99620a3a240c` |
+| `Qwen3.5-0.8B-Q4_K_M.gguf` | `unsloth/Qwen3.5-0.8B-GGUF` @ `6ab461498e2023f6e3c1baea90a8f0fe38ab64d0` |
+| `Qwen3.5-2B-Q4_K_M.gguf` | `unsloth/Qwen3.5-2B-GGUF` @ `f6d5376be1edb4d416d56da11e5397a961aca8ae` |
+
+(The q4_k Parakeet file of the same revision, 675 MB, was tried first and mis-heard the test sentence in two more places
+than Whisper small, see "Measured times".)
 
 ## Debug entry point: transcribe a WAV file
 
@@ -251,6 +270,35 @@ dot-product instructions; 2026-10-27), the 5.2 s English test clip fed at real t
 The q4_k file (675 MB) of the same Parakeet revision heard the clip worse than Whisper small ("So I might need ...",
 "make the Thursday"), so q5_k is the catalog model; q5_k's differences are "by a Friday" for "by uh Friday" and "make the" for
 "make that" (Whisper small has the first too). The host `parakeet-cli` produced the same text as the emulator for both files.
+
+### Every option in the catalog, on the emulator (2026-10-28)
+
+Each file was downloaded from its pinned URL (size and SHA-256 checked against the catalog), copied into the debug app's
+`files/models/` as the only speech model, and the 5.2 s English test clip ("So um I need to send the report to Sarah by uh
+Friday, no wait, make that Thursday at three thirty.") was run through `TRANSCRIBE_WAV`, with S1-mini removed so the text
+in the field is the raw transcript. Same emulator as above (`clackatoo-test`: arm64-v8a, 4 cores, 4 GB). The text is what
+the field showed; times are from the app's log (load = loading the file in the model process, "after audio" = the wait
+after Stop for the live models, whole transcription for Whisper). All of them load and run; none was dropped.
+
+| Model | Load | Time | Text in the field |
+| --- | --- | --- | --- |
+| Parakeet TDT 0.6B v3 | 0.58 s | 2.4 s after audio | "So um I need to send the report to Sarah by a Friday. No wait, make the Thursday at three thirty." |
+| Parakeet TDT 0.6B v2 (English) | 0.46 s | 2.9 s after audio | "So am I need to send the report to Sarah by a Friday? No, wait, make that Thursday at three thirty." |
+| Parakeet TDT-CTC 110M (English) | 0.79 s | 0.4 s after audio | "So am I need to send the report to Sarah by a Friday? No wait, make the Thursday at three thirty." |
+| Nemotron 3.5 ASR streaming 0.6B | 1.9 s | 3.9 s after audio | "So what might need to send the report to Sarah by a Friday?  No wait, make the Thursday at three thirty." |
+| Whisper tiny | 0.12 s | 1.2 s | "So while my need to send the report to Sarah by a Friday, no wait, make the Thursday at 330." |
+| Whisper base | 0.13 s | 4.0 s | "So I might need to send the report to Sarah by off Friday. No wait, make the Thursday at 3.30." |
+| Whisper small | 1.4 s | 11.3 s | "So I need to send the report to Sarah by a Friday, no wait, make that Thursday at 3.30." |
+| Whisper large v3 turbo | 0.28 s | 52.5 s | "So am I need to send the report to Sarah by a Friday. No wait, make that Thursday at 3.30." |
+| Qwen3.5 2B (grammar check) | | 3.5 s for 98 characters | corrected "Ths is a tset of the grammer chek, i hope it werk" to "This is a test of the grammar. Check, I hope it works." |
+
+Nemotron is a cache-aware streaming model; parakeet.cpp's offline decoder runs it here (the live text comes from the same
+segment-wise decoding as for the other Parakeet models), so its streaming-specific accuracy is not what this measures. The
+2B grammar model maps its 1.28 GB file and repacks the weights, which takes about 2.5 GB of memory in the model process: on
+the 4 GB emulator the low-memory killer ended the process on the first try (the keyboard then marks the file as not
+loadable until it is imported again) and it ran normally once other apps were closed. Whisper large v3 turbo is too slow on
+the emulator to be pleasant; the phone is faster, but it is the one option to expect to be slow. Qwen3.5 0.8B and S1-mini
+are unchanged from the tables above.
 
 Whisper always encodes a full 30 s window, so the time barely depends on the clip length. On a desktop CPU (16 cores,
 4 threads) the same clips take 2.3 s and a grammar sentence 0.65 s. Limiting Whisper's encoder to the clip

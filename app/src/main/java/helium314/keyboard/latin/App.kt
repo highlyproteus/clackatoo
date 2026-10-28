@@ -26,6 +26,7 @@ class App : Application() {
         DebugFlags.init(this)
         FoldableUtils.init(this)
         Settings.init(this)
+        helium314.keyboard.clackatoo.models.ModelDownloads.init(this)
         SubtypeSettings.init(this)
 
         val scope = CoroutineScope(Dispatchers.Default)

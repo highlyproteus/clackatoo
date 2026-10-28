@@ -16,11 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,9 @@ import helium314.keyboard.clackatoo.assist.ModelStatus
 import helium314.keyboard.clackatoo.assist.RejectReason
 import helium314.keyboard.clackatoo.assist.S1Styling
 import helium314.keyboard.clackatoo.assist.SpeechEngine
+import helium314.keyboard.clackatoo.models.ModelChoice
+import helium314.keyboard.clackatoo.models.ModelDownloads
+import helium314.keyboard.clackatoo.models.ModelState
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.SearchSettingsScreen
@@ -168,20 +173,53 @@ private fun stylingName(styling: S1Styling) = stringResource(
     }
 )
 
-/** One row per model of [kind]: name, licence and whether it is installed. [refresh] forces a re-read. */
+/**
+ * One row per model of [kind]: name, licence and state, a Download / Get Clackatoo Models / Cancel button, and a radio to
+ * choose the model the role uses. (Phase 2 of 1.1 redesigns these screens as model cards on the same ModelDownloads and
+ * ModelChoice API.) [refresh] forces a re-read.
+ */
 @Composable
 private fun ModelRows(kind: ModelKind, refresh: Int) {
     val ctx = LocalContext.current
-    val store = AssistSettings.modelStore(ctx)
     @Suppress("UNUSED_EXPRESSION") refresh // read so the rows update after an import
+    var tick by remember { mutableIntStateOf(0) }
+    // every row's state is read here, so the radio follows a finished download (which also becomes the chosen model)
+    val states = ModelCatalog.forKind(kind).map { ModelDownloads.state(it.id).collectAsState().value }
+    val chosen = remember(refresh, tick, states) { ModelChoice.active(ctx, kind)?.id }
     ModelCatalog.forKind(kind).forEach { spec ->
-        val status = when (val s = store.status(spec)) {
-            ModelStatus.Missing -> stringResource(R.string.assist_model_missing)
-            is ModelStatus.Installed -> stringResource(R.string.assist_model_installed, Formatter.formatShortFileSize(ctx, s.sizeBytes))
-            is ModelStatus.Broken -> stringResource(R.string.assist_model_broken_status)
+        val download by ModelDownloads.state(spec.id).collectAsState()
+        val store = AssistSettings.modelStore(ctx)
+        val status = when (val state = download) {
+            is ModelState.Downloading -> stringResource(
+                R.string.models_downloading, Formatter.formatShortFileSize(ctx, state.bytes), Formatter.formatShortFileSize(ctx, state.total),
+            )
+            ModelState.Installing -> stringResource(R.string.models_installing)
+            is ModelState.Failed -> state.message
+            else -> when (val s = store.status(spec)) {
+                ModelStatus.Missing -> stringResource(R.string.assist_model_missing)
+                is ModelStatus.Installed -> stringResource(R.string.assist_model_installed, Formatter.formatShortFileSize(ctx, s.sizeBytes))
+                is ModelStatus.Broken -> stringResource(R.string.assist_model_broken_status)
+            }
         }
-        Preference(name = spec.displayName, description = "$status\n${spec.licence}, ${spec.fileName}", onClick = {})
-        if (spec.engine == SpeechEngine.PARAKEET) InfoText(stringResource(R.string.assist_parakeet_live_hint))
+        val installed = download is ModelState.Installed && store.status(spec) is ModelStatus.Installed
+        Preference(
+            name = spec.displayName,
+            description = "$status\n${spec.maker}, ${spec.licence}, ${Formatter.formatShortFileSize(ctx, spec.sizeBytes)}",
+            onClick = { if (installed && ModelChoice.select(ctx, kind, spec.id)) tick++ },
+        ) {
+            if (installed) RadioButton(selected = chosen == spec.id, onClick = { if (ModelChoice.select(ctx, kind, spec.id)) tick++ })
+            when (download) {
+                is ModelState.Downloading -> TextButton(onClick = { ModelDownloads.cancel(ctx, spec.id) }) { Text(stringResource(R.string.models_cancel)) }
+                ModelState.Installing -> Unit
+                is ModelState.Installed -> TextButton(onClick = { ModelDownloads.delete(ctx, spec.id); tick++ }) {
+                    Text(stringResource(R.string.models_delete))
+                }
+                else -> TextButton(onClick = { ModelDownloads.download(ctx, spec.id) }) {
+                    Text(stringResource(if (ModelDownloads.isCompanionInstalled(ctx)) R.string.models_download else R.string.models_get_companion))
+                }
+            }
+        }
+        if (spec.engine == SpeechEngine.PARAKEET && spec == ModelCatalog.forKind(kind).first { it.engine == SpeechEngine.PARAKEET }) InfoText(stringResource(R.string.assist_parakeet_live_hint))
     }
 }
 
@@ -195,6 +233,7 @@ private fun ImportRow(onChanged: () -> Unit) {
         scope.launch {
             val message = withContext(Dispatchers.IO) { importModel(ctx, uri) }
             importing = false
+            ModelDownloads.refresh(ctx)
             onChanged()
             Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
         }

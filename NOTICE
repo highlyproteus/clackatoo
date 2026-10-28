@@ -77,6 +77,23 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   `MlService`, `MlClient`, `AssistController`, `AssistPanelView`,
   `AudioRecorder`, `ModelCatalog`, `ModelStore`, `DebugWavReceiver`, the Voice
   typing settings screen and the `ml` module (voice-activity detection).
+- 2026-10-28: one-tap model downloads and a choice of models. A new Android
+  application, "Clackatoo Models" (module `models`, application id
+  `io.github.highlyproteus.clackatoo.models`), is the only part with the INTERNET
+  permission: the keyboard asks it, through a signature permission, to download
+  one model of a built-in list by id; it downloads the pinned file from Hugging
+  Face, checks size and SHA-256 and hands it over as a read-only file descriptor,
+  and the keyboard checks it again and installs it as before (the keyboard still has
+  no INTERNET permission). The list of models is a new shared module `catalog`
+  (nine more models than before, each pinned by size and SHA-256), the keyboard
+  has a choice of model per role (`ModelChoice`), and the Voice and Check keys offer
+  to download the recommended models in the panel when none is installed. New
+  files: `catalog/`, `models/`, the package `helium314.keyboard.clackatoo.models`,
+  `res/values/strings-clackatoo-models.xml`; hooks in `ModelCatalog`,
+  `ModelStore`, `AssistController`, `AssistPanelView`, `DebugWavReceiver`, `App`,
+  the Voice typing and Grammar check settings screens and the manifest (a
+  signature permission, a receiver service, a package query). The release
+  workflow builds and signs both APKs.
 - 2026-10-22: the keyboard data stays in credential-protected storage when the
   app is preinstalled as a system app (only the input method service is
   direct-boot aware); clipboard history skips clips marked sensitive and is
@@ -163,24 +180,42 @@ Silero VAD v6.2.0 (app/src/main/assets/models/ggml-silero-v6.2.0.bin, 885,098 by
 Material Design "spellcheck" icon (app/src/main/res/drawable/ic_grammar_check.xml)
     Copyright Google LLC, Apache License 2.0.
 
-Model files (not part of this repository or the APK; the user imports them, see
-ml/README.md for the reference downloads). Each file is pinned by exact size and SHA-256 in ModelCatalog.kt; the digests are
-listed below.
+Model files (not part of this repository or the APK; downloaded by the Clackatoo Models app or
+imported by the user, see ml/README.md for the reference downloads). Each file is pinned by exact
+size, SHA-256 and Hugging Face revision in catalog/.../Catalog.kt; the digests are listed below. Parakeet and
+Nemotron files are conversions to 5-bit GGUF by https://huggingface.co/mudler/parakeet-cpp-gguf
+(revision c77726e46ceaab96b5a5a3328915edb44c73209d) of NVIDIA's NeMo models.
     Parakeet TDT 0.6B v3, 5-bit quantised GGUF (tdt-0.6b-v3-q5_k.gguf, 742 MB)
         https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
-        "Parakeet TDT 0.6B v3 by NVIDIA", CC-BY-4.0 (attribution: NVIDIA; the
-        quantised GGUF conversion is from
-        https://huggingface.co/mudler/parakeet-cpp-gguf, revision
-        c77726e46ceaab96b5a5a3328915edb44c73209d; changed: quantised to
-        5 bits). Speech to text with live text while speaking; used before
+        "Parakeet TDT 0.6B v3 by NVIDIA", CC-BY-4.0 (attribution: NVIDIA; changed:
+        quantised to 5 bits). Speech to text with live text while speaking; used before
         Whisper when installed. Credited in Settings > Voice typing and here.
         SHA-256 5ebd1d55609b5ad9dac1c457eeb87a9904f199d6fbbb738453182d010646c2e4
-    Whisper small, multilingual, 5-bit quantised ggml build (ggml-small-q5_1.bin,
-        190 MB). Weights by OpenAI (https://github.com/openai/whisper),
-        Copyright (c) 2022 OpenAI, MIT licence; ggml conversion and
-        quantisation from https://huggingface.co/ggerganov/whisper.cpp (MIT).
-        Speech to text for English and Spanish.
-        SHA-256 ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+    Parakeet TDT 0.6B v2, 5-bit quantised GGUF (tdt-0.6b-v2-q5_k.gguf, 705 MB)
+        https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
+        "Parakeet TDT 0.6B v2 by NVIDIA", CC-BY-4.0 (changed: quantised to 5 bits). English.
+        SHA-256 1ba06d039a2c38d2d1b6b512230ab62ecd04d8bf3be45234dd1ddc507b6393b8
+    Parakeet TDT-CTC 110M, 5-bit quantised GGUF (tdt_ctc-110m-q5_k.gguf, 143 MB)
+        https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
+        "Parakeet TDT-CTC 110M by NVIDIA", CC-BY-4.0 (changed: quantised to 5 bits). English.
+        SHA-256 1316a7a708a083179ea133421dc437ceee6719a159489204a1bb6ff559793e5b
+    Nemotron 3.5 ASR streaming 0.6B, 5-bit quantised GGUF
+        (nemotron-3.5-asr-streaming-0.6b-q5_k.gguf, 785 MB)
+        https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+        "Nemotron 3.5 ASR streaming 0.6B by NVIDIA", OpenMDW License Agreement 1.1
+        (https://openmdw.ai/license/1-1/; changed: quantised to 5 bits). 35 languages.
+        SHA-256 7bb14605a707f821560952521034002c91653d676272a80dca0cd2aa886d0ab2
+    Whisper tiny, base, small and large v3 turbo, 5-bit quantised ggml builds
+        (ggml-tiny-q5_1.bin 32 MB, ggml-base-q5_1.bin 60 MB, ggml-small-q5_1.bin 190 MB,
+        ggml-large-v3-turbo-q5_0.bin 574 MB). Weights by OpenAI
+        (https://github.com/openai/whisper), Copyright (c) 2022 OpenAI, MIT licence; ggml
+        conversion and quantisation from https://huggingface.co/ggerganov/whisper.cpp
+        (revision 5359861c739e955e79d9a303bcbc70fb988958b1, MIT). Speech to text; small is the
+        recommended one and the only one that was in use before 2026-10-28.
+        tiny   SHA-256 818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7
+        base   SHA-256 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898
+        small  SHA-256 ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+        turbo  SHA-256 394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2
     S1-mini by Superwhisper (s1-mini-q4_k_m.gguf, 484 MB, "462 MiB")
         https://huggingface.co/superwhisper/s1-mini-GGUF
         Copyright 2026 Superwhisper, a derivative of Qwen3-0.6B (Copyright 2024
@@ -190,13 +225,18 @@ listed below.
         typing and here. English-only clean-up of the transcript (fillers,
         self-corrections, punctuation, numbers); not used for Spanish.
         SHA-256 3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634
-    Qwen3.5-0.8B, 4-bit GGUF (Qwen3.5-0.8B-Q4_K_M.gguf, 533 MB)
+    Qwen3.5-0.8B and Qwen3.5-2B, 4-bit GGUF (Qwen3.5-0.8B-Q4_K_M.gguf, 533 MB;
+        Qwen3.5-2B-Q4_K_M.gguf, 1.28 GB)
         Weights by the Qwen team, Alibaba Cloud
-        (https://huggingface.co/Qwen/Qwen3.5-0.8B), Apache License 2.0; GGUF
-        quantisation from https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF.
-        Grammar and spelling check for English and Spanish.
-        SHA-256 bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517
-    Total of the three files without Parakeet: about 1.21 GB; Parakeet adds 742 MB.
+        (https://huggingface.co/Qwen/Qwen3.5-0.8B, https://huggingface.co/Qwen/Qwen3.5-2B),
+        Apache License 2.0; GGUF quantisation from
+        https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF and
+        https://huggingface.co/unsloth/Qwen3.5-2B-GGUF. Grammar and spelling check.
+        0.8B SHA-256 bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517
+        2B   SHA-256 aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223
+    The models are downloaded from Hugging Face (https://huggingface.co) by the Clackatoo
+    Models app and shown with their makers and licences in its "Model licences" screen.
+    Size of the recommended files: about 1.21 GB without Parakeet; Parakeet adds 742 MB.
 
 Test material only (nothing of this is shipped or committed): the English and
 Spanish test recordings were made with the Piper text-to-speech voices
