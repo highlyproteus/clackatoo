@@ -127,6 +127,13 @@ void llm_free(Llm *llm) {
 
 LoadMode llm_load_mode(const Llm *llm) { return llm->mode; }
 
+static bool starts_with_bos(const llama_vocab *vocab, const std::string &text) {
+    const llama_token bos = llama_vocab_bos(vocab);
+    if (bos == LLAMA_TOKEN_NULL) return false;
+    const char *bos_text = llama_vocab_get_text(vocab, bos);
+    return bos_text && *bos_text && text.compare(0, strlen(bos_text), bos_text) == 0;
+}
+
 Status llm_generate(Llm *llm, const std::vector<PromptPart> &prompt, int max_new_tokens, const std::atomic<bool> &cancel,
                     std::string &out, std::string &error) {
     out.clear();
@@ -139,12 +146,14 @@ Status llm_generate(Llm *llm, const std::vector<PromptPart> &prompt, int max_new
         if (part.text.empty()) continue;
         std::vector<llama_token> piece(part.text.size() + 8);
         // the beginning-of-text token (if the model wants one) goes in front of the first part only
+        // (a template that writes the beginning-of-text token itself, Llama 3 style, must not get a second one)
+        const bool add_bos = tokens.empty() && !(part.special && starts_with_bos(llm->vocab, part.text));
         int n = llama_tokenize(llm->vocab, part.text.c_str(), (int) part.text.size(), piece.data(), (int) piece.size(),
-                               tokens.empty(), part.special);
+                               add_bos, part.special);
         if (n < 0) {
             piece.resize(-n);
             n = llama_tokenize(llm->vocab, part.text.c_str(), (int) part.text.size(), piece.data(), (int) piece.size(),
-                               tokens.empty(), part.special);
+                               add_bos, part.special);
         }
         if (n < 0) {
             error = "could not tokenize the prompt";
@@ -195,6 +204,89 @@ Status llm_generate(Llm *llm, const std::vector<PromptPart> &prompt, int max_new
     }
     llama_sampler_free(smpl);
     return status;
+}
+
+// Laying out a chat with the model's own template. Every content is replaced by a marker that cannot be in a template,
+// the template is applied, and the result is cut at the markers: the pieces between them are the template's special
+// markers, the contents are put back as plain text.
+static const char kMarker = '\x1e';
+
+static std::string marker(size_t i) { return std::string(1, kMarker) + std::to_string(i) + std::string(1, kMarker); }
+
+static void chatml_prompt(const std::vector<ChatTurn> &turns, std::vector<PromptPart> &prompt, bool no_think) {
+    for (const ChatTurn &t : turns) {
+        prompt.push_back({"<|im_start|>" + t.role + "\n", true});
+        prompt.push_back({t.content, false});
+        prompt.push_back({"<|im_end|>\n", true});
+    }
+    prompt.push_back({no_think ? "<|im_start|>assistant\n<think>\n\n</think>\n\n" : "<|im_start|>assistant\n", true});
+}
+
+bool llm_chat_prompt(Llm *llm, const std::vector<ChatTurn> &turns, std::vector<PromptPart> &prompt, std::string &error) {
+    prompt.clear();
+    if (turns.empty() || turns.size() > 32) {
+        error = "bad prompt";
+        return false;
+    }
+    for (const ChatTurn &t : turns) {
+        if (t.role != "system" && t.role != "user" && t.role != "assistant") {
+            error = "bad prompt";
+            return false;
+        }
+    }
+    const char *tmpl = llama_model_chat_template(llm->model, nullptr);
+    const bool think = tmpl && strstr(tmpl, "enable_thinking") != nullptr;
+    if (!tmpl) {
+        chatml_prompt(turns, prompt, false);
+        return true;
+    }
+    std::vector<std::string> marks;
+    std::vector<llama_chat_message> messages;
+    marks.reserve(turns.size());
+    for (size_t i = 0; i < turns.size(); i++) marks.push_back(marker(i));
+    for (size_t i = 0; i < turns.size(); i++) messages.push_back({turns[i].role.c_str(), marks[i].c_str()});
+    std::vector<char> buf(1024);
+    int32_t n = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, buf.data(), (int32_t) buf.size());
+    if (n > (int32_t) buf.size()) {
+        buf.resize((size_t) n);
+        n = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, buf.data(), (int32_t) buf.size());
+    }
+    std::string text;
+    if (n > 0) text.assign(buf.data(), (size_t) n);
+    // every marker must appear exactly once and in order; otherwise the template is not usable this way
+    bool usable = n > 0;
+    size_t at = 0;
+    std::vector<std::pair<size_t, size_t>> spans;  // where each marker is
+    for (size_t i = 0; usable && i < marks.size(); i++) {
+        size_t p = text.find(marks[i], at);
+        if (p == std::string::npos || text.find(marks[i], p + marks[i].size()) != std::string::npos) usable = false;
+        else {
+            spans.push_back({p, marks[i].size()});
+            at = p + marks[i].size();
+        }
+    }
+    if (!usable) {
+        chatml_prompt(turns, prompt, think);
+        return true;
+    }
+    size_t cursor = 0;
+    for (size_t i = 0; i < spans.size(); i++) {
+        if (spans[i].first > cursor) prompt.push_back({text.substr(cursor, spans[i].first - cursor), true});
+        prompt.push_back({turns[i].content, false});
+        cursor = spans[i].first + spans[i].second;
+    }
+    std::string tail = text.substr(cursor);
+    if (think) tail += "<think>\n\n</think>\n\n";
+    if (!tail.empty()) prompt.push_back({tail, true});
+    // a template that writes the beginning-of-text token itself must not get a second one from the tokeniser
+    return true;
+}
+
+Status llm_chat(Llm *llm, const std::vector<ChatTurn> &turns, int max_new_tokens, const std::atomic<bool> &cancel,
+                std::string &out, std::string &error) {
+    std::vector<PromptPart> prompt;
+    if (!llm_chat_prompt(llm, turns, prompt, error)) return Status::Error;
+    return llm_generate(llm, prompt, max_new_tokens, cancel, out, error);
 }
 
 // ---------------------------------------------------------------- whisper

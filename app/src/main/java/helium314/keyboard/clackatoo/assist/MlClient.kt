@@ -123,6 +123,38 @@ class MlClient(context: Context) {
     }
 
     /**
+     * Text generation for a model that has its own chat template (an experimental custom model): [turns] are laid out by
+     * the model process with the template stored in the model file. The contents are plain text and can never become
+     * control tokens.
+     */
+    suspend fun chat(model: File, contextTokens: Int, turns: List<ChatPrompt.Turn>, maxNewTokens: Int): MlResult {
+        require(contextTokens in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT && maxNewTokens in 1..MlProtocol.MAX_NEW_TOKENS)
+        require(turns.isNotEmpty() && turns.size <= MlProtocol.MAX_CHAT_TURNS && turns.all { it.role in MlProtocol.CHAT_ROLES })
+        return request(MlProtocol.MSG_GENERATE, model, extras = {
+            putInt(MlProtocol.KEY_CONTEXT, contextTokens)
+            putStringArray(MlProtocol.KEY_CHAT_ROLES, Array(turns.size) { turns[it].role })
+            putStringArray(MlProtocol.KEY_PROMPT_TEXTS, Array(turns.size) { turns[it].content })
+            putInt(MlProtocol.KEY_MAX_NEW, maxNewTokens)
+        })
+    }
+
+    /**
+     * The test load of an experimental custom model: the model process loads [model] with the engine of [spec] and frees it
+     * again. Returns normally when it loaded; a [MlException] when the file could not be loaded or the process died.
+     */
+    suspend fun probe(model: File, spec: ModelSpec): MlResult {
+        val engine = when {
+            spec.kind != ModelKind.SPEECH -> MlProtocol.PROBE_LLM
+            spec.engine == SpeechEngine.PARAKEET -> MlProtocol.PROBE_PARAKEET
+            else -> MlProtocol.PROBE_WHISPER
+        }
+        return request(MlProtocol.MSG_PROBE, model, extras = {
+            putInt(MlProtocol.KEY_PROBE_ENGINE, engine)
+            putInt(MlProtocol.KEY_CONTEXT, spec.contextTokens)
+        })
+    }
+
+    /**
      * Live dictation with Parakeet: audio goes to the model process while the user speaks ([LiveCall.write]) and
      * [onText] gets the text so far on the main thread: the finished utterances joined by single spaces, and the
      * utterance still being spoken. [LiveCall.finish] ends the audio; [LiveCall.await] returns the whole text once the
