@@ -258,4 +258,41 @@ class DownloaderTest {
         // the real policy check is on the address, so a catalog entry cannot smuggle in a host: simulate through a redirect-free 200 on the wrong host
         assertTrue(DownloadPolicy.isAllowed(bad.url))
     }
+
+    private fun downloadJob(job: DownloadJob): DownloadOutcome {
+        val source = HttpSource { url, range ->
+            requested += url
+            (routes[url] ?: { _: Long -> HttpAnswer(404, null, 0, null) })(range)
+        }
+        return Downloader(source) { Long.MAX_VALUE }.download(job, target, { false }) { }
+    }
+
+    @Test fun `a job without a digest succeeds when the size matches`() {
+        assertEquals(DownloadOutcome.Done, downloadJob(DownloadJob(model.url, "custom.gguf", content.size.toLong(), null)))
+        assertContentEquals(content, target.readBytes())
+    }
+
+    @Test fun `a job without a digest still fails and loses the file when the size is wrong`() {
+        routes[cdn] = { _ -> ok(content.copyOf(content.size - 1)) }
+        assertEquals(DownloadOutcome.Failed(ModelsProtocol.FAIL_SIZE), downloadJob(DownloadJob(model.url, "custom.gguf", content.size.toLong(), null)))
+        assertTrue(nothingLeft())
+    }
+
+    @Test fun `a job with the right digest succeeds`() {
+        assertEquals(DownloadOutcome.Done, downloadJob(DownloadJob(model.url, "custom.gguf", content.size.toLong(), sha(content))))
+    }
+
+    @Test fun `a job with a wrong digest fails the digest and the file is deleted`() {
+        assertEquals(DownloadOutcome.Failed(ModelsProtocol.FAIL_DIGEST), downloadJob(DownloadJob(model.url, "custom.gguf", content.size.toLong(), "0".repeat(64))))
+        assertTrue(nothingLeft())
+    }
+
+    @Test fun `a job is only fetched from allowed hosts`() {
+        assertEquals(DownloadOutcome.Failed(ModelsProtocol.FAIL_UNTRUSTED_HOST), downloadJob(DownloadJob("https://evil.example/a.gguf", "a.gguf", 10, null)))
+        assertTrue(requested.isEmpty())
+    }
+
+    @Test fun `a catalog model turns into the job with its address, size and digest`() {
+        assertEquals(DownloadJob(model.url, model.fileName, model.sizeBytes, model.sha256), model.toJob())
+    }
 }

@@ -38,6 +38,8 @@ object MlProtocol {
     const val MSG_CANCEL = 3
     /** Live dictation: audio in through a pipe while the user speaks, text events out through another. */
     const val MSG_LIVE = 4
+    /** Loads a model file once and frees it again, to find out whether it can be used (experimental custom models). Replies like a request with an empty result. */
+    const val MSG_PROBE = 5
     // service -> keyboard; arg1 is always the request id
     const val MSG_LOADED = 10
     /** arg2: the load and run times, see [packTimes]. The text arrives through the result pipe. */
@@ -63,6 +65,19 @@ object MlProtocol {
     const val KEY_PROMPT_TEXTS = "promptTexts"
     const val KEY_PROMPT_SPECIAL = "promptSpecial"
     const val KEY_MAX_NEW = "maxNew"
+    /**
+     * Text generation only, optional: the role of each entry of [KEY_PROMPT_TEXTS] ("system", "user" or "assistant"). With it
+     * the texts are the contents of a chat, all plain text ([KEY_PROMPT_SPECIAL] is not sent), laid out by the service with
+     * the chat template stored in the model file; without it the texts are the already laid-out prompt parts.
+     */
+    const val KEY_CHAT_ROLES = "chatRoles"
+    /** [MSG_PROBE]: which engine loads the file, one of the PROBE_ values; [KEY_CONTEXT] applies to text models. */
+    const val KEY_PROBE_ENGINE = "probeEngine"
+    const val PROBE_WHISPER = 0
+    const val PROBE_PARAKEET = 1
+    const val PROBE_LLM = 2
+    const val MAX_CHAT_TURNS = 32
+    val CHAT_ROLES = setOf("system", "user", "assistant")
     /** Live dictation: the voice-activity model (cache key as for the speech model), the audio pipe (read side) and the event pipe (write side). */
     const val KEY_VAD_FD = "vadFd"
     const val KEY_VAD_KEY = "vadKey"
@@ -158,6 +173,7 @@ class MlService : Service() {
     private class Request(
         val id: Int,
         val speech: Boolean,
+        val probe: Boolean,
         val replyTo: Messenger,
         val modelFd: ParcelFileDescriptor,
         val modelKey: String,
@@ -169,6 +185,8 @@ class MlService : Service() {
         var context = 0
         var texts: List<String> = emptyList()
         var special: List<Boolean> = emptyList()
+        var roles: List<String> = emptyList()
+        var probeEngine = -1
         var maxNew = 0
         var loadMs = 0L
         var runMs = 0L
@@ -191,7 +209,7 @@ class MlService : Service() {
                 if (request == null) reply(replyTo, MlProtocol.MSG_ERROR, id, MlProtocol.ERR_BAD_REQUEST)
                 else worker.execute { runLive(request) }
             }
-            MlProtocol.MSG_TRANSCRIBE, MlProtocol.MSG_GENERATE -> {
+            MlProtocol.MSG_TRANSCRIBE, MlProtocol.MSG_GENERATE, MlProtocol.MSG_PROBE -> {
                 val replyTo = message.replyTo ?: return
                 val request = decode(message, replyTo)
                 if (request == null) reply(replyTo, MlProtocol.MSG_ERROR, id, MlProtocol.ERR_BAD_REQUEST)
@@ -208,13 +226,19 @@ class MlService : Service() {
         val pcmFd = BundleCompat.getParcelable(data, MlProtocol.KEY_PCM, ParcelFileDescriptor::class.java)
         val key = data.getString(MlProtocol.KEY_MODEL_KEY)
         val speech = message.what == MlProtocol.MSG_TRANSCRIBE
+        val probe = message.what == MlProtocol.MSG_PROBE
         if (modelFd == null || resultFd == null || key == null || key.length > 512) {
             for (fd in listOfNotNull(modelFd, resultFd, pcmFd)) runCatching { fd.close() }
             return null
         }
-        val request = Request(message.arg1, speech, replyTo, modelFd, key, resultFd)
+        val request = Request(message.arg1, speech, probe, replyTo, modelFd, key, resultFd)
         request.pcmFd = pcmFd
-        val ok = if (speech) {
+        val ok = if (probe) {
+            request.probeEngine = data.getInt(MlProtocol.KEY_PROBE_ENGINE, -1)
+            request.context = data.getInt(MlProtocol.KEY_CONTEXT, 2048)
+            request.probeEngine in MlProtocol.PROBE_WHISPER..MlProtocol.PROBE_LLM &&
+                request.context in MlProtocol.MIN_CONTEXT..MlProtocol.MAX_CONTEXT
+        } else if (speech) {
             request.language = data.getString(MlProtocol.KEY_LANGUAGE) ?: "auto"
             request.samples = data.getInt(MlProtocol.KEY_SAMPLES)
             pcmFd != null && MlProtocol.isLanguageCode(request.language) && request.samples in 1..MlProtocol.MAX_SAMPLES
@@ -223,7 +247,16 @@ class MlService : Service() {
             request.maxNew = data.getInt(MlProtocol.KEY_MAX_NEW, 256)
             val texts = data.getStringArray(MlProtocol.KEY_PROMPT_TEXTS)
             val special = data.getBooleanArray(MlProtocol.KEY_PROMPT_SPECIAL)
-            if (texts != null && special != null && texts.size == special.size) {
+            val roles = data.getStringArray(MlProtocol.KEY_CHAT_ROLES)
+            if (roles != null) {
+                // a chat: contents and roles, nothing special; the service lays it out with the model's template
+                if (texts != null && special == null && roles.size == texts.size && roles.size <= MlProtocol.MAX_CHAT_TURNS &&
+                    roles.all { it in MlProtocol.CHAT_ROLES }
+                ) {
+                    request.texts = texts.toList()
+                    request.roles = roles.toList()
+                }
+            } else if (texts != null && special != null && texts.size == special.size) {
                 request.texts = texts.toList()
                 request.special = special.toList()
             }
@@ -290,7 +323,7 @@ class MlService : Service() {
     private fun run(req: Request) {
         try {
             if (!calls.begin(req.id)) throw CancelledException()
-            val text = if (req.speech) transcribe(req) else generate(req)
+            val text = if (req.probe) probe(req) else if (req.speech) transcribe(req) else generate(req)
             writeResult(req.resultFd, text)
         } catch (_: CancelledException) {
             return reply(req, MlProtocol.ERR_CANCELLED)
@@ -461,9 +494,42 @@ class MlService : Service() {
         reply(req.replyTo, MlProtocol.MSG_LOADED, req.id, 0)
 
         val t1 = SystemClock.elapsedRealtime()
-        val text = NativeMl.llmGenerate(handle, req.texts, req.special, req.maxNew) ?: throw CancelledException()
+        val text = (if (req.roles.isNotEmpty()) NativeMl.llmChat(handle, req.roles, req.texts, req.maxNew)
+        else NativeMl.llmGenerate(handle, req.texts, req.special, req.maxNew)) ?: throw CancelledException()
         req.runMs = SystemClock.elapsedRealtime() - t1
         return text
+    }
+
+    /**
+     * Loads the file with the engine the keyboard names and frees it again: the test load of an experimental custom model.
+     * Everything cached is dropped first so that two big models are never in memory at once. Nothing is run and nothing is
+     * kept: a later request for the same file loads it again.
+     */
+    private fun probe(req: Request): String {
+        val t0 = SystemClock.elapsedRealtime()
+        ensureNative()
+        dropCached()
+        val fd = req.modelFd.detachFd()
+        when (req.probeEngine) {
+            MlProtocol.PROBE_WHISPER -> NativeMl.sttFree(loading { NativeMl.sttLoad(fd, threads()) })
+            MlProtocol.PROBE_PARAKEET -> {
+                val handle = NativeAsr.load(fd, threads())
+                if (handle == 0L) throw ModelLoadException("the speech model could not be loaded")
+                NativeAsr.free(handle)
+            }
+            else -> NativeMl.llmFree(loading { NativeMl.llmLoad(fd, req.context, threads()) })
+        }
+        req.loadMs = SystemClock.elapsedRealtime() - t0
+        reply(req.replyTo, MlProtocol.MSG_LOADED, req.id, 0)
+        return ""
+    }
+
+    /** Frees every loaded model (the next request loads what it needs again). */
+    private fun dropCached() {
+        freeAll()
+        sttKey = null
+        asrKey = null
+        vadKey = null
     }
 
     private fun writeResult(fd: ParcelFileDescriptor, text: String) {

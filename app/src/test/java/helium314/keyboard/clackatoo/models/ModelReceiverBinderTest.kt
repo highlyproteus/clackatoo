@@ -5,6 +5,7 @@ package helium314.keyboard.clackatoo.models
 import android.os.Binder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.catalog.Catalog
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 import org.junit.runner.RunWith
@@ -26,10 +27,14 @@ class ModelReceiverBinderTest {
     private val installs = ArrayList<String>()
     private var installResult = ModelsProtocol.HANDOVER_OK
 
+    private val customInstalls = ArrayList<Triple<String, ModelKind, Boolean>>()
+    private var customResult = ModelsProtocol.HANDOVER_OK
+
     private val binder = ModelReceiverBinder(
         isTrustedCaller = { trusted },
         states = holder,
         installFile = { fileId, _ -> installs += fileId; installResult },
+        installCustom = { name, kind, file -> customInstalls += Triple(name, kind, file.fileDescriptor.valid()); customResult },
     )
 
     private fun transact(code: Int, token: String? = ModelsProtocol.RECEIVER_DESCRIPTOR, write: (Parcel) -> Unit): Pair<Boolean, Parcel> {
@@ -127,5 +132,79 @@ class ModelReceiverBinderTest {
     @Test fun `an unknown transaction code is not handled`() {
         assertFalse(Binder.getCallingPid() < 0)
         assertFalse(transact(99) { it.writeString(id) }.first)
+    }
+
+    // ---- TX_CUSTOM_HANDOVER: writeString(name); writeInt(role); writeFileDescriptor(file); nothing else
+
+    private fun customCall(token: String? = ModelsProtocol.RECEIVER_DESCRIPTOR, write: (Parcel, ParcelFileDescriptor) -> Unit): Int {
+        val file = File.createTempFile("custom", ".gguf").also { it.writeBytes(ByteArray(10)); it.deleteOnExit() }
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            val (_, reply) = transact(ModelsProtocol.TX_CUSTOM_HANDOVER, token) { write(it, pfd) }
+            reply.readException()
+            return reply.readInt()
+        }
+    }
+
+    private fun wellFormed(p: Parcel, pfd: ParcelFileDescriptor, name: String? = "Qwen3-0.6B-Q4_K_M.gguf", role: Int = ModelsProtocol.CUSTOM_ROLE_GRAMMAR) {
+        p.writeString(name); p.writeInt(role); p.writeFileDescriptor(pfd.fileDescriptor)
+    }
+
+    @Test fun `a well-formed custom hand-over reaches the installer with the name and role, and its answer is returned`() {
+        assertEquals(ModelsProtocol.HANDOVER_OK, customCall { p, f -> wellFormed(p, f) })
+        assertEquals(listOf(Triple("Qwen3-0.6B-Q4_K_M.gguf", ModelKind.GRAMMAR, true)), customInstalls)
+        customResult = ModelsProtocol.HANDOVER_LOAD_FAILED
+        assertEquals(ModelsProtocol.HANDOVER_LOAD_FAILED, customCall { p, f -> wellFormed(p, f, role = ModelsProtocol.CUSTOM_ROLE_SPEECH) })
+        assertEquals(ModelKind.SPEECH, customInstalls.last().second)
+        customResult = ModelsProtocol.HANDOVER_CUSTOM_OFF
+        assertEquals(ModelsProtocol.HANDOVER_CUSTOM_OFF, customCall { p, f -> wellFormed(p, f, role = ModelsProtocol.CUSTOM_ROLE_CLEAN_UP) })
+    }
+
+    @Test fun `a custom hand-over of the wrong shape is refused as a bad request and never installs`() {
+        val bad = ModelsProtocol.HANDOVER_BAD_REQUEST
+        val cases = linkedMapOf<String, (Parcel, ParcelFileDescriptor) -> Unit>(
+            "extra string" to { p, f -> wellFormed(p, f); p.writeString("https://evil.example/model.gguf") },
+            "extra int" to { p, f -> wellFormed(p, f); p.writeInt(1) },
+            "no name" to { p, f -> wellFormed(p, f, name = null) },
+            "empty name" to { p, f -> wellFormed(p, f, name = "") },
+            "long name" to { p, f -> wellFormed(p, f, name = "x".repeat(ModelsProtocol.MAX_CUSTOM_NAME_LENGTH + 1)) },
+            "role 0" to { p, f -> wellFormed(p, f, role = 0) },
+            "role 4" to { p, f -> wellFormed(p, f, role = 4) },
+            "role -1" to { p, f -> wellFormed(p, f, role = -1) },
+            "role 99" to { p, f -> wellFormed(p, f, role = 99) },
+            "role max" to { p, f -> wellFormed(p, f, role = Int.MAX_VALUE) },
+        )
+        for ((name, write) in cases) assertEquals(bad, customCall { p, f -> write(p, f) }, name)
+        assertTrue(customInstalls.isEmpty(), customInstalls.toString())
+    }
+
+    @Test fun `a name of exactly the longest allowed length is accepted`() {
+        assertEquals(ModelsProtocol.HANDOVER_OK, customCall { p, f -> wellFormed(p, f, name = "x".repeat(ModelsProtocol.MAX_CUSTOM_NAME_LENGTH)) })
+    }
+
+    @Test fun `a custom hand-over without the interface token, or from a caller that is not the companion, installs nothing`() {
+        val file = File.createTempFile("custom", ".gguf").also { it.deleteOnExit() }
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            val (ok, _) = transact(ModelsProtocol.TX_CUSTOM_HANDOVER, token = null) { wellFormed(it, pfd) }
+            assertFalse(ok)
+            val (ok2, _) = transact(ModelsProtocol.TX_CUSTOM_HANDOVER, token = "something.else") { wellFormed(it, pfd) }
+            assertFalse(ok2)
+            trusted = false
+            val (_, reply) = transact(ModelsProtocol.TX_CUSTOM_HANDOVER) { wellFormed(it, pfd) }
+            assertFailsWith<SecurityException> { reply.readException() }
+        }
+        assertTrue(customInstalls.isEmpty())
+    }
+
+    @Test fun `without an installer for custom models the call is refused`() {
+        val plain = ModelReceiverBinder(isTrustedCaller = { true }, states = holder, installFile = { _, _ -> 0 })
+        val data = Parcel.obtain(); val reply = Parcel.obtain()
+        val file = File.createTempFile("custom", ".gguf").also { it.deleteOnExit() }
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            data.writeInterfaceToken(ModelsProtocol.RECEIVER_DESCRIPTOR); wellFormed(data, pfd)
+            data.setDataPosition(0)
+            plain.transact(ModelsProtocol.TX_CUSTOM_HANDOVER, data, reply, 0)
+        }
+        reply.setDataPosition(0); reply.readException()
+        assertEquals(ModelsProtocol.HANDOVER_BAD_REQUEST, reply.readInt())
     }
 }

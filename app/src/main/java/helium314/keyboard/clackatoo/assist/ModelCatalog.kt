@@ -49,7 +49,12 @@ data class ModelSpec(
     val recommended: Boolean = false,
     /** The short name cards show; [displayName] stays the full name (accessibility description, licence screen). */
     val shortName: String = displayName,
+    /** An experimental custom model (see [CustomPolicy]): chosen by the user, not pinned by size and SHA-256, never from the catalog. */
+    val custom: Boolean = false,
 ) {
+    /** Custom text models are prompted with the chat template inside the model file (see [MlClient.chat]); catalog models have a fixed [format]. */
+    val ownTemplate: Boolean get() = custom && (kind == ModelKind.CLEAN_UP || kind == ModelKind.GRAMMAR)
+
     /** True when the model is meant for [languageCode]. Models without language data are not excluded. */
     fun supports(languageCode: String) = languages.isEmpty() || MULTILINGUAL in languages || languageCode in languages
 }

@@ -2,7 +2,10 @@
 
 package helium314.keyboard.clackatoo.models
 
+import helium314.keyboard.clackatoo.assist.CustomImportResult
+import helium314.keyboard.clackatoo.assist.CustomReject
 import helium314.keyboard.clackatoo.assist.ImportResult
+import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelCatalog
 import helium314.keyboard.clackatoo.assist.ModelSpec
 import helium314.keyboard.clackatoo.assist.ModelStore
@@ -31,5 +34,30 @@ internal object ModelHandover {
                 RejectReason.READ_ERROR -> ModelsProtocol.HANDOVER_READ_ERROR
             }
         }
+    }
+
+    /** The answer to a custom hand-over: a `HANDOVER_*` [code] and, when it worked, the model that is installed now. */
+    data class CustomHanded(val code: Int, val spec: ModelSpec? = null)
+
+    /**
+     * What the keyboard does with a custom model the companion hands over ([ModelsProtocol.TX_CUSTOM_HANDOVER]): the same
+     * checks as a file the user imports by hand ([ModelStore.importCustom]: size cap, format from the header, role, test
+     * load). Nothing the companion says (not even the name) is trusted.
+     */
+    fun acceptCustom(
+        store: ModelStore, kind: ModelKind, name: String, input: InputStream, size: Long, probe: (java.io.File, ModelSpec) -> Boolean,
+    ): CustomHanded = when (val result = store.importCustom(kind, name, input, size, probe)) {
+        is CustomImportResult.Imported -> CustomHanded(ModelsProtocol.HANDOVER_OK, result.spec)
+        is CustomImportResult.Rejected -> CustomHanded(
+            when (result.reason) {
+                CustomReject.TOO_LARGE -> ModelsProtocol.HANDOVER_TOO_LARGE
+                CustomReject.NOT_A_MODEL -> ModelsProtocol.HANDOVER_NOT_A_MODEL
+                CustomReject.WRONG_ROLE -> ModelsProtocol.HANDOVER_WRONG_ROLE
+                CustomReject.NOT_ENOUGH_SPACE -> ModelsProtocol.HANDOVER_NO_SPACE
+                CustomReject.READ_ERROR -> ModelsProtocol.HANDOVER_READ_ERROR
+                CustomReject.LOAD_FAILED -> ModelsProtocol.HANDOVER_LOAD_FAILED
+                CustomReject.TOO_MANY -> ModelsProtocol.HANDOVER_TOO_MANY
+            },
+        )
     }
 }

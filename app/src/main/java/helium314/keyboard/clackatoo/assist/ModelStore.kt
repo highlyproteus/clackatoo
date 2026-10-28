@@ -16,6 +16,13 @@ interface BrokenMarks {
 
 enum class RejectReason { UNKNOWN_FILE_NAME, NOT_A_MODEL, WRONG_SIZE, WRONG_CONTENT, NOT_ENOUGH_SPACE, READ_ERROR }
 
+enum class CustomReject { TOO_LARGE, NOT_A_MODEL, WRONG_ROLE, NOT_ENOUGH_SPACE, READ_ERROR, LOAD_FAILED, TOO_MANY }
+
+sealed interface CustomImportResult {
+    data class Imported(val spec: ModelSpec) : CustomImportResult
+    data class Rejected(val reason: CustomReject) : CustomImportResult
+}
+
 sealed interface ImportResult {
     data class Imported(val spec: ModelSpec) : ImportResult
     data class Rejected(val reason: RejectReason) : ImportResult
@@ -32,6 +39,8 @@ class ModelStore(
     private val catalog: List<ModelSpec> = ModelCatalog.all,
     /** Opens a file of the APK's assets, for [ensureBundled]. */
     private val openAsset: (String) -> InputStream = { throw IOException("no assets") },
+    /** The size cap of custom models; only tests use another value. */
+    private val maxCustomBytes: Long = CustomPolicy.MAX_BYTES,
     private val usableSpace: () -> Long = { dir.usableSpace },
 ) {
     fun file(spec: ModelSpec) = File(dir, spec.fileName)
@@ -58,6 +67,10 @@ class ModelStore(
         languageCode: String? = null,
         usable: (ModelSpec) -> Boolean = { true },
     ): ModelSpec? {
+        // an experimental custom model is used only when the user chose it, never as a fallback
+        customSpec(preferredId)?.takeIf {
+            it.kind == kind && status(it) is ModelStatus.Installed && usable(it) && (languageCode == null || it.supports(languageCode))
+        }?.let { return it }
         val installed = catalog.filter { it.kind == kind && status(it) is ModelStatus.Installed && usable(it) }
         val fitting = installed.filter { languageCode == null || it.supports(languageCode) }
         return fitting.firstOrNull { it.id == preferredId } ?: fitting.firstOrNull()
@@ -155,7 +168,121 @@ class ModelStore(
      * go: a younger one may belong to an import that is running right now.
      */
     fun cleanUp(now: Long = System.currentTimeMillis(), maxAgeMs: Long = STALE_PART_MS) {
-        dir.listFiles { f -> f.name.endsWith(PART_SUFFIX) && now - f.lastModified() >= maxAgeMs }?.forEach { it.delete() }
+        val stale = { f: File -> f.name.endsWith(PART_SUFFIX) && now - f.lastModified() >= maxAgeMs }
+        dir.listFiles(stale)?.forEach { it.delete() }
+        ModelKind.entries.mapNotNull { CustomPolicy.roleDir(it) }.forEach { role ->
+            File(File(dir, CustomPolicy.DIR_NAME), role).listFiles(stale)?.forEach { it.delete() }
+        }
+    }
+
+    // ------------------------------------------------------------------ experimental custom models
+
+    private val formats = HashMap<String, ModelFormat>()
+
+    private fun customFolder(kind: ModelKind) = File(File(dir, CustomPolicy.DIR_NAME), CustomPolicy.roleDir(kind) ?: "none")
+
+    /** The format of an installed custom file, read from its start once per file version. */
+    private fun formatOf(file: File): ModelFormat {
+        val key = "${file.path}:${file.length()}:${file.lastModified()}"
+        return synchronized(formats) { formats.getOrPut(key) { ModelFormats.detect(file) } }
+    }
+
+    private fun customSpec(kind: ModelKind, name: String, format: ModelFormat, size: Long) = ModelSpec(
+        kind = kind,
+        fileName = "${CustomPolicy.DIR_NAME}/${CustomPolicy.roleDir(kind)}/$name",
+        displayName = CustomNames.title(name), licence = "", sizeBytes = size, sha256 = "",
+        engine = if (kind == ModelKind.SPEECH) (if (format is ModelFormat.Parakeet) SpeechEngine.PARAKEET else SpeechEngine.WHISPER) else null,
+        id = CustomPolicy.id(kind, name),
+        languages = if (format is ModelFormat.Whisper && format.englishOnly) listOf("en") else emptyList(),
+        shortName = CustomNames.title(name), custom = true,
+    )
+
+    /** The custom models on the phone, for [kind] or all roles, sorted by name. Files that are no longer what their role needs are left out. */
+    fun customSpecs(kind: ModelKind? = null): List<ModelSpec> =
+        (if (kind == null) ModelKind.entries else listOf(kind)).filter { CustomPolicy.roleDir(it) != null }.flatMap { k ->
+            customFolder(k).listFiles { f -> f.isFile && !f.name.endsWith(PART_SUFFIX) && CustomNames.isSanitised(f.name) }.orEmpty()
+                .sortedBy { it.name }
+                .mapNotNull { f -> formatOf(f).takeIf { CustomPolicy.fits(k, it) }?.let { customSpec(k, f.name, it, f.length()) } }
+        }
+
+    /** The installed custom model with id [id], or null (also for a catalog id, a malformed id or a file that is gone). */
+    fun customSpec(id: String?): ModelSpec? {
+        val (kind, name) = CustomPolicy.parseId(id) ?: return null
+        val file = File(customFolder(kind), name)
+        if (!file.isFile) return null
+        return formatOf(file).takeIf { CustomPolicy.fits(kind, it) }?.let { customSpec(kind, name, it, file.length()) }
+    }
+
+    /**
+     * Copies [input] into the custom model folder of [kind], under a sanitised version of [rawName]. The file is checked
+     * before it is kept: at most [CustomPolicy.MAX_BYTES] ([sizeHint], when known, is checked before anything is copied, and
+     * the free space with it), a format found from its header that fits the role, at most [CustomPolicy.MAX_MODELS] custom
+     * models, and [probe] (one test load of the temporary file in the model process) must succeed. The copy is a temporary
+     * file of its own and is moved into place atomically; on any failure nothing is left behind.
+     */
+    fun importCustom(kind: ModelKind, rawName: String?, input: InputStream, sizeHint: Long, probe: (File, ModelSpec) -> Boolean): CustomImportResult {
+        if (CustomPolicy.roleDir(kind) == null) return CustomImportResult.Rejected(CustomReject.NOT_A_MODEL)
+        if (sizeHint > maxCustomBytes) return CustomImportResult.Rejected(CustomReject.TOO_LARGE)
+        return synchronized(INSTALL_LOCK) { installCustom(kind, rawName, input, sizeHint, probe) }
+    }
+
+    private fun customCount() = ModelKind.entries.filter { CustomPolicy.roleDir(it) != null }.sumOf { k ->
+        customFolder(k).listFiles { f -> f.isFile && !f.name.endsWith(PART_SUFFIX) }?.size ?: 0
+    }
+
+    private fun installCustom(kind: ModelKind, rawName: String?, input: InputStream, sizeHint: Long, probe: (File, ModelSpec) -> Boolean): CustomImportResult {
+        val folder = customFolder(kind)
+        folder.mkdirs()
+        val baseName = CustomNames.sanitize(rawName)
+        if (customCount() >= CustomPolicy.MAX_MODELS && !File(folder, baseName).exists()) return CustomImportResult.Rejected(CustomReject.TOO_MANY)
+        if (usableSpace() < maxOf(sizeHint, 0L) + CustomPolicy.SPARE_BYTES) return CustomImportResult.Rejected(CustomReject.NOT_ENOUGH_SPACE)
+        var part: File? = null
+        try {
+            val temp = File.createTempFile("import.", PART_SUFFIX, folder)
+            part = temp
+            val header = ByteArray(CustomPolicy.HEADER_WINDOW)
+            var copied = 0L
+            var checkedAt = 0L
+            FileOutputStream(temp).use { out ->
+                val buffer = ByteArray(1 shl 16)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    if (copied < header.size) buffer.copyInto(header, copied.toInt(), 0, minOf(n.toLong(), header.size - copied).toInt())
+                    copied += n
+                    if (copied > maxCustomBytes) return customReject(temp, CustomReject.TOO_LARGE)
+                    if (copied - checkedAt >= SPACE_CHECK_BYTES) {
+                        checkedAt = copied
+                        if (usableSpace() < CustomPolicy.SPARE_BYTES / 4) return customReject(temp, CustomReject.NOT_ENOUGH_SPACE)
+                    }
+                    out.write(buffer, 0, n)
+                }
+                out.flush()
+                out.fd.sync()
+            }
+            val format = ModelFormats.detect(header, minOf(copied, header.size.toLong()).toInt())
+            if (format is ModelFormat.Unknown || format is ModelFormat.Unsupported) return customReject(temp, CustomReject.NOT_A_MODEL)
+            if (!CustomPolicy.fits(kind, format)) return customReject(temp, CustomReject.WRONG_ROLE)
+            val name = CustomNames.withExtension(baseName, format)
+            val spec = customSpec(kind, name, format, copied)
+            val loaded = try { probe(temp, spec) } catch (_: Exception) { false }
+            if (!loaded) return customReject(temp, CustomReject.LOAD_FAILED)
+            val target = File(folder, name)
+            if (customCount() >= CustomPolicy.MAX_MODELS && !target.exists()) return customReject(temp, CustomReject.TOO_MANY)
+            // rename(2) replaces an older custom model of the same name atomically
+            if (!temp.renameTo(target)) throw IOException("cannot move ${temp.name}")
+            part = null
+            marks.set(spec.fileName, null)
+            return CustomImportResult.Imported(spec)
+        } catch (e: IOException) {
+            part?.delete()
+            return CustomImportResult.Rejected(if (e.message?.contains("ENOSPC") == true || e.message?.contains("No space") == true) CustomReject.NOT_ENOUGH_SPACE else CustomReject.READ_ERROR)
+        }
+    }
+
+    private fun customReject(part: File, reason: CustomReject): CustomImportResult {
+        part.delete()
+        return CustomImportResult.Rejected(reason)
     }
 
     private fun ByteArray.toHex() = joinToString("") { "%02x".format(it) }
@@ -163,6 +290,7 @@ class ModelStore(
     companion object {
         /** One install at a time in the whole process: several hand-overs at once would each write a temporary file of the model's size. */
         private val INSTALL_LOCK = Any()
+        private const val SPACE_CHECK_BYTES = 64L * 1024 * 1024
         const val PART_SUFFIX = ".part"
         const val STALE_PART_MS = 60 * 60 * 1000L
     }

@@ -6,7 +6,6 @@ import helium314.keyboard.clackatoo.assist.ModelCatalog
 import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelSpec
 import helium314.keyboard.clackatoo.assist.ModelStatus
-import helium314.keyboard.clackatoo.catalog.Catalog
 
 /** What the panel offers when the Voice or Check key finds no usable model. */
 internal object MissingModels {
@@ -22,20 +21,22 @@ internal object MissingModels {
     }
 
     /**
-     * For [kind] (SPEECH or GRAMMAR): the recommended models that are not installed yet and can run here ([runs]).
-     * Voice typing recommends Parakeet (live text), or Whisper small where Parakeet cannot run, and with it S1-mini when
-     * the language has its clean-up ([cleanUp]); the grammar check recommends Qwen3.5 0.8B.
+     * For [kind] (SPEECH or GRAMMAR): the model suggested for this phone ([suggest], see [ModelSuggestions]) if it is not
+     * installed yet and can run here ([runs]); for Voice typing also the clean-up model suggested for this phone when the
+     * language has its clean-up ([cleanUp]). The user can still choose any other model in Settings.
      */
-    fun plan(kind: ModelKind, cleanUp: Boolean, status: (ModelSpec) -> ModelStatus, runs: (ModelSpec) -> Boolean): Plan {
+    fun plan(
+        kind: ModelKind, cleanUp: Boolean, status: (ModelSpec) -> ModelStatus, runs: (ModelSpec) -> Boolean,
+        suggest: (ModelKind) -> String?,
+    ): Plan {
         if (ModelCatalog.forKind(kind).any { status(it) is ModelStatus.Broken }) return Plan.Broken
         if ((kind == ModelKind.SPEECH || kind == ModelKind.GRAMMAR) && ModelCatalog.forKind(kind).none(runs)) return Plan.Unsupported
         val wanted = when (kind) {
-            ModelKind.SPEECH -> {
-                val speech = listOf(Catalog.PARAKEET_TDT_V3.id, Catalog.WHISPER_SMALL.id).mapNotNull { ModelCatalog.byId(it) }
-                    .firstOrNull { runs(it) }
-                listOfNotNull(speech, if (cleanUp) ModelCatalog.byId(Catalog.S1_MINI.id) else null)
-            }
-            ModelKind.GRAMMAR -> listOfNotNull(ModelCatalog.byId(Catalog.QWEN3_5_0_8B.id))
+            ModelKind.SPEECH -> listOfNotNull(
+                ModelCatalog.byId(suggest(ModelKind.SPEECH))?.takeIf { runs(it) },
+                if (cleanUp) ModelCatalog.byId(suggest(ModelKind.CLEAN_UP)) else null,
+            )
+            ModelKind.GRAMMAR -> listOfNotNull(ModelCatalog.byId(suggest(ModelKind.GRAMMAR)))
             else -> emptyList()
         }
         val offered = wanted.filter { status(it) is ModelStatus.Missing && runs(it) }

@@ -12,6 +12,10 @@ internal data class Progress(
     val total: Long,
     /** A `ModelsProtocol.FAIL_*` or `HANDOVER_*` code for [Phase.FAILED]. */
     val reason: Int = 0,
+    /** What to call the download on screen when it is not a catalog model (a custom one: its file name). */
+    val title: String? = null,
+    /** A `ModelsProtocol.CUSTOM_ROLE_*` for a custom download, 0 otherwise. */
+    val role: Int = 0,
 ) {
     enum class Phase { QUEUED, DOWNLOADING, VERIFYING, HANDING_OVER, DONE, FAILED, CANCELLED }
 }

@@ -36,6 +36,16 @@ switches), see Style notes.
    never starts without the recording panel on screen, and RECORD_AUDIO is requested on first use of the Voice key
    only. Never log text the user typed, said or that a model produced, in any build. Any change that touches the
    microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
+   **Catalog model files are pinned by size and SHA-256. Custom (experimental) model files are allowed only through two
+   user-started paths, labelled "Experimental · not verified", and always run in the isolated process:** (1) "Import file" in
+   Settings, (2) the companion's "Browse Hugging Face" screen, where the user types the search or repo id, which hands the
+   file to the keyboard with the separate typed call `TX_CUSTOM_HANDOVER` (the keyboard still sends the companion only
+   catalog ids). Either way the keyboard decides: the user must have accepted the experimental notice in Settings, the file
+   is at most 4 GiB with enough free space, its format is found from its own header (`ModelFormats`, never from its name or
+   the companion's say-so), it must fit the role, and one test load runs in the isolated process (`MSG_PROBE`) before it is
+   kept; at most eight custom models, stored apart in `files/models/custom/<role>/` under sanitised names, used only when
+   the user chose them. Custom text models are prompted with their own chat template (`llm_chat`). Any change to these
+   paths needs a security review.
    Models are listed in the `catalog` module (`Catalog.kt`: id, file, size, SHA-256, Hugging Face repository and a
    40-hex revision; `CatalogTest` pins the shape) and `ModelCatalog` is built on it; add a model there and in NOTICE.
 6. **No user-supplied native library in any build type.** `BuildConfig.ALLOW_USER_LIBRARY` is false for every build
@@ -173,6 +183,16 @@ decoder on the same strokes and the decoding time.
   with two signatures would fail the install), declared by both apps. The keyboard also checks the companion's signature
   before it talks to it, and the receiver checks the caller's package and signature on every call. Any change to this
   link needs a security review.
+- **Custom models** (rule 5): `ModelStore.importCustom` is the single entry for them (file import and the companion's
+  `TX_CUSTOM_HANDOVER` both end there), `CustomPolicy`/`CustomNames`/`ModelFormats` hold the cap, the name sanitising and the
+  header detection (unit tests pin all three), custom ids are `custom:<role>:<name>`, and the keyboard's confirmation
+  (`AssistSettings.PREF_CUSTOM_MODELS_CONFIRMED`) gates the hand-over. The companion's Hugging Face screen
+  (`BrowseActivity`, not exported) talks to `huggingface.co` and `*.hf.co` only (`DownloadPolicy`), pins the commit the API
+  returned, and its custom downloads come from a process-internal queue, never from an Intent or a Binder call. The companion's
+  permission list does not change.
+- **Suggested models:** `DeviceProfile` + `ModelSuggestions` pick one catalog model per role from the phone's RAM, dot-product
+  support, cores and ABI, using the memory measured per model (table in ml/README.md "Which model for which phone"). Add a
+  catalog model and you add its measured peak there and in `ModelSuggestions.PEAK_MB` (a test checks every model has one).
 - `ModelDownloads` / `ModelState` / `ModelChoice` (package `helium314.keyboard.clackatoo.models`) are the keyboard-side
   API that the settings screens and the panel use. A completed download becomes the chosen model of its role.
 - The release workflow builds both APKs with `assembleNouserlib`; `versionName` of `models/build.gradle.kts` must equal the

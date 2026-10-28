@@ -46,6 +46,24 @@ LoadMode llm_load_mode(const Llm *llm);
 Status llm_generate(Llm *llm, const std::vector<PromptPart> &prompt, int max_new_tokens, const std::atomic<bool> &cancel,
                     std::string &out, std::string &error);
 
+/** One turn of a chat: [role] is "system", "user" or "assistant"; [content] is what the user, a transcript or a model wrote. */
+struct ChatTurn {
+    std::string role;
+    std::string content;
+};
+
+/** Like [llm_generate], but the prompt is laid out with the chat template stored in the model file (llama.cpp's
+ *  `llama_chat_apply_template`, which knows the common templates but is no Jinja interpreter). Only the template's own
+ *  markers are tokenised as special tokens: every [ChatTurn::content] is tokenised as plain text, so text in a field
+ *  cannot forge turns. A model with no template, or one llama.cpp cannot apply, gets ChatML ("<|im_start|>role"). When
+ *  the template mentions `enable_thinking` (Qwen3 family) an empty think block is added after the assistant's opening,
+ *  which is what the template does with thinking switched off. Roles other than the three above are an error. */
+Status llm_chat(Llm *llm, const std::vector<ChatTurn> &turns, int max_new_tokens, const std::atomic<bool> &cancel,
+                std::string &out, std::string &error);
+
+/** The prompt [llm_chat] would use, as parts, without running the model (exposed for tests and the host tool). */
+bool llm_chat_prompt(Llm *llm, const std::vector<ChatTurn> &turns, std::vector<PromptPart> &prompt, std::string &error);
+
 struct Stt;
 /** Takes ownership of [fd]. The header is checked before whisper.cpp reads the file (see [whisper_header_ok]). */
 Stt *stt_load(int fd, int n_threads, std::string &error);

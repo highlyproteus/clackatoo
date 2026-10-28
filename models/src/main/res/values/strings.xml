@@ -2,8 +2,9 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <resources>
     <string name="app_name">Clackatoo Models</string>
-    <string name="intro">Downloads the models for the Clackatoo keyboard\'s offline voice typing and grammar check, and hands them to the keyboard. The keyboard itself never connects to the internet.</string>
-    <string name="empty">Downloads you start from the Clackatoo keyboard appear here.</string>
+    <string name="intro">Downloads the models for the Clackatoo keyboard\'s offline voice typing and grammar check, and hands them to the keyboard. You can also pick a model of your own from Hugging Face (experimental). The keyboard itself never connects to the internet.</string>
+    <string name="empty">Downloads you start from the Clackatoo keyboard or from Hugging Face appear here.</string>
+    <string name="browse_huggingface">Browse Hugging Face</string>
     <string name="open_clackatoo">Open Clackatoo</string>
     <string name="licences">Model licences</string>
     <string name="close">Close</string>
@@ -21,10 +22,49 @@
     <string name="failed_host">Redirected to an address that is not trusted.</string>
     <string name="failed_other">The download failed.</string>
     <string name="failed_keyboard">The Clackatoo keyboard did not accept the file.</string>
+    <string name="failed_custom_off">Turn on \'Use your own model\' in Clackatoo\'s settings (Voice typing or Grammar check) first, then try again.</string>
+    <string name="failed_too_large">The file is too large for the keyboard.</string>
+    <string name="failed_not_a_model">This is not a model file the keyboard can use.</string>
+    <string name="failed_wrong_role">That file is not a %1$s model.</string>
+    <string name="failed_load">The keyboard could not load this model and removed it.</string>
+    <string name="failed_too_many">Delete a custom model in Clackatoo first.</string>
+    <string name="role_speech">speech</string>
+    <string name="role_clean_up">clean-up</string>
+    <string name="role_grammar">grammar</string>
+    <string name="role_button_speech">Speech</string>
+    <string name="role_button_clean_up">Clean-up</string>
+    <string name="role_button_grammar">Grammar</string>
     <string name="cancelled">Cancelled</string>
     <string name="notification_channel">Model downloads</string>
     <string name="notification_title">Downloading %1$s</string>
     <string name="notification_done">%1$s is ready</string>
     <string name="notification_failed">%1$s could not be downloaded</string>
     <string name="notification_permission_hint">Allow notifications to see the progress of downloads in the notification shade.</string>
+    <string name="browse_title">Hugging Face</string>
+    <string name="browse_warning">Models from Hugging Face are not checked by Clackatoo and may not work. Each model has its own licence. Search for a model or type a repository such as owner/name, pick a .gguf or .bin file and say what it is for.</string>
+    <string name="browse_hint">Search or owner/name</string>
+    <string name="browse_search">Search</string>
+    <string name="browse_loading">Loading…</string>
+    <string name="browse_open_repo">Open %1$s</string>
+    <string name="browse_back">Back to the list</string>
+    <string name="browse_no_results">Nothing found.</string>
+    <string name="browse_no_files">This repository has no .gguf or .bin files up to 4 GB.</string>
+    <string name="browse_files_of">Files of %1$s</string>
+    <string name="browse_use_as">Use as:</string>
+    <string name="two_lines">%1$s\n%2$s</string>
+    <plurals name="browse_downloads">
+        <item quantity="one">%1$s download</item>
+        <item quantity="other">%1$s downloads</item>
+    </plurals>
+    <string name="browse_error_network">Could not reach Hugging Face. Check your connection and try again.</string>
+    <string name="browse_error_host">Hugging Face sent us to an address that is not trusted.</string>
+    <string name="browse_error_too_big">The answer from Hugging Face was too large.</string>
+    <string name="browse_error_not_found">Hugging Face does not have that repository.</string>
+    <string name="browse_error_refused">Hugging Face did not answer. The repository may be private or the service busy.</string>
+    <string name="browse_error_unreadable">The answer from Hugging Face could not be read.</string>
+    <string name="browse_start_failed">The download could not be started.</string>
+    <string name="browse_started">Downloading %1$s. See Downloads.</string>
+    <string name="browse_confirm_title">Experimental</string>
+    <string name="browse_confirm_message">Models from Hugging Face are experimental. Clackatoo has not checked them, they may not work, may be slow or use a lot of memory, and results may be poor. They run in a locked-down model process without internet and without access to what you type in other apps. This app only downloads the file you choose and gives it to the Clackatoo keyboard; you pick the model and the role yourself.</string>
+    <string name="browse_confirm_ok">I understand</string>
 </resources>

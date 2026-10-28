@@ -82,7 +82,21 @@ internal class KeyboardLink(context: Context, private val keyboardPackage: Strin
     }
 
     /** Gives [file] to the keyboard. Returns its `HANDOVER_*` answer, or null when the keyboard could not be reached. */
-    fun handover(id: String, file: File): Int? {
+    fun handover(id: String, file: File): Int? = handoverFile(ModelsProtocol.TX_HANDOVER, file) { it.writeString(id) }
+
+    /**
+     * Gives [file], a custom model the user picked in the Hugging Face browser, to the keyboard, with [displayName] (the
+     * file's base name, cut to `MAX_CUSTOM_NAME_LENGTH`) and the [role] (`CUSTOM_ROLE_*`). Returns its `HANDOVER_*` answer,
+     * or null when the keyboard could not be reached.
+     */
+    fun handoverCustom(displayName: String, role: Int, file: File): Int? =
+        handoverFile(ModelsProtocol.TX_CUSTOM_HANDOVER, file) {
+            it.writeString(displayName.take(ModelsProtocol.MAX_CUSTOM_NAME_LENGTH))
+            it.writeInt(role)
+        }
+
+    /** One call that carries [writeArguments] and then [file] as a read-only descriptor; the reply is one `HANDOVER_*` int. */
+    private fun handoverFile(code: Int, file: File, writeArguments: (Parcel) -> Unit): Int? {
         if (!connect()) return null
         val remote = synchronized(lock) { binder } ?: return null
         val data = Parcel.obtain()
@@ -90,9 +104,9 @@ internal class KeyboardLink(context: Context, private val keyboardPackage: Strin
         try {
             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
                 data.writeInterfaceToken(ModelsProtocol.RECEIVER_DESCRIPTOR)
-                data.writeString(id)
+                writeArguments(data)
                 data.writeFileDescriptor(pfd.fileDescriptor)
-                remote.transact(ModelsProtocol.TX_HANDOVER, data, reply, 0)
+                remote.transact(code, data, reply, 0)
                 reply.readException()
                 return reply.readInt()
             }

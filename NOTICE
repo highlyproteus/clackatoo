@@ -190,6 +190,18 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   settings screen on phones that blur. `GlassStyle`, `GlassWindow`,
   `SettingsComponents`, `SearchScreen`, `SettingsActivity` and
   `ThreeButtonAlertDialog` changed; `GlassStyleTest` checks every text surface.
+- 2026-10-28: one model per role is suggested for the phone ("Suggested for this
+  phone", shown first and offered by the "needs a model" sheet) from its memory,
+  CPU features and keyboard languages (`DeviceProfile`, `ModelSuggestions`,
+  numbers measured in ml/README.md).
+- 2026-10-28: experimental custom models. Settings > Voice typing and Grammar
+  check can import any model file the format detection recognises (Whisper
+  ggml, Parakeet GGUF, text GGUF), and the Clackatoo Models app has a "Browse
+  Hugging Face" screen for them; the keyboard checks size, format and a test
+  load, runs them only in the isolated process, keeps them apart and marks them
+  experimental (`CustomModels.kt`, `ModelStore.importCustom`, the receiver's
+  `TX_CUSTOM_HANDOVER`, `MSG_PROBE` and chat-template prompting in `ml`). Models
+  the user adds have their own licences, which Clackatoo does not list.
 
 Upstream copyright
 ------------------

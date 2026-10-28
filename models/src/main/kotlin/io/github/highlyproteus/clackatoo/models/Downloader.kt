@@ -71,9 +71,18 @@ internal sealed interface DownloadOutcome {
 }
 
 /**
- * Downloads one catalog model: HTTPS GET of its pinned URL, redirects followed only to the hosts [DownloadPolicy] allows,
- * the bytes counted and hashed while they are written, and the result checked against the catalog's exact size and
- * SHA-256. Nothing about the file comes from the server except its bytes.
+ * What [Downloader] fetches: an address, the name of the file, its exact size and, when known, its SHA-256 (lower-case
+ * hex). A catalog model has all of them ([toJob]); a custom model from the Hugging Face browser has the digest only when
+ * the API gave one (see [HfApi]).
+ */
+internal data class DownloadJob(val url: String, val fileName: String, val sizeBytes: Long, val sha256: String?)
+
+internal fun CatalogModel.toJob() = DownloadJob(url, fileName, sizeBytes, sha256)
+
+/**
+ * Downloads one file: HTTPS GET of its pinned URL, redirects followed only to the hosts [DownloadPolicy] allows,
+ * the bytes counted and hashed while they are written, and the result checked against the job's exact size and
+ * SHA-256 (when it has one). Nothing about the file comes from the server except its bytes.
  *
  * A download that breaks off (network error) keeps its partial file at [target]; the next call resumes it with a
  * `Range` request if the server answers 206 with the matching `Content-Range`, and starts again if it answers 200.
@@ -83,17 +92,20 @@ internal class Downloader(
     private val source: HttpSource = HttpUrlSource,
     private val usableSpace: (File) -> Long = { it.usableSpace },
 ) {
-    fun download(model: CatalogModel, target: File, isCancelled: () -> Boolean, onProgress: (Long) -> Unit): DownloadOutcome {
+    fun download(model: CatalogModel, target: File, isCancelled: () -> Boolean, onProgress: (Long) -> Unit): DownloadOutcome =
+        download(model.toJob(), target, isCancelled, onProgress)
+
+    fun download(job: DownloadJob, target: File, isCancelled: () -> Boolean, onProgress: (Long) -> Unit): DownloadOutcome {
         val dir = target.absoluteFile.parentFile ?: return DownloadOutcome.Failed(ModelsProtocol.FAIL_OTHER)
         dir.mkdirs()
         // a partial file of this model is continued; anything longer than the model is garbage
         var have = if (target.isFile) target.length() else 0L
-        if (have > model.sizeBytes) {
+        if (have > job.sizeBytes) {
             target.delete()
             have = 0
         }
-        if (usableSpace(dir) < model.sizeBytes - have + SPARE_BYTES) return DownloadOutcome.Failed(ModelsProtocol.FAIL_NO_SPACE)
-        var url = model.url
+        if (usableSpace(dir) < job.sizeBytes - have + SPARE_BYTES) return DownloadOutcome.Failed(ModelsProtocol.FAIL_NO_SPACE)
+        var url = job.url
         var redirects = 0
         try {
             while (true) {
@@ -102,12 +114,12 @@ internal class Downloader(
                 val answer = source.get(url, have)
                 answer.use {
                     when (it.status) {
-                        200 -> return copy(model, it, target, 0, isCancelled, onProgress)
+                        200 -> return copy(job, it, target, 0, isCancelled, onProgress)
                         206 -> {
                             // only the bytes after the ones we have, of a file of the catalog's size
-                            if (have <= 0 || it.rangeStart != have || it.rangeTotal != model.sizeBytes ||
-                                (it.contentLength >= 0 && it.contentLength != model.sizeBytes - have)) return fail(target, ModelsProtocol.FAIL_SIZE)
-                            return copy(model, it, target, have, isCancelled, onProgress)
+                            if (have <= 0 || it.rangeStart != have || it.rangeTotal != job.sizeBytes ||
+                                (it.contentLength >= 0 && it.contentLength != job.sizeBytes - have)) return fail(target, ModelsProtocol.FAIL_SIZE)
+                            return copy(job, it, target, have, isCancelled, onProgress)
                         }
                         301, 302, 303, 307, 308 -> {
                             val location = it.location ?: return keepPartial(ModelsProtocol.FAIL_NETWORK)
@@ -136,10 +148,10 @@ internal class Downloader(
     private fun keepPartial(reason: Int) = DownloadOutcome.Failed(reason)
 
     /** Copies the body to [target], after the first [skip] bytes of it that are already there (hashed again, not fetched again). */
-    private fun copy(model: CatalogModel, answer: HttpAnswer, target: File, skip: Long, isCancelled: () -> Boolean, onProgress: (Long) -> Unit): DownloadOutcome {
+    private fun copy(job: DownloadJob, answer: HttpAnswer, target: File, skip: Long, isCancelled: () -> Boolean, onProgress: (Long) -> Unit): DownloadOutcome {
         val body = answer.body ?: return keepPartial(ModelsProtocol.FAIL_NETWORK)
-        if (skip == 0L && answer.contentLength >= 0 && answer.contentLength != model.sizeBytes) return fail(target, ModelsProtocol.FAIL_SIZE)
-        val digest = MessageDigest.getInstance("SHA-256")
+        if (skip == 0L && answer.contentLength >= 0 && answer.contentLength != job.sizeBytes) return fail(target, ModelsProtocol.FAIL_SIZE)
+        val digest = if (job.sha256 != null) MessageDigest.getInstance("SHA-256") else null
         var received = 0L
         var finished = false
         var keep = false
@@ -150,7 +162,7 @@ internal class Downloader(
                     while (received < skip) {
                         val n = old.read(buffer, 0, minOf(buffer.size.toLong(), skip - received).toInt())
                         if (n < 0) return fail(target, ModelsProtocol.FAIL_SIZE)
-                        digest.update(buffer, 0, n)
+                        digest?.update(buffer, 0, n)
                         received += n
                     }
                 }
@@ -161,8 +173,8 @@ internal class Downloader(
                     val n = try { body.read(buffer) } catch (e: IOException) { keep = !isCancelled(); out.flush(); throw e }
                     if (n < 0) break
                     received += n
-                    if (received > model.sizeBytes) return fail(target, ModelsProtocol.FAIL_SIZE)
-                    digest.update(buffer, 0, n)
+                    if (received > job.sizeBytes) return fail(target, ModelsProtocol.FAIL_SIZE)
+                    digest?.update(buffer, 0, n)
                     out.write(buffer, 0, n)
                     onProgress(received)
                 }
@@ -170,8 +182,8 @@ internal class Downloader(
                 out.fd.sync()
             }
             // a body that ended early is a broken connection: the partial file is the start of the right file
-            if (received < model.sizeBytes) { keep = true; return networkFailure(target, isCancelled) }
-            if (!digest.digest().joinToString("") { "%02x".format(it) }.equals(model.sha256, ignoreCase = true)) {
+            if (received < job.sizeBytes) { keep = true; return networkFailure(target, isCancelled) }
+            if (digest != null && !digest.digest().joinToString("") { "%02x".format(it) }.equals(job.sha256, ignoreCase = true)) {
                 return fail(target, ModelsProtocol.FAIL_DIGEST)
             }
             finished = true

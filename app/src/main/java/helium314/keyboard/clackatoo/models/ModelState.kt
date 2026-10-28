@@ -25,6 +25,15 @@ sealed interface ModelState {
 internal class ModelStateHolder(private val isInstalled: (String) -> Boolean) {
     private val flows = ConcurrentHashMap<String, MutableStateFlow<ModelState>>()
 
+    private val customVersion = MutableStateFlow(0)
+
+    /** Counts changes of the experimental custom models (one arrived, one was deleted), so screens that list them can re-read the folder. */
+    fun customChanges(): StateFlow<Int> = customVersion
+
+    fun customChanged() {
+        customVersion.value += 1
+    }
+
     /** Called whenever the companion shows a sign of life for a model (a request, a progress report). */
     var onActivity: (String) -> Unit = {}
 

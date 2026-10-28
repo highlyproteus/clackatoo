@@ -39,6 +39,9 @@ object NativeMl {
     /** Greedy decoding of [parts] (UTF-8); a part with its [special] flag set may contain control tokens, the others never produce any. Null: cancelled. */
     private external fun llmGenerateParts(handle: Long, parts: Array<ByteArray>, special: BooleanArray, maxNewTokens: Int): ByteArray?
 
+    /** Chat turns ([roles] "system", "user" or "assistant", [contents] plain text) laid out with the model file's own chat template. Null: cancelled. */
+    private external fun llmChatTurns(handle: Long, roles: Array<ByteArray>, contents: Array<ByteArray>, maxNewTokens: Int): ByteArray?
+
     external fun sttLoad(fd: Int, threads: Int): Long
     external fun sttFree(handle: Long)
     external fun sttCancel(handle: Long, cancel: Boolean)
@@ -55,6 +58,15 @@ object NativeMl {
     fun llmGenerate(handle: Long, texts: List<String>, special: List<Boolean>, maxNewTokens: Int): String? {
         require(texts.size == special.size)
         val bytes = llmGenerateParts(handle, Array(texts.size) { texts[it].toByteArray(Charsets.UTF_8) }, special.toBooleanArray(), maxNewTokens)
+        return bytes?.let { String(it, Charsets.UTF_8) }
+    }
+
+    /** Null when cancelled. [roles] and [contents] have the same size; see [llmChatTurns]. */
+    fun llmChat(handle: Long, roles: List<String>, contents: List<String>, maxNewTokens: Int): String? {
+        require(roles.size == contents.size)
+        val bytes = llmChatTurns(
+            handle, Array(roles.size) { roles[it].toByteArray(Charsets.UTF_8) }, Array(contents.size) { contents[it].toByteArray(Charsets.UTF_8) }, maxNewTokens,
+        )
         return bytes?.let { String(it, Charsets.UTF_8) }
     }
 

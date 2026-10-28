@@ -188,6 +188,53 @@ JNIEXPORT jbyteArray JNICALL JNI(llmGenerateParts)(JNIEnv *env, jobject, jlong h
     });
 }
 
+// Chat: [roles] and [contents] (UTF-8) are laid out with the model's own chat template (see eg::llm_chat). Null: cancelled.
+JNIEXPORT jbyteArray JNICALL JNI(llmChatTurns)(JNIEnv *env, jobject, jlong handle, jobjectArray roles,
+                                               jobjectArray contents, jint maxNewTokens) {
+    return guard<jbyteArray>(env, nullptr, [&]() -> jbyteArray {
+        auto *h = reinterpret_cast<LlmHandle *>(handle);
+        if (!h || !roles || !contents) {
+            throw_java(env, "missing argument");
+            return nullptr;
+        }
+        jsize count = env->GetArrayLength(roles);
+        if (count <= 0 || count > 32 || env->GetArrayLength(contents) != count) {
+            throw_java(env, "bad prompt");
+            return nullptr;
+        }
+        std::vector<eg::ChatTurn> turns;
+        turns.reserve((size_t) count);
+        size_t total = 0;
+        for (jsize i = 0; i < count; i++) {
+            std::string role, content;
+            for (int which = 0; which < 2; which++) {
+                jbyteArray item = static_cast<jbyteArray>(env->GetObjectArrayElement(which == 0 ? roles : contents, i));
+                if (env->ExceptionCheck()) return nullptr;
+                bool ok = to_utf8(env, item, which == 0 ? role : content);
+                if (item) env->DeleteLocalRef(item);
+                if (!ok) return nullptr;
+            }
+            total += role.size() + content.size();
+            if (total > kMaxPromptBytes) {
+                throw_java(env, "text too long");
+                return nullptr;
+            }
+            turns.push_back({std::move(role), std::move(content)});
+        }
+        std::string out, error;
+        switch (eg::llm_chat(h->llm, turns, maxNewTokens, h->cancel, out, error)) {
+            case eg::Status::Cancelled:
+                return nullptr;
+            case eg::Status::Error:
+                throw_java(env, error);
+                return nullptr;
+            case eg::Status::Ok:
+                return from_utf8(env, out);
+        }
+        return nullptr;
+    });
+}
+
 JNIEXPORT jlong JNICALL JNI(sttLoad)(JNIEnv *env, jobject, jint fd, jint threads) {
     return guard<jlong>(env, 0, [&] {
         std::string error;

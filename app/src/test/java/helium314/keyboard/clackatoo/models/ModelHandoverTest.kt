@@ -114,4 +114,40 @@ class ModelHandoverTest {
             ModelHandover.accept(store, ModelCatalog.SILERO_VAD.fileName, ByteArrayInputStream(ByteArray(8))),
         )
     }
+
+    // ---- experimental custom models: the same untrusted treatment, whatever the companion says
+
+    private fun whisper(size: Int = 1000) = helium314.keyboard.clackatoo.assist.ModelBytes.whisper(size)
+    private fun text(arch: String = "qwen3") = helium314.keyboard.clackatoo.assist.ModelBytes.gguf(arch)
+
+    private fun custom(kind: ModelKind, name: String, bytes: ByteArray, size: Long = bytes.size.toLong(), probe: (File, ModelSpec) -> Boolean = { _, _ -> true }) =
+        ModelHandover.acceptCustom(store, kind, name, ByteArrayInputStream(bytes), size, probe)
+
+    @Test fun `a custom file the model process can load is installed and reported with its spec`() {
+        val handed = custom(ModelKind.GRAMMAR, "Qwen3-0.6B-Q4_K_M.gguf", text())
+        assertEquals(ModelsProtocol.HANDOVER_OK, handed.code)
+        assertEquals("custom:grammar:Qwen3-0.6B-Q4_K_M.gguf", handed.spec?.id)
+        assertTrue(File(dir, "custom/grammar/Qwen3-0.6B-Q4_K_M.gguf").isFile)
+    }
+
+    @Test fun `each refusal has its own answer and leaves nothing behind`() {
+        assertEquals(ModelsProtocol.HANDOVER_NOT_A_MODEL, custom(ModelKind.GRAMMAR, "x.gguf", ByteArray(5000) { 1 }).code)
+        assertEquals(ModelsProtocol.HANDOVER_WRONG_ROLE, custom(ModelKind.SPEECH, "x.gguf", text()).code)
+        assertEquals(ModelsProtocol.HANDOVER_WRONG_ROLE, custom(ModelKind.GRAMMAR, "x.bin", whisper()).code)
+        assertEquals(ModelsProtocol.HANDOVER_TOO_LARGE, custom(ModelKind.GRAMMAR, "x.gguf", text(), size = ModelsProtocol.MAX_CUSTOM_BYTES + 1).code)
+        assertEquals(ModelsProtocol.HANDOVER_LOAD_FAILED, custom(ModelKind.GRAMMAR, "x.gguf", text(), probe = { _, _ -> false }).code)
+        assertTrue(dir.walkTopDown().none { it.isFile })
+    }
+
+    @Test fun `the name the companion sends decides nothing but the sanitised file name`() {
+        val handed = custom(ModelKind.GRAMMAR, "../../../../data/evil\u0000/..\\x.gguf", text())
+        assertEquals(ModelsProtocol.HANDOVER_OK, handed.code)
+        val files = dir.walkTopDown().filter { it.isFile }.toList()
+        assertEquals(1, files.size)
+        assertEquals(File(dir, "custom/grammar").canonicalFile, files[0].parentFile.canonicalFile)
+        // a catalog file name is not special: it lands in the custom folder, never over the catalog file
+        assertEquals(ModelsProtocol.HANDOVER_OK, custom(ModelKind.GRAMMAR, "grammar.gguf", text()).code)
+        assertTrue(!File(dir, "grammar.gguf").exists())
+        assertEquals(ModelStatus.Missing, store.status(spec))
+    }
 }

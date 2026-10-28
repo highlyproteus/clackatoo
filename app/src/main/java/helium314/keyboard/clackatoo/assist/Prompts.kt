@@ -18,11 +18,11 @@ object S1MiniPrompt {
 
     fun controlLine(styling: S1Styling) = "[Styling: ${styling.value}] [Structure: prose] [Context: general]"
 
+    fun turns(transcript: String, styling: S1Styling = S1Styling.SEMI_FORMAL): List<ChatPrompt.Turn> =
+        listOf(ChatPrompt.Turn("system", SYSTEM), ChatPrompt.Turn("user", controlLine(styling) + "\n" + transcript))
+
     fun build(transcript: String, styling: S1Styling = S1Styling.SEMI_FORMAL): List<PromptPart> =
-        ChatPrompt.build(
-            PromptFormat.CHATML_NO_THINK,
-            listOf(ChatPrompt.Turn("system", SYSTEM), ChatPrompt.Turn("user", controlLine(styling) + "\n" + transcript)),
-        )
+        ChatPrompt.build(PromptFormat.CHATML_NO_THINK, turns(transcript, styling))
 
     /** An empty result is valid: filler-only input normalises to nothing. */
     fun parse(output: String): String = ModelOutput.stripThinking(output).trim()
@@ -66,10 +66,10 @@ object GrammarPrompt {
         "sends. Keep the meaning, the wording, the tone and the language. Do not translate, do not explain, do not " +
         "add anything. Reply with only the corrected text."
 
+    fun turns(text: String): List<ChatPrompt.Turn> = listOf(ChatPrompt.Turn("system", SYSTEM), ChatPrompt.Turn("user", text))
+
     /** The same prompt for every language: telling the model the language did not improve results in testing. */
-    fun build(format: PromptFormat, text: String): List<PromptPart> {
-        return ChatPrompt.build(format, listOf(ChatPrompt.Turn("system", SYSTEM), ChatPrompt.Turn("user", text)))
-    }
+    fun build(format: PromptFormat, text: String): List<PromptPart> = ChatPrompt.build(format, turns(text))
 
     private const val MAX_CHANGED_WORD_SHARE = 0.6
 

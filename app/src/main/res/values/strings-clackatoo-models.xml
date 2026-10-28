@@ -25,9 +25,9 @@
 
     <!-- "needs a model" sheet in the keyboard panel -->
     <string name="models_sheet_voice_title">Voice typing needs a model</string>
-    <string name="models_sheet_voice_text">Download the speech model once. After that, voice typing works offline.</string>
+    <string name="models_sheet_voice_text">Download the model suggested for this phone once. After that, voice typing works offline. You can pick another model in Settings.</string>
     <string name="models_sheet_grammar_title">Check needs a model</string>
-    <string name="models_sheet_grammar_text">Download the grammar model once. After that, checking works offline.</string>
+    <string name="models_sheet_grammar_text">Download the model suggested for this phone once. After that, checking works offline. You can pick another model in Settings.</string>
     <string name="models_sheet_total">Total %1$s \u2022 Wi-Fi recommended</string>
     <string name="models_sheet_not_now">Not now</string>
     <string name="models_sheet_get_companion">Get Clackatoo Models</string>
@@ -42,4 +42,33 @@
     <string name="models_label_grammar">Grammar model</string>
     <string name="models_label_other">Model</string>
     <string name="models_choose_model">Use this model</string>
+
+    <!-- suggested for this phone -->
+    <string name="models_suggested">Suggested for this phone</string>
+    <string name="models_may_be_slow">May be slow on this phone</string>
+    <string name="models_sheet_suggested_hint">These are the models that suit this phone. You can pick another one in Settings.</string>
+
+    <!-- experimental custom models -->
+    <string name="models_experimental">Experimental \u00b7 not verified</string>
+    <string name="custom_row_import">Use your own model file (experimental)</string>
+    <string name="custom_row_import_summary">Import a model file from your storage. Clackatoo checks the format and loads it once to see that it works.</string>
+    <string name="custom_row_browse">Get a model from Hugging Face (experimental)</string>
+    <string name="custom_row_browse_summary">Opens Clackatoo Models, where you search Hugging Face yourself and choose a file.</string>
+    <string name="custom_row_browse_missing">Needs the Clackatoo Models app, which downloads for the keyboard.</string>
+    <string name="custom_notice_title">Experimental models</string>
+    <string name="custom_notice_text">A model you add yourself is experimental. Clackatoo has not checked it. It may not work, may be slow or use a lot of memory, and its results may be poor, because they depend on the model.\n\nIt runs in the locked-down model process, which has no internet and no access to what you type in other apps.</string>
+    <string name="custom_notice_accept">I understand</string>
+    <string name="custom_importing">Testing the model\u2026</string>
+    <string name="custom_import_done">Added %1$s. It is now used for this role.</string>
+    <string name="custom_rejected_title">This file cannot be used</string>
+    <string name="custom_reject_too_large">This file is larger than 4 GB, the most Clackatoo accepts.</string>
+    <string name="custom_reject_not_a_model">This is not a model Clackatoo can use. It must be a Whisper file (ggml-\u2026.bin), a Parakeet GGUF file, or for clean-up and grammar a text model in GGUF format.</string>
+    <string name="custom_reject_wrong_role_speech">This is not a speech model. Voice typing needs a Whisper or Parakeet file.</string>
+    <string name="custom_reject_wrong_role_text">This is not a text model. Clean-up and grammar check need a language model in GGUF format.</string>
+    <string name="custom_reject_no_space">There is not enough free storage for this model.</string>
+    <string name="custom_reject_read">The file could not be read.</string>
+    <string name="custom_reject_load">Clackatoo could not load this model. The model process refused it or ran out of memory, so it was removed.</string>
+    <string name="custom_reject_too_many">You already have %1$d custom models. Delete one first.</string>
+    <string name="custom_delete_title">Delete this model?</string>
+    <string name="custom_clean_up_note">Results depend on the model: the keyboard uses the chat template stored in the model file.</string>
 </resources>

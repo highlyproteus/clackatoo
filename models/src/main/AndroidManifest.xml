@@ -31,6 +31,14 @@
         </activity>
 
         <!--
+          "Browse Hugging Face": the user's own choice of a custom model. Not exported, so no other app (the keyboard
+          included) can open it. It handles rotation itself so that the list and the search stay.
+        -->
+        <activity android:name=".BrowseActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode" />
+
+        <!--
           The keyboard binds this service and asks for a download (a catalog id and nothing else) with a Binder call;
           DownloadBinder checks the caller's package and signature on every call, and the signature permission keeps every
           other app from binding at all. Start intents only make it a foreground service and carry nothing it reads.

@@ -306,6 +306,100 @@ Whisper always encodes a full 30 s window, so the time barely depends on the cli
 (`audio_ctx`) made it 2.5 to 3.5 times faster on the host but changed the text of two of five clips for the worse
 ("se me olvida" became "se me olida"), so it is not used. Not measured: the phone itself.
 
+### Which model for which phone ("Suggested for this phone")
+
+`DeviceProfile` (keyboard app) reads the phone: total RAM (`ActivityManager.MemoryInfo.totalMem`), the first ABI, the Android
+version, whether the CPU has the Arm dot-product instructions (`asimddp` in `/proc/cpuinfo`; always true on x86_64) and the core
+count. `ModelSuggestions` turns that into one suggested catalog model per role. The suggestion is shown first in Settings with
+the label "Suggested for this phone" and is what the "needs a model" sheet offers; every other listed model can still be
+downloaded, chosen and used, and nothing is forced.
+
+Measured on the emulator `clackatoo-test` (arm64-v8a under Apple virtualisation, 4 cores, 4,061,984 kB `MemTotal`, Android 17,
+Arm dot-product present; 2026-10-28), debug build, each model alone in `files/models/`, the model process started cold. Peak is
+`VmHWM` of the `:ml` process (peak resident memory, read from `/proc/<pid>/status`, polled once a second during the run and
+read again at the end); PSS is `dumpsys meminfo` at the end. The clip is the 5.2 s English test clip (`en.wav`) through
+`TRANSCRIBE_WAV`, the grammar text is 390 characters through the Check key. Whisper and Parakeet were run with no clean-up
+model installed. S1-mini's number is the difference between a run with Whisper tiny and S1-mini loaded (1,256 MB) and Whisper tiny
+alone (248 MB).
+
+| Model | Peak (VmHWM) | PSS | Time on the test input |
+| --- | --- | --- | --- |
+| Whisper tiny | 248 MB | 165 MB | 1.1 s after Stop (load 0.14 s) |
+| Whisper base | 298 MB | 215 MB | 1.1 s (load 0.09 s) |
+| Whisper small | 497 MB | 413 MB | 5.7 s (load 0.25 s) |
+| Parakeet 110M (live) | 324 MB | 242 MB | 1.3 s of recognition in all, text ready 0.2 s after the audio ended |
+| Parakeet v3 (live) | 938 MB | 854 MB | 4.5 s of recognition in all, text ready 1.0 s after the audio ended (load 0.7 s) |
+| S1-mini (clean-up) | about 1,010 MB | | 0.5 s for one sentence (load 0.7 s) |
+| Qwen3.5 0.8B (grammar) | 1,318 MB | 1,233 MB | 2.0 s for 390 characters |
+
+A 484 MB or 533 MB text model takes about 1 to 1.3 GB because the weights are mapped from the file and then repacked for the
+CPU's matrix kernels. The model process keeps what it has loaded for a minute, so Voice typing holds a speech model and
+S1-mini together (Whisper or Parakeet stay loaded when clean-up runs), and a Check right after a dictation holds the grammar
+model as well: the worst case on a phone is all three (938 + 1,010 + 1,318 MB with Parakeet v3, about 3.3 GB). Where a model
+was too big for the memory it was killed on the same 4 GB emulator (Qwen3.5 2B, about 2.5 GB, see above), which is the only
+failure observed; the real phone was not measured.
+
+The rules, from those numbers (`ModelSuggestions`, `ModelSuggestionsTest`):
+
+- **Budget:** the models of one use together may take 45 percent of the phone's RAM (`totalMem`); the rest is for Android
+  and the app in front. For Voice typing that is the speech model plus S1-mini (when one of the keyboards is English, because
+  S1-mini only cleans up English), for the grammar check the grammar model alone.
+- **Speech:** the first of Parakeet v3, Parakeet 110M, Whisper small, base, tiny that speaks every keyboard language and fits
+  the budget together with S1-mini. Parakeet (live text) additionally needs the dot-product instructions on arm64 and at least
+  four cores: it decodes the growing utterance while you speak. When nothing fits, the smallest Whisper model is suggested and
+  the card says "May be slow on this phone".
+- **Clean-up:** S1-mini when the user has an English keyboard and it fits next to the suggested speech model; otherwise none.
+- **Grammar:** Qwen3.5 0.8B, the only grammar model, flagged "May be slow on this phone" when it alone is over the budget or the
+  CPU has no dot-product instructions.
+- A phone that cannot run the native code at all (not arm64-v8a or x86_64, or older than Android 9) gets no suggestion, as before.
+
+What that gives (for an English-only keyboard unless noted): 8 GB and bigger with dot-product, 6 GB: Parakeet v3 (with S1-mini and
+Qwen); a 4 GB phone (3.7 GiB reported): Parakeet 110M, or v3 for a user with no English keyboard, or Whisper small for English and
+Spanish together; 3 GiB: Whisper base; 2.8 GiB and less: Whisper tiny; no dot-product or fewer than four cores: no live model.
+The emulator (3.9 GiB, 4 cores) therefore shows Parakeet 110M, S1-mini and Qwen3.5 0.8B as "Suggested for this phone".
+
+### Experimental custom models
+
+The catalog is the suggested, verified set. Below it, each role (speech, clean-up, grammar) has "Use your own model
+(experimental)" rows, behind a one-time notice (experimental, not checked by Clackatoo, may not work, may be slow or use a lot
+of memory, results may be poor; it runs in the locked-down model process without internet or access to what you type in other
+apps). This is the one exception to "a model file is byte for byte a known file" and there are exactly two ways in, both
+started by the user:
+
+1. **Import file** (Settings > Voice typing or Grammar check): any file from the system file picker. `ModelStore.importCustom`
+   copies it to a temporary file (at most 4 GiB, checked against the announced size and again while copying; the free space
+   must cover the file plus 128 MB), finds the format **from the first 256 KiB** (`ModelFormats.detect`: a Whisper ggml file with
+   80 or 128 mel bands and 201 FFT bins is Whisper, English-only when its vocabulary has 51,864 entries; a GGUF whose
+   `general.architecture` is `parakeet` is a Parakeet speech model; any other GGUF is a possible text model; everything else,
+   and GGUF files of the Parakeet tools that are not recognisers, are refused), checks that the format fits the role (a text
+   model cannot be a speech model and the other way round), and then does **one test load in the isolated model process**
+   (`MSG_PROBE`: load the file with the engine of the role, free it again, run nothing). A file that fails any step is
+   removed and the message says why. At most eight custom models are kept.
+2. **Hugging Face, in the Clackatoo Models app only:** "Browse Hugging Face" (behind the same notice). The user types a search
+   or a `owner/name`, sees the files (name, size) from the Hugging Face API, and picks a file and the role it is for. The
+   companion downloads it (https, `huggingface.co` and `*.hf.co` only, also for redirects, pinned to the commit the API
+   returned) and hands it to the keyboard with its own Binder transaction, `TX_CUSTOM_HANDOVER` (the name, a role number and a
+   read-only descriptor, nothing else). The keyboard refuses it until the user has accepted the notice in its own settings, then
+   treats it exactly like an imported file: size cap, format from the header, role, test load. The keyboard never sends a URL,
+   a query or anything but catalog ids to the companion.
+
+A custom model lives in `files/models/custom/<role>/<sanitised name>` (separate from the catalog files; the name is reduced to
+`A-Z a-z 0-9 . _ -`, at most 80 characters, never `..` or hidden), its id is `custom:<role>:<name>` and its card says
+"Experimental · not verified". It is used **only when the user has chosen it** (an import or hand-over makes it the choice of its
+role; the radio on the card chooses another), never as a fallback, and the menu on the card deletes it. Whisper custom models
+are told English-only by their header and are not used for Spanish. A custom text model is prompted with **its own chat
+template**: `llm_chat` applies the template stored in the model file with llama.cpp's `llama_chat_apply_template` (which knows
+the common templates, it is not a Jinja interpreter) with markers in place of the texts and tokenises only the template's own
+pieces as special tokens, so text in a field cannot forge turns; a model with no usable template gets ChatML, and a template
+that mentions `enable_thinking` (Qwen3 family) gets the empty think block after the assistant's opening, which is what the
+template does with thinking off. Results depend on the model; the clean-up and grammar prompts are the same system prompts as
+for the catalog models.
+
+IPC added for this, for the security review: `ModelsProtocol.TX_CUSTOM_HANDOVER = 4` on the keyboard's `ModelReceiverService`
+(same signature permission, caller package and signature checked on every call; `writeString(name)`, `writeInt(role)`,
+`writeFileDescriptor`, and nothing else, any other shape is answered `HANDOVER_BAD_REQUEST`), the reply codes 8 to 12, and
+`MlProtocol.MSG_PROBE = 5` and `KEY_CHAT_ROLES` between the keyboard and the model process (see the code for the checks).
+
 ## Why these models
 
 Whisper small (5-bit) is 190 MB and transcribed both test clips correctly; large-v3-turbo (5-bit, 574 MB) was about
