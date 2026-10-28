@@ -41,6 +41,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(text(R.string.intro, 14f).apply { setPadding(0, 0, 0, dp(16)) })
         root.addView(button(R.string.open_clackatoo) { openKeyboard() })
+        root.addView(button(R.string.browse_huggingface) { startActivity(Intent(this, BrowseActivity::class.java)) })
         root.addView(button(R.string.licences) { showLicences() })
         root.addView(text(R.string.downloads, 18f).apply { setPadding(0, dp(24), 0, dp(8)) })
         empty = text(R.string.empty, 14f)
@@ -80,9 +81,9 @@ class MainActivity : Activity() {
         list.removeAllViews()
         empty.visibility = if (all.isEmpty()) View.VISIBLE else View.GONE
         for (p in all.asReversed()) {
-            val model = Catalog.byId(p.id) ?: continue
+            val title = p.title ?: Catalog.byId(p.id)?.displayName ?: continue
             val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, dp(8)) }
-            row.addView(TextView(this).apply { text = model.displayName; setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) })
+            row.addView(TextView(this).apply { text = title; setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) })
             row.addView(TextView(this).apply { text = describe(p); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f) })
             if (p.phase == Progress.Phase.DOWNLOADING || p.phase == Progress.Phase.VERIFYING) {
                 row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -104,7 +105,7 @@ class MainActivity : Activity() {
         Progress.Phase.HANDING_OVER -> getString(R.string.handing_over)
         Progress.Phase.DONE -> getString(R.string.done)
         Progress.Phase.CANCELLED -> getString(R.string.cancelled)
-        Progress.Phase.FAILED -> getString(
+        Progress.Phase.FAILED -> if (p.reason == ModelsProtocol.HANDOVER_WRONG_ROLE) getString(R.string.failed_wrong_role, roleName(p.role)) else getString(
             when (p.reason) {
                 ModelsProtocol.FAIL_SIZE -> R.string.failed_size
                 ModelsProtocol.FAIL_DIGEST -> R.string.failed_digest
@@ -112,10 +113,25 @@ class MainActivity : Activity() {
                 ModelsProtocol.FAIL_UNTRUSTED_HOST -> R.string.failed_host
                 ModelsProtocol.FAIL_NETWORK -> R.string.failed_network
                 ModelsProtocol.FAIL_OTHER -> R.string.failed_other
+                // the keyboard's answers to a custom model (5 is never a download failure: a cancel has its own phase)
+                ModelsProtocol.HANDOVER_NOT_A_MODEL -> R.string.failed_not_a_model
+                ModelsProtocol.HANDOVER_TOO_LARGE -> R.string.failed_too_large
+                ModelsProtocol.HANDOVER_CUSTOM_OFF -> R.string.failed_custom_off
+                ModelsProtocol.HANDOVER_LOAD_FAILED -> R.string.failed_load
+                ModelsProtocol.HANDOVER_TOO_MANY -> R.string.failed_too_many
                 else -> R.string.failed_keyboard
             }
         )
     }
+
+    /** The role of a custom download as it reads in a sentence ("That file is not a speech model"). */
+    private fun roleName(role: Int): String = getString(
+        when (role) {
+            ModelsProtocol.CUSTOM_ROLE_SPEECH -> R.string.role_speech
+            ModelsProtocol.CUSTOM_ROLE_CLEAN_UP -> R.string.role_clean_up
+            else -> R.string.role_grammar
+        }
+    )
 
     private fun cancel(id: String) = DownloadService.cancel(id)
 

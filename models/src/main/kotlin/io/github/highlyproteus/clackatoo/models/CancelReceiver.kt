@@ -12,6 +12,6 @@ import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 class CancelReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra(ModelsProtocol.EXTRA_ID)
-        if (Catalog.byId(id) != null) DownloadService.cancel(id!!)
+        if (Catalog.byId(id) != null || CustomDownloads.isKnown(id)) DownloadService.cancel(id!!)
     }
 }

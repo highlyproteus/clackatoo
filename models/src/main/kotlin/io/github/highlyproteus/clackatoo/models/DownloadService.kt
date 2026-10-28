@@ -29,6 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * an action and one catalog id, from a caller whose package and signature are checked on every call ([RequestParser]
  * refuses everything else, [RequestLimiter] limits how often). The service is also guarded by the signature permission.
  * Start intents carry nothing this service reads: they only make it a foreground service, which the download needs.
+ *
+ * The only other work it does is the custom downloads the user chose in this app's own Hugging Face screen: those come from
+ * the process-internal [CustomDownloads] queue (filled by [BrowseActivity] only, taken out when the service starts), never
+ * from an Intent or a Binder call, and are not subject to [RequestLimiter].
  */
 class DownloadService : Service() {
     private val worker = Executors.newSingleThreadExecutor()
@@ -70,6 +74,8 @@ class DownloadService : Service() {
             giveUp()
             return START_NOT_STICKY
         }
+        // the custom downloads the user chose in this app's own screen (a queue in this process, not the Intent) start now
+        CustomDownloads.takePending().forEach { enqueueCustom(it) }
         if (active.get() == 0) finishIfIdle()
         return START_NOT_STICKY
     }
@@ -77,6 +83,7 @@ class DownloadService : Service() {
     /** The service cannot go to the foreground: no download may run (and none was handed anything); end quietly instead of crashing. */
     private fun giveUp() {
         cancelFlags.values.forEach { it.set(true) }
+        CustomDownloads.withdrawAll()
         stopSelf()
     }
 
@@ -141,28 +148,12 @@ class DownloadService : Service() {
         val dir = File(filesDir, "downloads").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() } // leftovers of an earlier run: a download resumes only within one run
         val part = File(dir, model.fileName + ".part")
-        var lastReport = 0L
         DownloadTracker.update(Progress(model.id, Progress.Phase.DOWNLOADING, 0, total))
         keyboard.progress(model.id, 0, total)
-        // a broken connection keeps the partial file and is retried (resuming with a Range request) a few times
-        var attempt = 0
-        var outcome: DownloadOutcome
-        while (true) {
-            outcome = downloader.download(model, part, cancelled::get) { bytes ->
-                val now = System.nanoTime()
-                if (now - lastReport > 250_000_000L) {
-                    lastReport = now
-                    DownloadTracker.update(Progress(model.id, Progress.Phase.DOWNLOADING, bytes, total))
-                    keyboard.progress(model.id, bytes, total)
-                    notifyProgress(model, bytes)
-                }
-            }
-            val retry = outcome is DownloadOutcome.Failed && outcome.reason == ModelsProtocol.FAIL_NETWORK && !cancelled.get() && ++attempt < MAX_ATTEMPTS
-            if (!retry) break
-            for (second in 0 until attempt * 3) { // wait a little longer each time, and stop waiting when cancelled
-                if (cancelled.get()) break
-                Thread.sleep(1_000)
-            }
+        val outcome = fetch(model.toJob(), part, cancelled) { bytes ->
+            DownloadTracker.update(Progress(model.id, Progress.Phase.DOWNLOADING, bytes, total))
+            keyboard.progress(model.id, bytes, total)
+            notifyProgress(model.id, model.displayName, bytes, total)
         }
         when (outcome) {
             is DownloadOutcome.Failed -> {
@@ -184,12 +175,12 @@ class DownloadService : Service() {
                         ModelsProtocol.HANDOVER_OK -> {
                             limiter.handedOver(model.id)
                             DownloadTracker.update(Progress(model.id, Progress.Phase.DONE, total, total))
-                            notifyDone(model, true)
+                            notifyDone(model.displayName, true)
                         }
                         else -> {
                             limiter.failed(model.id)
                             DownloadTracker.update(Progress(model.id, Progress.Phase.FAILED, total, total, result ?: -1))
-                            notifyDone(model, false)
+                            notifyDone(model.displayName, false)
                         }
                     }
                 } finally {
@@ -199,10 +190,104 @@ class DownloadService : Service() {
         }
     }
 
+    /**
+     * Downloads [job] to [part]; a broken connection keeps the partial file and is retried (resuming with a Range request)
+     * a few times. [onBytes] gets the byte count so far, at most four times a second.
+     */
+    private fun fetch(job: DownloadJob, part: File, cancelled: AtomicBoolean, onBytes: (Long) -> Unit): DownloadOutcome {
+        var lastReport = 0L
+        var attempt = 0
+        var outcome: DownloadOutcome
+        while (true) {
+            outcome = downloader.download(job, part, cancelled::get) { bytes ->
+                val now = System.nanoTime()
+                if (now - lastReport > 250_000_000L) {
+                    lastReport = now
+                    onBytes(bytes)
+                }
+            }
+            val retry = outcome is DownloadOutcome.Failed && outcome.reason == ModelsProtocol.FAIL_NETWORK && !cancelled.get() && ++attempt < MAX_ATTEMPTS
+            if (!retry) return outcome
+            for (second in 0 until attempt * 3) { // wait a little longer each time, and stop waiting when cancelled
+                if (cancelled.get()) break
+                Thread.sleep(1_000)
+            }
+        }
+    }
+
+    private fun enqueueCustom(custom: CustomJob) {
+        active.incrementAndGet()
+        try {
+            worker.submit {
+                try {
+                    runCustom(custom)
+                } finally {
+                    CustomDownloads.finished(custom)
+                    active.decrementAndGet()
+                    finishIfIdle()
+                }
+            }
+        } catch (e: java.util.concurrent.RejectedExecutionException) { // the service is already being destroyed
+            active.decrementAndGet()
+            CustomDownloads.withdraw(custom)
+        }
+    }
+
+    /**
+     * A custom download (the user's own choice in the Hugging Face browser): to a generated file name in this app's private
+     * directory, then to the keyboard with the user's role, then deleted here. Nothing but the file's base name goes to the
+     * keyboard, and nothing the keyboard says is used except its reply code.
+     */
+    private fun runCustom(custom: CustomJob) {
+        val total = custom.job.sizeBytes
+        fun track(phase: Progress.Phase, bytes: Long, reason: Int = 0) =
+            DownloadTracker.update(Progress(custom.id, phase, bytes, total, reason, custom.displayName, custom.role))
+        if (custom.cancelled.get()) return track(Progress.Phase.CANCELLED, 0, ModelsProtocol.FAIL_CANCELLED)
+        val dir = File(filesDir, "downloads").apply { mkdirs() }
+        dir.listFiles()?.forEach { it.delete() } // leftovers of an earlier run (downloads run one after another)
+        val base = custom.id.replace(':', '-')
+        val part = File(dir, "$base.part")
+        track(Progress.Phase.DOWNLOADING, 0)
+        val outcome = fetch(custom.job, part, custom.cancelled) { bytes ->
+            track(Progress.Phase.DOWNLOADING, bytes)
+            notifyProgress(custom.id, custom.displayName, bytes, total)
+        }
+        when (outcome) {
+            is DownloadOutcome.Failed -> {
+                part.delete() // no partial file outlives a run that did not succeed
+                if (outcome.reason == ModelsProtocol.FAIL_CANCELLED) return track(Progress.Phase.CANCELLED, 0, outcome.reason)
+                track(Progress.Phase.FAILED, 0, outcome.reason)
+                notifyDone(custom.displayName, false)
+            }
+            DownloadOutcome.Done -> {
+                val file = File(dir, "$base.model")
+                if (!part.renameTo(file)) {
+                    part.delete()
+                    track(Progress.Phase.FAILED, 0, ModelsProtocol.FAIL_OTHER)
+                    return notifyDone(custom.displayName, false)
+                }
+                track(Progress.Phase.HANDING_OVER, total)
+                try {
+                    val keyboard = link ?: KeyboardLink(this, BuildConfig.KEYBOARD_APPLICATION_ID).also { link = it }
+                    val result = keyboard.handoverCustom(custom.displayName, custom.role, file)
+                    if (result == ModelsProtocol.HANDOVER_OK) {
+                        track(Progress.Phase.DONE, total)
+                        notifyDone(custom.displayName, true)
+                    } else {
+                        track(Progress.Phase.FAILED, total, result ?: -1)
+                        notifyDone(custom.displayName, false)
+                    }
+                } finally {
+                    file.delete() // the keyboard has its own copy now (or refused it); this one is not kept
+                }
+            }
+        }
+    }
+
     private fun report(model: CatalogModel, phase: Progress.Phase, bytes: Long, reason: Int, keyboard: KeyboardLink) {
         DownloadTracker.update(Progress(model.id, phase, bytes, model.sizeBytes, reason))
         keyboard.failed(model.id, reason)
-        if (phase == Progress.Phase.FAILED) notifyDone(model, false)
+        if (phase == Progress.Phase.FAILED) notifyDone(model.displayName, false)
     }
 
     private fun finishIfIdle() {
@@ -219,11 +304,13 @@ class DownloadService : Service() {
     override fun onTimeout(startId: Int, fgsType: Int) {
         // Android limits a data-sync foreground service to 6 hours a day: stop what is running and end the service
         cancelFlags.values.forEach { it.set(true) }
+        CustomDownloads.cancelAll()
         stopSelf()
     }
 
     override fun onDestroy() {
         cancelFlags.values.forEach { it.set(true) }
+        CustomDownloads.cancelAll()
         worker.shutdown()
         link?.close()
         super.onDestroy()
@@ -248,8 +335,8 @@ class DownloadService : Service() {
         return b.setSmallIcon(R.drawable.ic_stat_download).setContentIntent(open).setOnlyAlertOnce(true)
     }
 
-    private fun cancelAction(model: CatalogModel): Notification.Action {
-        val intent = Intent(this, CancelReceiver::class.java).putExtra(ModelsProtocol.EXTRA_ID, model.id)
+    private fun cancelAction(id: String): Notification.Action {
+        val intent = Intent(this, CancelReceiver::class.java).putExtra(ModelsProtocol.EXTRA_ID, id)
         val pending = PendingIntent.getBroadcast(this, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Action.Builder(null, getString(R.string.cancel), pending).build()
     }
@@ -262,20 +349,20 @@ class DownloadService : Service() {
         else startForeground(NOTIFICATION_ID, n)
     }
 
-    private fun notifyProgress(model: CatalogModel, bytes: Long) {
+    private fun notifyProgress(id: String, name: String, bytes: Long, total: Long) {
         val now = System.nanoTime()
         if (now - lastNotified < 500_000_000L) return
         lastNotified = now
-        val n = builder().setContentTitle(getString(R.string.notification_title, model.displayName))
-            .setContentText(getString(R.string.downloading, Formatter.formatShortFileSize(this, bytes), Formatter.formatShortFileSize(this, model.sizeBytes)))
-            .setOngoing(true).setProgress(100, (bytes * 100 / model.sizeBytes).toInt(), false)
-            .addAction(cancelAction(model)).build()
+        val n = builder().setContentTitle(getString(R.string.notification_title, name))
+            .setContentText(getString(R.string.downloading, Formatter.formatShortFileSize(this, bytes), Formatter.formatShortFileSize(this, total)))
+            .setOngoing(true).setProgress(100, (bytes * 100 / total).toInt(), false)
+            .addAction(cancelAction(id)).build()
         manager().notify(NOTIFICATION_ID, n)
     }
 
-    private fun notifyDone(model: CatalogModel, ok: Boolean) {
+    private fun notifyDone(name: String, ok: Boolean) {
         notifiedResult = true
-        val text = getString(if (ok) R.string.notification_done else R.string.notification_failed, model.displayName)
+        val text = getString(if (ok) R.string.notification_done else R.string.notification_failed, name)
         manager().notify(NOTIFICATION_ID, builder().setContentTitle(text).setOngoing(false).setAutoCancel(true).build())
     }
 
@@ -292,6 +379,7 @@ class DownloadService : Service() {
         /** Cancels the download of [id], from this app's own screen or notification (never from outside: those are not exported). */
         internal fun cancel(id: String) {
             cancelFlags[id]?.set(true)
+            CustomDownloads.cancel(id)
         }
 
         private const val CHANNEL = "downloads"
