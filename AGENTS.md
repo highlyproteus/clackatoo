@@ -115,13 +115,21 @@ decoder on the same strokes and the decoding time.
   title. Do not hand-roll rows, cards or app bars in a screen. Dialogs use `ThreeButtonAlertDialog` or M3's
   `AlertDialog` (Material 3 default look); never a custom surface.
 - Glass settings: the settings activity is translucent (`platformActivityTheme.Settings`) and shows the wallpaper
-  behind a tinted scrim (`surface` at `GlassStyle.SCRIM_ALPHA`), blurred as well on Android 12+ when
-  `WindowManager.isCrossWindowBlurEnabled` (`GlassWindowEffect`); panels are translucent `surfaceContainerHigh` with a
-  hairline border. The switch "Glass background" (`GlassStyle.PREF_GLASS`, default on) falls back to opaque Material 3
-  surfaces. The alphas are fixed because text must keep 4.5:1 over any wallpaper, in light and dark mode;
-  `GlassStyleTest` checks it, so change the alphas only together with that test. Text directly on the window uses
-  `onSurface`; `onSurfaceVariant` only inside panels. Models are shown as `ModelCard`s (Voice typing, Grammar check). In glass mode the theme's `background` colour is transparent so
-  Scaffolds do not paint over the wallpaper.
+  behind a light tint (`GlassStyle.SCRIM_ALPHA_BLUR`; `SCRIM_ALPHA_FLAT`, heavier, where the phone does not blur;
+  `WindowManager.isCrossWindowBlurEnabled` via `GlassWindowEffect`, blur radius on Android 12+). Text and icons never
+  sit on the clear window: panels (`SettingsGroup`, `ModelCard`, ...) are frosted `surfaceContainerHigh`
+  (`PANEL_ALPHA_*`, stronger in dark mode) with a hairline border, and the page title, section headers, hints and
+  toolbar icons get their own small frosted backing (`frostedBacking`, `FrostedTitle`, `FrostedIcons`;
+  `BACKING_ALPHA_*`). Dialogs (`ThreeButtonAlertDialog`) are frosted where the phone blurs, over the settings content,
+  which `dialogBackdrop` blurs while one is open; solid otherwise. Never use `FLAG_BLUR_BEHIND` or another window blur
+  on top of the settings window blur: it hung SurfaceFlinger's render engine on the emulator. With glass on the colour
+  scheme is `glassColorScheme`: the accent, secondary text and error colours move towards `onSurface` as far as needed
+  to keep 4.5:1 on every frosted surface (`GlassStyle.readable`). The switch "Glass background" (`GlassStyle.PREF_GLASS`,
+  default on) falls back to opaque Material 3 surfaces. The alphas are fixed because text must keep 4.5:1 over any
+  wallpaper, in light and dark mode, with and without blur; `GlassStyleTest` checks every text surface, so change the
+  alphas only together with that test, and add a case for any new text surface. Text on the window itself is a bug in
+  glass mode: put it in a panel or `frostedBacking`. Models are shown as `ModelCard`s (Voice typing, Grammar check).
+  In glass mode the theme's `background` colour is transparent so Scaffolds do not paint over the wallpaper.
 - Themes: the theme preferences (`theme_colors`, `theme_colors_night`) hold a name: HeliBoard's built-in names, `clackatoo`,
   `glass`, `glass_dark`, `glass_light`, `omarchy_<name>`, or the name of a user theme (a user theme always wins over a
   built-in one of the same name; new user themes cannot take built-in names). Every Clackatoo theme is a `ClackatooPalette`

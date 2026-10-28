@@ -169,6 +169,13 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   ships (64-bit ARM or x86_64, Android 9 or newer); elsewhere the cards read
   "Not available on this phone" and the Voice and Check keys say why
   (`ModelChoice.runsHere`, `MissingModels`).
+- 2026-10-28: clearer glass settings. The window is lightly tinted (heavier
+  where the phone does not blur), the panels are lighter frosted glass, and the
+  page title, section headers, hints and toolbar icons sit on small frosted
+  backings instead of the bare window; dialogs are frosted over a blurred
+  settings screen on phones that blur. `GlassStyle`, `GlassWindow`,
+  `SettingsComponents`, `SearchScreen`, `SettingsActivity` and
+  `ThreeButtonAlertDialog` changed; `GlassStyleTest` checks every text surface.
 
 Upstream copyright
 ------------------

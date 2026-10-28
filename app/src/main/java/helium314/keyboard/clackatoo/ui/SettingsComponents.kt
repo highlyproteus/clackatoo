@@ -4,8 +4,11 @@ package helium314.keyboard.clackatoo.ui
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -13,6 +16,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +31,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.Hyphens
@@ -46,8 +52,30 @@ import helium314.keyboard.settings.SettingsActivity
 /** True while the settings draw glass panels over the wallpaper. */
 val LocalGlass = staticCompositionLocalOf { false }
 
+/** True while the phone blurs windows, so the glass window is lightly tinted; without blur the tint is heavier (see GlassStyle). */
+val LocalGlassBlur = staticCompositionLocalOf { false }
+
 /** True inside a [SettingsGroup]: its rows are part of the group's panel; elsewhere a row gets a panel of its own. */
 private val LocalInGroup = compositionLocalOf { false }
+
+/**
+ * The colour scheme for glass: what is drawn on the frosted surfaces keeps 4.5:1 over any wallpaper. The accent,
+ * the secondary text and the error colour move towards the main text colour just as far as that takes
+ * ([GlassStyle.readable]); everything else stays.
+ */
+fun glassColorScheme(scheme: ColorScheme): ColorScheme {
+    val container = scheme.surfaceContainerHigh.toArgb()
+    val surface = scheme.surface.toArgb()
+    val toward = scheme.onSurface.toArgb()
+    fun readable(c: Color) = Color(GlassStyle.readable(c.toArgb(), toward, container, surface))
+    return scheme.copy(
+        primary = readable(scheme.primary),
+        onSurfaceVariant = readable(scheme.onSurfaceVariant),
+        error = readable(scheme.error),
+        // the page is transparent, so Scaffolds (which default to the background colour) do not paint over the wallpaper
+        background = Color.Transparent,
+    )
+}
 
 /** The glass switch of the settings, read again whenever a preference changed. */
 @Composable
@@ -57,15 +85,54 @@ fun rememberGlassEnabled(): Boolean {
     return ctx.prefs().getBoolean(GlassStyle.PREF_GLASS, GlassStyle.DEFAULT_GLASS)
 }
 
-/** Colour of a panel: translucent over the scrim with glass, a solid Material 3 container without. */
+/** Colour of a panel: frosted over the window background with glass, a solid Material 3 container without. */
 @Composable
 fun settingsPanelColor(): Color =
-    if (LocalGlass.current) Color(GlassStyle.panel(MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()))
-    else MaterialTheme.colorScheme.surfaceContainer
+    if (LocalGlass.current) {
+        val scheme = MaterialTheme.colorScheme
+        Color(GlassStyle.panel(scheme.surfaceContainerHigh.toArgb(), scheme.surface.toArgb()))
+    } else MaterialTheme.colorScheme.surfaceContainer
+
+/** Colour of a dialog: frosted where the phone blurs what is behind it, solid otherwise (and without glass). */
+@Composable
+fun settingsDialogColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (LocalGlass.current && LocalGlassBlur.current)
+        Color(GlassStyle.dialog(scheme.surfaceContainerHigh.toArgb(), scheme.surface.toArgb()))
+    else scheme.surfaceContainerHigh
+}
 
 @Composable
 private fun settingsPanelBorder(): BorderStroke? =
     if (LocalGlass.current) BorderStroke(Dp.Hairline, MaterialTheme.colorScheme.onSurface.copy(alpha = GlassStyle.BORDER_ALPHA)) else null
+
+/**
+ * A frosted backing for text or icons that would otherwise sit on the clear window (page title, section headers,
+ * hints, toolbar icons): the container colour at [GlassStyle.BACKING_ALPHA_LIGHT]/[GlassStyle.BACKING_ALPHA_DARK] with a
+ * hairline border. Without glass the window is solid and nothing is added.
+ */
+@Composable
+fun Modifier.frostedBacking(shape: Shape = MaterialTheme.shapes.small): Modifier {
+    if (!LocalGlass.current) return this
+    val scheme = MaterialTheme.colorScheme
+    val color = Color(GlassStyle.backing(scheme.surfaceContainerHigh.toArgb(), scheme.surface.toArgb()))
+    return this
+        .background(color, shape)
+        .border(BorderStroke(Dp.Hairline, scheme.onSurface.copy(alpha = GlassStyle.BORDER_ALPHA)), shape)
+}
+
+/** The window's page title (or anything else that sits on the clear window): on a frosted backing with glass. */
+@Composable
+fun FrostedTitle(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val glass = LocalGlass.current
+    Box(modifier.frostedBacking().then(if (glass) Modifier.padding(horizontal = 12.dp, vertical = 4.dp) else Modifier)) { content() }
+}
+
+/** Icon buttons of the toolbar: one frosted pill behind them with glass. */
+@Composable
+fun FrostedIcons(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(modifier.frostedBacking(CircleShape), verticalAlignment = Alignment.CenterVertically) { content() }
+}
 
 /** A card: Material 3 medium shape, glass or solid. */
 @Composable
@@ -105,27 +172,46 @@ private fun SettingsGroupTitle(title: String) {
     )
 }
 
-/** A header between panels, on the window background itself (so in the main text colour). */
+/**
+ * A header between panels, on the window background (so in the main text colour). With glass it sits on a small frosted
+ * backing; [startPadding] is where the text starts, as without glass.
+ */
 @Composable
 fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier, startPadding: Dp = 28.dp) {
+    val glass = LocalGlass.current
+    val inner = if (glass) BACKING_PADDING else 0.dp
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(start = startPadding, end = 16.dp, top = 20.dp, bottom = 8.dp),
+        modifier = modifier
+            .padding(start = (startPadding - inner).coerceAtLeast(0.dp), end = 16.dp, top = 20.dp, bottom = 8.dp)
+            .frostedBacking()
+            .padding(horizontal = inner, vertical = if (glass) 4.dp else 0.dp),
     )
 }
 
-/** Explanatory text between rows or panels, on the window background (so in the main text colour). */
+/**
+ * Explanatory text between rows or panels, on the window background (so in the main text colour). With glass it sits on
+ * a frosted backing of its own.
+ */
 @Composable
 fun SettingsHint(text: String, modifier: Modifier = Modifier, startPadding: Dp = 28.dp) {
+    val glass = LocalGlass.current
+    val inner = if (glass) BACKING_PADDING else 0.dp
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(start = startPadding, end = 28.dp, top = 6.dp, bottom = 6.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = (startPadding - inner).coerceAtLeast(0.dp), end = (28.dp - inner).coerceAtLeast(0.dp), top = 6.dp, bottom = 6.dp)
+            .frostedBacking(MaterialTheme.shapes.medium)
+            .padding(horizontal = inner, vertical = if (glass) 8.dp else 0.dp),
     )
 }
+
+private val BACKING_PADDING = 12.dp
 
 /**
  * One row: optional icon, [title], optional [subtitle] (usually the state), optional [trailing] content (a switch, a

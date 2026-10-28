@@ -57,6 +57,9 @@ import helium314.keyboard.latin.utils.BackButton
 import helium314.keyboard.latin.utils.CloseIcon
 import helium314.keyboard.latin.utils.SearchIcon
 import helium314.keyboard.clackatoo.ui.SettingsGroup
+import helium314.keyboard.clackatoo.ui.FrostedIcons
+import helium314.keyboard.clackatoo.ui.FrostedTitle
+import helium314.keyboard.clackatoo.ui.LocalGlass
 import helium314.keyboard.clackatoo.ui.settingsPanelColor
 
 @Composable
@@ -166,26 +169,33 @@ fun <T: Any?> SearchScreen(
                 else onClickBack()
             }
             if (homeStyle) {
-                Box(Modifier.padding(start = 28.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)) {
-                    CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Medium)) {
-                        title()
+                // the page title sits on a frosted backing with glass; the text starts where it always did
+                val inner = if (LocalGlass.current) 12.dp else 0.dp
+                Box(Modifier.padding(start = 28.dp - inner, end = 16.dp, top = 24.dp, bottom = 12.dp)) {
+                    FrostedTitle {
+                        CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Medium)) {
+                            title()
+                        }
                     }
                 }
             } else
                 TopAppBar(
-                    title = title,
+                    title = { FrostedTitle { title() } },
                     windowInsets = WindowInsets(0),
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
                         scrolledContainerColor = Color.Transparent,
                     ),
                     navigationIcon = {
-                        BackButton {
-                            if (showSearch) setShowSearch(false)
-                            else onClickBack()
+                        FrostedIcons {
+                            BackButton {
+                                if (showSearch) setShowSearch(false)
+                                else onClickBack()
+                            }
                         }
                     },
                     actions = {
+                      FrostedIcons {
                         if (icon == null)
                             IconButton(onClick = { setShowSearch(!showSearch) }) { SearchIcon() }
                         else
@@ -208,6 +218,7 @@ fun <T: Any?> SearchScreen(
                                     }
                                 }
                             }
+                      }
                     },
                 )
             ExpandableSearchField(

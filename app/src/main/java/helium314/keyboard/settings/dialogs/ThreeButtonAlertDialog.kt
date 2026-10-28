@@ -29,6 +29,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import helium314.keyboard.clackatoo.ui.GlassDialogEffect
+import helium314.keyboard.clackatoo.ui.settingsDialogColor
 import helium314.keyboard.latin.utils.Theme
 import helium314.keyboard.latin.utils.previewDark
 
@@ -52,6 +54,7 @@ fun ThreeButtonAlertDialog(
         onDismissRequest = onDismissRequest,
         properties = properties
     ) {
+        GlassDialogEffect()
         Box(
             modifier = modifier.widthIn(min = 280.dp, max = 560.dp),
             propagateMinConstraints = true
@@ -59,7 +62,7 @@ fun ThreeButtonAlertDialog(
             // Material 3's default alert dialog: extra large shape (28dp), container high colour, 24dp padding
             Surface(
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = settingsDialogColor(),
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 tonalElevation = 6.dp,
             ) {
