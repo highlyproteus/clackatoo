@@ -70,6 +70,10 @@ class GlassStyleTest {
 
     @Test fun `text keeps 4_5 to 1 over any wallpaper in dark mode`() = check(dark = true)
 
+    @Test fun `the check of the ready card is readable on its green`() {
+        assertTrue(ClackatooPalette.contrast(Color.White.toArgb(), READY_GREEN.toArgb()) >= MIN_TEXT_CONTRAST)
+    }
+
     @Test fun `the scrim and the panels are translucent`() {
         assertTrue(GlassStyle.SCRIM_ALPHA in 0.3f..0.95f)
         assertTrue(GlassStyle.PANEL_ALPHA < 1f)

@@ -162,7 +162,6 @@ fun SubtypeScreen(
                             }.ifEmpty { stringResource(R.string.action_none) }
                             Text(text, modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 10.dp)
                             )
                         }
                     }
@@ -172,7 +171,6 @@ fun SubtypeScreen(
                         Text(stringResource(R.string.popup_order),
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 10.dp)
                         )
                         DefaultButton(currentSubtype.getExtraValueOf(ExtraValue.POPUP_ORDER) == null) {
                             setCurrentSubtype(currentSubtype.without(ExtraValue.POPUP_ORDER))
@@ -182,7 +180,6 @@ fun SubtypeScreen(
                         Text(stringResource(R.string.hint_source),
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 10.dp)
                         )
                         DefaultButton(currentSubtype.getExtraValueOf(ExtraValue.HINT_ORDER) == null) {
                             setCurrentSubtype(currentSubtype.without(ExtraValue.HINT_ORDER))
@@ -200,7 +197,6 @@ fun SubtypeScreen(
                             Text(stringResource(LocaleKeyboardInfos.morePopupKeysResId(value)),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(start = 10.dp)
                             )
                             DefaultButton(explicitValue == null) {
                                 setCurrentSubtype(currentSubtype.without(ExtraValue.MORE_POPUPS))
@@ -215,7 +211,6 @@ fun SubtypeScreen(
                             Text(stringResource(R.string.localized_number_row),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(start = 10.dp)
                             )
                             Switch(
                                 checked = checked ?: prefs.getBoolean(
@@ -232,7 +227,7 @@ fun SubtypeScreen(
                         }
                     }
                 }
-                SettingsSectionHeader(stringResource(R.string.settings_screen_secondary_layouts), Modifier.padding(start = 12.dp))
+                SettingsSectionHeader(stringResource(R.string.settings_screen_secondary_layouts), startPadding = 12.dp)
                 LayoutType.entries.forEach { type ->
                     if (type == LayoutType.MAIN) return@forEach
                     SettingsGroup(title = stringResource(type.displayNameId)) {

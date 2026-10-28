@@ -107,12 +107,12 @@ private fun SettingsGroupTitle(title: String) {
 
 /** A header between panels, on the window background itself (so in the main text colour). */
 @Composable
-fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier) {
+fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier, startPadding: Dp = 28.dp) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(start = 28.dp, end = 16.dp, top = 20.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = startPadding, end = 16.dp, top = 20.dp, bottom = 8.dp),
     )
 }
 

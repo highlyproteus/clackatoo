@@ -24,4 +24,10 @@
     <!-- glass settings background -->
     <string name="glass_background">Glass background</string>
     <string name="glass_background_summary">Show your wallpaper behind the settings. Off gives solid surfaces.</string>
+
+    <!-- model cards (Voice typing, Grammar check) -->
+    <string name="model_card_ready">Ready</string>
+    <string name="model_card_installing">Installing…</string>
+    <string name="model_card_progress">%1$s of %2$s</string>
+    <string name="model_card_more">More options</string>
 </resources>
