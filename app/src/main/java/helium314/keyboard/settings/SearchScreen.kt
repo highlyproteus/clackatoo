@@ -56,6 +56,7 @@ import helium314.keyboard.latin.R
 import helium314.keyboard.latin.utils.BackButton
 import helium314.keyboard.latin.utils.CloseIcon
 import helium314.keyboard.latin.utils.SearchIcon
+import helium314.keyboard.clackatoo.ui.HomeHeader
 import helium314.keyboard.clackatoo.ui.SettingsGroup
 import helium314.keyboard.clackatoo.ui.FrostedIcons
 import helium314.keyboard.clackatoo.ui.FrostedTitle
@@ -67,7 +68,7 @@ fun SearchSettingsScreen(
     onClickBack: () -> Unit,
     title: String,
     settings: List<Any?>,
-    homeStyle: Boolean = false, // large title, no back arrow, search field always shown
+    homeStyle: Boolean = false, // header with the app icon and a search button instead of the app bar, no back arrow (home screen)
     content: @Composable (ColumnScope.() -> Unit)? = null // overrides settings if not null
 ) {
     SearchScreen(
@@ -146,7 +147,7 @@ fun <T: Any?> SearchScreen(
     itemContent: @Composable (T) -> Unit,
     icon: @Composable (() -> Unit)? = null,
     menu: List<Pair<String, () -> Unit>>? = null,
-    homeStyle: Boolean = false, // large title and an always visible search field instead of the app bar (home screen)
+    homeStyle: Boolean = false, // header with the app icon and a search button instead of the app bar (home screen)
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     // searchText and showSearch should have the same remember or rememberSaveable
@@ -169,15 +170,8 @@ fun <T: Any?> SearchScreen(
                 else onClickBack()
             }
             if (homeStyle) {
-                // the page title sits on a frosted backing with glass; the text starts where it always did
-                val inner = if (LocalGlass.current) 12.dp else 0.dp
-                Box(Modifier.padding(start = 28.dp - inner, end = 16.dp, top = 24.dp, bottom = 12.dp)) {
-                    FrostedTitle {
-                        CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Medium)) {
-                            title()
-                        }
-                    }
-                }
+                // the app icon, name and what it stands for; the search button shows the search field below
+                HomeHeader(title = title, onSearch = { setShowSearch(!showSearch) })
             } else
                 TopAppBar(
                     title = { FrostedTitle { title() } },
@@ -222,11 +216,11 @@ fun <T: Any?> SearchScreen(
                     },
                 )
             ExpandableSearchField(
-                expanded = showSearch || homeStyle,
-                onDismiss = { if (!homeStyle) setShowSearch(false) },
+                expanded = showSearch,
+                onDismiss = { setShowSearch(false) },
                 search = searchText,
                 onSearchChange = { searchText = it },
-                requestFocus = !homeStyle,
+                requestFocus = true,
                 placeholder = stringResource(if (homeStyle) R.string.settings_search_hint else R.string.label_search_key),
                 modifier = Modifier
                     .fillMaxWidth()

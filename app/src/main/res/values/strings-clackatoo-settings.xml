@@ -3,13 +3,24 @@
 <resources>
     <!-- home screen -->
     <string name="settings_search_hint">Search settings</string>
-    <string name="home_status_ready">%1$s is your keyboard</string>
+    <string name="home_subtitle">Private keyboard · everything stays on your phone</string>
+    <string name="home_try_hint">Type or swipe to try your keyboard</string>
+    <string name="home_quick_voice">Voice</string>
+    <string name="home_quick_languages">Languages</string>
+    <string name="home_tile_swipe">Swipe typing</string>
+    <string name="home_tile_languages">Languages</string>
+    <string name="home_checklist_title">Setup</string>
+    <string name="home_checklist_keyboard">Keyboard enabled</string>
+    <string name="home_checklist_voice">Voice model</string>
+    <string name="home_checklist_grammar">Grammar model</string>
+    <string name="home_checklist_suggested">Suggested for this phone: %1$s</string>
+    <string name="home_checklist_unsupported">Voice typing and grammar check need a 64-bit phone with Android 9 or newer</string>
     <string name="home_setup_title">Set up %1$s</string>
     <string name="home_setup_enable">Turn it on and choose it as your keyboard.</string>
     <string name="home_setup_select">Choose it as your keyboard to start typing with it.</string>
     <string name="home_setup_action">Set up</string>
-    <string name="home_group_typing">Typing</string>
-    <string name="home_group_voice_writing">Voice &amp; writing</string>
+    <string name="home_group_more">More settings</string>
+    <string name="home_see_all_themes">See all themes</string>
     <string name="home_group_look_feel">Look &amp; feel</string>
     <string name="home_state_on">On</string>
     <string name="home_state_off">Off</string>

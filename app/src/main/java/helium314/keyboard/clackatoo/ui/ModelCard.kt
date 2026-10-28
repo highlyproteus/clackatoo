@@ -160,7 +160,7 @@ fun ModelCard(
 private const val SHORT_LABEL = 12
 
 @Composable
-private fun DownloadProgress(state: ModelCardState.Downloading) {
+internal fun DownloadProgress(state: ModelCardState.Downloading) {
     val ctx = LocalContext.current
     val fraction = if (state.total > 0) (state.bytes.toFloat() / state.total).coerceIn(0f, 1f) else 0f
     Column(Modifier.padding(top = 2.dp)) {

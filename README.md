@@ -21,8 +21,10 @@ recognition and grammar correction all run on the device.
   [Omarchy](https://github.com/basecamp/omarchy), HeliBoard's classic themes and your own, with separate day and night
   choices.
 - **Glass settings.** The settings are frosted Material 3 panels over your wallpaper, which shows through the lightly
-  tinted window (blurred on Android 12+ where the phone allows it, tinted more where it does not), with a status card,
-  live state rows and a "Glass background" switch for solid surfaces. Titles, headers and hints sit on frosted
+  tinted window (blurred on Android 12+ where the phone allows it, tinted more where it does not), with a "try it" field
+  and quick buttons, a setup checklist that downloads the suggested models in one tap, tiles with the state of swipe
+  typing, voice typing, grammar check and languages, theme swatches that apply a theme with one tap, and a
+  "Glass background" switch for solid surfaces. Titles, headers and hints sit on frosted
   backings, never on the bare wallpaper. Every text surface keeps a contrast of at least 4.5:1 over any wallpaper, in
   light and dark mode, with and without blur.
 - **Voice typing.** Speech to text with NVIDIA Parakeet TDT 0.6B v3 or, without it, Whisper (English and Spanish).

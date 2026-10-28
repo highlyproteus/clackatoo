@@ -209,6 +209,14 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   on a keyboard that had just started (`AssistController.startListening`); the
   model process keeps only the models of the current use in memory
   (`ModelResidency`).
+- 2026-10-28: new settings home screen. A header with the app icon and a search
+  button, a field to try the keyboard in (it asks the keyboard not to learn
+  from it and is emptied when you leave) with Theme, Voice and Languages
+  buttons, a setup checklist with one-tap model downloads while a model is
+  missing, tiles for swipe typing, voice typing, grammar check and languages,
+  four live theme swatches that apply a theme, and a "More settings" list that
+  keeps every screen reachable (`HomeScreen`, `HomeComponents`,
+  `SetupChecklist`, `ThemeSelection`, `ThemeMiniature`, `SearchScreen`).
 
 Upstream copyright
 ------------------

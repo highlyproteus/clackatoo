@@ -144,6 +144,13 @@ decoder on the same strokes and the decoding time.
   alphas only together with that test, and add a case for any new text surface. Text on the window itself is a bug in
   glass mode: put it in a panel or `frostedBacking`. Models are shown as `ModelCard`s (Voice typing, Grammar check).
   In glass mode the theme's `background` colour is transparent so Scaffolds do not paint over the wallpaper.
+- Home screen (`HomeScreen.kt`, blocks in `HomeComponents.kt`): header with the real launcher icon and a search button (the
+  search field opens below it), then either the set-up card (Clackatoo not on or not chosen) or the try field with Theme /
+  Voice / Languages buttons and the setup checklist (`SetupChecklist`: only while a voice or grammar model is missing;
+  a role no model of which runs here is left out), 2 x 2 state tiles, four theme swatches (`ThemeSelection`: the current
+  theme first, writes the day or night preference like the picker; the miniature is the picker's `MiniKeyboard`) and "More
+  settings", which must list every screen the home screen does not show another way. The try field is a platform `EditText`
+  with `IME_FLAG_NO_PERSONALIZED_LEARNING`, never saved and emptied when the screen is left; never log what it holds.
 - Themes: the theme preferences (`theme_colors`, `theme_colors_night`) hold a name: HeliBoard's built-in names, `clackatoo`,
   `glass`, `glass_dark`, `glass_light`, `omarchy_<name>`, or the name of a user theme (a user theme always wins over a
   built-in one of the same name; new user themes cannot take built-in names). Every Clackatoo theme is a `ClackatooPalette`

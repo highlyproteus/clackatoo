@@ -83,6 +83,19 @@ class GlassStyleTest {
             "model card state on a panel" to c(onSurfaceVariant, panel),
             "model card failure on a panel" to c(error, panel),
             "selected theme name and buttons on a panel" to c(primary, panel),
+            // the home screen: header words on their backing, tiles, checklist, quick buttons, swatches and the try field on panels
+            "home header title on its backing" to c(r.onSurface, backing),
+            "home header subtitle on its backing" to c(onSurfaceVariant, backing),
+            "home tile title on a panel" to c(r.onSurface, panel),
+            "home tile state on a panel" to c(onSurfaceVariant, panel),
+            "home checklist title on a panel" to c(r.onSurface, panel),
+            "home checklist suggestion and progress on a panel" to c(onSurfaceVariant, panel),
+            "home checklist failure on a panel" to c(error, panel),
+            "home quick button label on a panel" to c(r.onSurface, panel),
+            "theme swatch name on a panel" to c(r.onSurface, panel),
+            "selected theme swatch name on a panel" to c(primary, panel),
+            "try field text on a panel" to c(r.onSurface, panel),
+            "try field placeholder on a panel" to c(onSurfaceVariant, panel),
             "dialog title" to c(r.onSurface, dialog),
             "dialog text" to c(onSurfaceVariant, dialog),
             "dialog buttons" to c(primary, dialog),
@@ -107,7 +120,11 @@ class GlassStyleTest {
     @Test fun `without glass the surfaces are solid and keep 4_5 to 1`() {
         for (dark in listOf(false, true)) for (r in roles(dark)) {
             val solid = listOf(r.surface or (0xFF shl 24), r.container or (0xFF shl 24))
-            for (background in solid) for ((what, text) in listOf("title" to r.onSurface, "subtitle" to r.onSurfaceVariant))
+            // home screen: tile and checklist titles, swatch names and the try field's text, and tile states, suggestions and the placeholder
+            for (background in solid) for ((what, text) in listOf(
+                "title" to r.onSurface, "subtitle" to r.onSurfaceVariant, "home tile, checklist, swatch and try field text" to r.onSurface,
+                "home tile state, suggestion and try field placeholder" to r.onSurfaceVariant,
+            ))
                 assertTrue(ClackatooPalette.contrast(text, background) >= MIN_TEXT_CONTRAST, "${if (dark) "dark" else "light"} ${r.name}: solid $what")
         }
     }
