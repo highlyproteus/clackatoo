@@ -19,15 +19,15 @@ class ModelChoiceTest {
         assertFalse(ModelChoice.isValidChoice(ModelKind.SPEECH, "nope"))
     }
 
-    @Test fun `Parakeet runs only on 64-bit ARM and x86_64, Whisper and the text models everywhere`() {
-        val parakeet = ModelCatalog.byId(Catalog.PARAKEET_TDT_V3.id)!!
-        val whisper = ModelCatalog.byId(Catalog.WHISPER_SMALL.id)!!
-        val qwen = ModelCatalog.byId(Catalog.QWEN3_5_0_8B.id)!!
-        for (abi in listOf("arm64-v8a", "x86_64")) assertTrue(ModelChoice.runsOn(parakeet, abi), abi)
-        for (abi in listOf("armeabi-v7a", "x86", null)) assertFalse(ModelChoice.runsOn(parakeet, abi), "$abi")
-        for (abi in listOf("armeabi-v7a", "x86", null)) {
-            assertTrue(ModelChoice.runsOn(whisper, abi))
-            assertTrue(ModelChoice.runsOn(qwen, abi))
+    @Test fun `every engine runs only where its native runtime ships, 64-bit ARM or x86_64 on Android 9 or newer`() {
+        val models = listOf(Catalog.PARAKEET_TDT_V3, Catalog.WHISPER_SMALL, Catalog.S1_MINI, Catalog.QWEN3_5_0_8B)
+            .map { ModelCatalog.byId(it.id)!! }
+        for (spec in models) {
+            for (abi in listOf("arm64-v8a", "x86_64")) {
+                assertTrue(ModelChoice.runsOn(spec, abi, 28), "${spec.id} $abi")
+                assertFalse(ModelChoice.runsOn(spec, abi, 27), "${spec.id} $abi on Android 8.1")
+            }
+            for (abi in listOf("armeabi-v7a", "x86", null)) assertFalse(ModelChoice.runsOn(spec, abi, 37), "${spec.id} $abi")
         }
     }
 }

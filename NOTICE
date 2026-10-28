@@ -165,6 +165,10 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   `KeyboardTheme`, `DefaultColors` and `Colors` (translucent window, blur
   radius; the strip is transparent on a translucent keyboard), `LatinIME`
   (window set-up and blur), the Appearance screen and the settings navigation.
+- 2026-10-28: models are offered for download only where their native code
+  ships (64-bit ARM or x86_64, Android 9 or newer); elsewhere the cards read
+  "Not available on this phone" and the Voice and Check keys say why
+  (`ModelChoice.runsHere`, `MissingModels`).
 
 Upstream copyright
 ------------------

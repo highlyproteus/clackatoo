@@ -9,6 +9,8 @@
     <string name="models_downloading">Downloading, %1$s of %2$s</string>
     <string name="models_ready">Ready</string>
     <string name="models_installing">Installing</string>
+    <string name="models_not_on_this_phone">Not available on this phone</string>
+    <string name="models_unsupported_phone">Voice typing and the grammar check need a 64-bit phone with Android 9 or newer.</string>
     <string name="models_failed_network">The download failed. Check your connection and try again.</string>
     <string name="models_failed_size">The downloaded file has the wrong size.</string>
     <string name="models_failed_digest">The downloaded file does not match its checksum.</string>

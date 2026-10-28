@@ -12,6 +12,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowBuild
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,6 +25,7 @@ class ModelDownloadsTest {
     private val app: Application get() = ApplicationProvider.getApplicationContext()
 
     @Test fun `without the companion app Download opens the releases page in the browser and fetches nothing`() {
+        ShadowBuild.setSupportedAbis(arrayOf("arm64-v8a"))
         ModelDownloads.init(app)
         assertFalse(ModelDownloads.isCompanionInstalled(app))
         ModelDownloads.download(app, Catalog.WHISPER_TINY.id)
@@ -32,6 +34,15 @@ class ModelDownloadsTest {
         assertEquals(Intent.ACTION_VIEW, opened.action)
         assertEquals(ModelsProtocol.RELEASES_URL, opened.dataString)
         assertNull(shadowOf(app).nextStartedService) // nothing was sent to a companion
+        assertEquals(ModelState.NotInstalled, ModelDownloads.state(Catalog.WHISPER_TINY.id).value)
+    }
+
+    @Test fun `on a phone that cannot run the models Download neither opens a page nor fetches anything`() {
+        ShadowBuild.setSupportedAbis(arrayOf("armeabi-v7a"))
+        ModelDownloads.init(app)
+        ModelDownloads.download(app, Catalog.WHISPER_TINY.id)
+        assertNull(shadowOf(app).nextStartedActivity)
+        assertNull(shadowOf(app).nextStartedService)
         assertEquals(ModelState.NotInstalled, ModelDownloads.state(Catalog.WHISPER_TINY.id).value)
     }
 

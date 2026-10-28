@@ -214,6 +214,7 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
             download is ModelState.Failed -> ModelCardState.Failed(download.message)
             status is ModelStatus.Installed -> ModelCardState.Installed
             status is ModelStatus.Broken -> ModelCardState.Failed(stringResource(R.string.assist_model_broken_status))
+            !ModelChoice.runsHere(spec) -> ModelCardState.Unsupported
             else -> ModelCardState.NotInstalled
         }
         ModelCard(

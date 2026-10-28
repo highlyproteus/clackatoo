@@ -361,6 +361,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         val offered = when (val plan = MissingModels.plan(kind, language.cleanUpWithS1Mini, store::status, ModelChoice::runsHere)) {
             is MissingModels.Plan.Offer -> plan.specs
             MissingModels.Plan.Broken, MissingModels.Plan.Nothing -> return message(titleRes, missingModelText(kind, missingRes), settings = true)
+            MissingModels.Plan.Unsupported -> return message(titleRes, ime.getString(R.string.models_unsupported_phone))
         }
         job = null
         recorder?.cancel()

@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import helium314.keyboard.latin.R
 
-/** What a model card shows: the same five states as a model has on the phone, without the details of how it got there. */
+/** What a model card shows: the states a model has on the phone, without the details of how it got there. */
 sealed interface ModelCardState {
     data object NotInstalled : ModelCardState
     data class Downloading(val bytes: Long, val total: Long) : ModelCardState
@@ -49,6 +49,8 @@ sealed interface ModelCardState {
     data object Installed : ModelCardState
     /** [message] is shown as it is. */
     data class Failed(val message: String) : ModelCardState
+    /** Not installed, and the phone cannot run it (no Download button). */
+    data object Unsupported : ModelCardState
 }
 
 /**
@@ -135,6 +137,11 @@ fun ModelCard(
                     else Text(stringResource(R.string.models_ready), style = MaterialTheme.typography.labelLarge)
                     ModelMenu(onDelete)
                 }
+                is ModelCardState.Unsupported -> Text(
+                    stringResource(R.string.models_not_on_this_phone),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 else -> {}
             }
         }

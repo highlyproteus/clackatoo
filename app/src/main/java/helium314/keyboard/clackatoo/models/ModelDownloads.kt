@@ -82,7 +82,7 @@ object ModelDownloads {
      * is already downloading or installing.
      */
     fun download(context: Context, id: String) {
-        val spec = ModelCatalog.byId(id) ?: return
+        val spec = ModelCatalog.byId(id)?.takeIf { ModelChoice.runsHere(it) } ?: return // a model this phone cannot load
         val app = context.applicationContext
         val states = holder(app)
         when (states.current(id)) {

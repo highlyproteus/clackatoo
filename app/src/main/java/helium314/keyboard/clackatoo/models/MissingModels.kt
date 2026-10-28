@@ -15,17 +15,20 @@ internal object MissingModels {
         data class Offer(val specs: List<ModelSpec>) : Plan
         /** A model of the role is installed but could not be loaded: tell the user to import it again, do not offer more. */
         data object Broken : Plan
+        /** No model of the role can run on this phone (CPU architecture or Android version): say so, offer nothing. */
+        data object Unsupported : Plan
         /** Nothing to offer. */
         data object Nothing : Plan
     }
 
     /**
-     * For [kind] (SPEECH or GRAMMAR): the recommended models that are not installed yet. Voice typing recommends Parakeet
-     * (live text), or Whisper small where Parakeet cannot run, and with it S1-mini when the language has its clean-up
-     * ([cleanUp]); the grammar check recommends Qwen3.5 0.8B.
+     * For [kind] (SPEECH or GRAMMAR): the recommended models that are not installed yet and can run here ([runs]).
+     * Voice typing recommends Parakeet (live text), or Whisper small where Parakeet cannot run, and with it S1-mini when
+     * the language has its clean-up ([cleanUp]); the grammar check recommends Qwen3.5 0.8B.
      */
     fun plan(kind: ModelKind, cleanUp: Boolean, status: (ModelSpec) -> ModelStatus, runs: (ModelSpec) -> Boolean): Plan {
         if (ModelCatalog.forKind(kind).any { status(it) is ModelStatus.Broken }) return Plan.Broken
+        if ((kind == ModelKind.SPEECH || kind == ModelKind.GRAMMAR) && ModelCatalog.forKind(kind).none(runs)) return Plan.Unsupported
         val wanted = when (kind) {
             ModelKind.SPEECH -> {
                 val speech = listOf(Catalog.PARAKEET_TDT_V3.id, Catalog.WHISPER_SMALL.id).mapNotNull { ModelCatalog.byId(it) }
@@ -35,7 +38,7 @@ internal object MissingModels {
             ModelKind.GRAMMAR -> listOfNotNull(ModelCatalog.byId(Catalog.QWEN3_5_0_8B.id))
             else -> emptyList()
         }
-        val offered = wanted.filter { status(it) is ModelStatus.Missing }
+        val offered = wanted.filter { status(it) is ModelStatus.Missing && runs(it) }
         return if (offered.isEmpty()) Plan.Nothing else Plan.Offer(offered)
     }
 }

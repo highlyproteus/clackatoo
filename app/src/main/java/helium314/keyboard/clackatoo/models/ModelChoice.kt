@@ -9,7 +9,6 @@ import helium314.keyboard.clackatoo.assist.AssistSettings
 import helium314.keyboard.clackatoo.assist.ModelCatalog
 import helium314.keyboard.clackatoo.assist.ModelKind
 import helium314.keyboard.clackatoo.assist.ModelSpec
-import helium314.keyboard.clackatoo.assist.SpeechEngine
 import helium314.keyboard.latin.utils.prefs
 
 /**
@@ -38,11 +37,19 @@ object ModelChoice {
 
     internal fun isValidChoice(kind: ModelKind, id: String): Boolean = ModelCatalog.byId(id)?.kind == kind
 
-    /** False for models whose engine cannot run on this phone's CPU architecture (Parakeet needs arm64 or x86_64). */
-    fun runsHere(spec: ModelSpec): Boolean = runsOn(spec, Build.SUPPORTED_ABIS.firstOrNull())
+    /**
+     * False when no model can run on this phone: the native runtimes of every engine (`ml` for Whisper and the text
+     * models, `asr` for Parakeet) are only built for [MODEL_ABIS] and for API [MODEL_MIN_SDK] and up, so on other phones
+     * a downloaded model could never load. All engines share this today; [spec] is kept so one can differ later.
+     */
+    fun runsHere(spec: ModelSpec): Boolean = runsOn(spec, Build.SUPPORTED_ABIS.firstOrNull(), Build.VERSION.SDK_INT)
 
-    internal fun runsOn(spec: ModelSpec, abi: String?): Boolean = when (spec.engine) {
-        SpeechEngine.PARAKEET -> abi == "arm64-v8a" || abi == "x86_64"
-        else -> true
-    }
+    @Suppress("UNUSED_PARAMETER")
+    internal fun runsOn(spec: ModelSpec, abi: String?, sdk: Int): Boolean = abi in MODEL_ABIS && sdk >= MODEL_MIN_SDK
+
+    /** The `abiFilters` of `ml/build.gradle.kts` and `asr/build.gradle.kts`; change them together. */
+    private val MODEL_ABIS = setOf("arm64-v8a", "x86_64")
+
+    /** Both native builds use `-DANDROID_PLATFORM=android-28`; older systems cannot load them. */
+    private const val MODEL_MIN_SDK = 28
 }

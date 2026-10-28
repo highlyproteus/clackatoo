@@ -61,4 +61,15 @@ class MissingModelsTest {
         assertEquals(MissingModels.Plan.Nothing, MissingModels.plan(ModelKind.CLEAN_UP, true, status, everywhere))
         assertEquals(MissingModels.Plan.Nothing, MissingModels.plan(ModelKind.VAD, true, status, everywhere))
     }
+
+    @Test fun `on a phone that runs no model nothing is offered and the user is told why`() {
+        val nowhere = { _: ModelSpec -> false }
+        assertEquals(MissingModels.Plan.Unsupported, MissingModels.plan(ModelKind.SPEECH, true, status, nowhere))
+        assertEquals(MissingModels.Plan.Unsupported, MissingModels.plan(ModelKind.GRAMMAR, false, status, nowhere))
+    }
+
+    @Test fun `a recommended model that cannot run here is never offered`() {
+        val noCleanUp = { spec: ModelSpec -> spec.id != "s1-mini" }
+        assertEquals(listOf("parakeet-tdt-0.6b-v3"), ids(MissingModels.plan(ModelKind.SPEECH, true, status, noCleanUp)))
+    }
 }
