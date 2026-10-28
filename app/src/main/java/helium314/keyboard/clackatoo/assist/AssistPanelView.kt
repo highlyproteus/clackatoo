@@ -19,6 +19,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -46,7 +47,17 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         fun onOpenSettings()
         /** The panel was hidden, or it or a view above it was hidden or detached (the keyboard switched to emoji, clipboard, toolbar-only mode...). */
         fun onPanelUnavailable()
+        /** "Download" in the needs-a-model sheet, with the ids of the models that are ticked. */
+        fun onSheetDownload(ids: List<String>) {}
+        /** "Cancel" while the sheet's downloads run: stop them all. */
+        fun onSheetCancel() {}
     }
+
+    /** One model offered by the needs-a-model sheet. */
+    class SheetItem(val id: String, val label: String, val sizeBytes: Long)
+
+    /** How the sheet's downloads are going. */
+    enum class SheetProgress { RUNNING, DONE, FAILED }
 
     var listener: Listener? = null
 
@@ -61,6 +72,14 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     private val preview = TextView(context)
     private val buttons = LinearLayout(context)
     private val content = LinearLayout(context)
+    /** The needs-a-model sheet: a description, one row per model (tick box, name and size, later its progress) and the total. */
+    private val sheetScroll = ScrollView(context)
+    private val sheetBox = LinearLayout(context)
+    private val sheetDescription = TextView(context)
+    private val sheetRows = LinearLayout(context)
+    private val sheetTotal = TextView(context)
+    private val sheetChecks = LinkedHashMap<String, CheckBox>()
+    private val sheetStatus = LinkedHashMap<String, TextView>()
 
     init {
         visibility = GONE
@@ -93,6 +112,15 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         preview.setTextIsSelectable(false)
         previewScroll.addView(preview, ViewGroup.LayoutParams(-1, -2))
         body.addView(previewScroll, LayoutParams(-1, -1))
+        sheetBox.orientation = LinearLayout.VERTICAL
+        sheetDescription.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        sheetRows.orientation = LinearLayout.VERTICAL
+        sheetTotal.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        sheetBox.addView(sheetDescription, LinearLayout.LayoutParams(-1, -2))
+        sheetBox.addView(sheetRows, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        sheetBox.addView(sheetTotal, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        sheetScroll.addView(sheetBox, ViewGroup.LayoutParams(-1, -2))
+        body.addView(sheetScroll, LayoutParams(-1, -1))
 
         buttons.orientation = LinearLayout.HORIZONTAL
         content.addView(buttons, LinearLayout.LayoutParams(-1, dp(48)))
@@ -120,6 +148,13 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         message.setTextColor(textColor)
         preview.setTextColor(textColor)
         liveText.setTextColor(textColor)
+        sheetDescription.setTextColor(textColor)
+        sheetTotal.setTextColor(colors.get(ColorType.KEY_HINT_TEXT))
+        for (box in sheetChecks.values) {
+            box.setTextColor(textColor)
+            box.buttonTintList = android.content.res.ColorStateList.valueOf(accent)
+        }
+        for (status in sheetStatus.values) status.setTextColor(colors.get(ColorType.KEY_HINT_TEXT))
         meter.color = accent
         progress.indeterminateTintList = android.content.res.ColorStateList.valueOf(accent)
         // the keyboard's font: Clackatoo's Inter (Medium for the title), or the font the user picked
@@ -158,7 +193,10 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         }
     }
 
-    private fun show(titleText: CharSequence, showMeter: Boolean, showProgress: Boolean, messageText: CharSequence?, showPreview: Boolean) {
+    private fun show(
+        titleText: CharSequence, showMeter: Boolean, showProgress: Boolean, messageText: CharSequence?, showPreview: Boolean,
+        showSheet: Boolean = false,
+    ) {
         styleForTheme()
         // keep the buttons clear of the navigation bar that the keyboard window draws at its bottom
         val navigationBar = ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
@@ -169,6 +207,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         message.visibility = if (messageText != null) VISIBLE else GONE
         message.text = messageText
         previewScroll.visibility = if (showPreview) VISIBLE else GONE
+        sheetScroll.visibility = if (showSheet) VISIBLE else GONE
         visibility = VISIBLE
     }
 
@@ -246,6 +285,76 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         else setButtons(close)
     }
 
+    /**
+     * The "needs a model" sheet: [items] with a ticked box each, their total size, and Not now / Download. Without the
+     * companion app ([companionInstalled] false) the main button reads "Get Clackatoo Models" and opens its download page.
+     */
+    fun showModelSheet(titleText: CharSequence, description: CharSequence, items: List<SheetItem>, companionInstalled: Boolean) {
+        sheetDescription.text = description
+        sheetRows.removeAllViews()
+        sheetChecks.clear()
+        sheetStatus.clear()
+        fun updateTotal() {
+            val bytes = items.filter { sheetChecks[it.id]?.isChecked == true }.sumOf { it.sizeBytes }
+            sheetTotal.text = if (companionInstalled) context.getString(R.string.models_sheet_total, android.text.format.Formatter.formatShortFileSize(context, bytes))
+            else context.getString(R.string.models_sheet_companion_hint)
+        }
+        for (item in items) {
+            val box = CheckBox(context)
+            box.text = context.getString(R.string.models_sheet_item, item.label, android.text.format.Formatter.formatShortFileSize(context, item.sizeBytes))
+            box.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            box.isChecked = true
+            box.isFocusable = false
+            box.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+            box.setOnCheckedChangeListener { _, _ -> updateTotal() }
+            sheetChecks[item.id] = box
+            sheetRows.addView(box, LinearLayout.LayoutParams(-1, -2))
+        }
+        show(titleText, false, false, null, false, showSheet = true)
+        updateTotal()
+        sheetTotal.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+        sheetDescription.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+        sheetScroll.scrollTo(0, 0)
+        setButtons(
+            button(context.getString(R.string.models_sheet_not_now), false) { listener?.onClose() },
+            button(context.getString(if (companionInstalled) R.string.models_download else R.string.models_sheet_get_companion), true) {
+                val ids = sheetChecks.filter { it.value.isChecked }.keys.toList()
+                if (companionInstalled && ids.isEmpty()) sheetTotal.text = context.getString(R.string.models_sheet_choose_one)
+                else listener?.onSheetDownload(ids.ifEmpty { items.map { it.id } })
+            },
+        )
+    }
+
+    /** The sheet while its downloads run (or after they ended): one status line per model, and buttons that fit [progress]. */
+    fun showSheetProgress(titleText: CharSequence, items: List<SheetItem>, statuses: Map<String, String>, progress: SheetProgress) {
+        sheetRows.removeAllViews()
+        sheetChecks.clear()
+        sheetStatus.clear()
+        for (item in items) {
+            val label = TextView(context)
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            label.setTextColor(textColor)
+            label.text = item.label
+            label.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+            val status = TextView(context)
+            status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            status.text = statuses[item.id].orEmpty()
+            status.typeface = KeyboardTypeface.resolve(null, Typeface.DEFAULT)
+            sheetStatus[item.id] = status
+            sheetRows.addView(label, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            sheetRows.addView(status, LinearLayout.LayoutParams(-1, -2))
+        }
+        sheetDescription.text = ""
+        sheetTotal.text = if (progress == SheetProgress.DONE) context.getString(R.string.models_sheet_done) else ""
+        show(titleText, false, false, null, false, showSheet = true)
+        val close = button(context.getString(R.string.assist_close), progress == SheetProgress.DONE) { listener?.onClose() }
+        when (progress) {
+            SheetProgress.RUNNING -> setButtons(button(context.getString(R.string.assist_cancel), false) { listener?.onSheetCancel() }, close)
+            SheetProgress.DONE -> setButtons(close)
+            SheetProgress.FAILED -> setButtons(close, button(context.getString(R.string.models_download), true) { listener?.onSheetDownload(items.map { it.id }) })
+        }
+    }
+
     /** Set while the listener is told that the panel is gone: the view may still have its window info and parents then. */
     private var beingHidden = false
 
@@ -300,6 +409,9 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
 
     fun hide() {
         visibility = GONE
+        sheetRows.removeAllViews()
+        sheetChecks.clear()
+        sheetStatus.clear()
         preview.text = ""
         liveText.text = ""
         meter.clear()

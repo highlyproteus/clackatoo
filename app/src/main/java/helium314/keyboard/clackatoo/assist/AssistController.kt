@@ -6,9 +6,13 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
+import android.text.format.Formatter
 import android.os.Handler
 import android.os.Looper
+import helium314.keyboard.clackatoo.catalog.Catalog
+import helium314.keyboard.clackatoo.models.ModelChoice
+import helium314.keyboard.clackatoo.models.ModelDownloads
+import helium314.keyboard.clackatoo.models.ModelState
 import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.RichInputMethodManager
@@ -23,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -48,7 +53,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     /** Increases whenever the editor, keyboard visibility or language changes; results of older work are dropped. */
     private var session = 0
 
-    private enum class Mode { NONE, LISTENING, WORKING, PREVIEW, MESSAGE }
+    private enum class Mode { NONE, LISTENING, WORKING, PREVIEW, MESSAGE, SHEET }
     private var mode = Mode.NONE
     internal val isListening get() = mode == Mode.LISTENING
     internal val isIdle get() = mode == Mode.NONE
@@ -56,6 +61,10 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     private class PendingCorrection(val target: CheckTarget, val corrected: String)
     private var pending: PendingCorrection? = null
+    /** The models offered by the needs-a-model sheet that is showing, and the job that follows their downloads. */
+    private var sheetSpecs: List<ModelSpec> = emptyList()
+    private var sheetTitleRes = 0
+    private var sheetJob: Job? = null
 
     fun attachPanel(view: AssistPanelView) {
         panel?.listener = null
@@ -76,8 +85,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (info == null || InputTypeUtils.isAnyPasswordInputType(info.inputType)) return
         val language = currentLanguage() ?: return message(R.string.assist_voice_title, unsupportedLanguageText())
         this.language = language
-        val speech = speechModel()
-            ?: return message(R.string.assist_voice_title, missingModelText(ModelKind.SPEECH, R.string.assist_speech_model_missing), settings = true)
+        val speech = speechModel() ?: return missingModel(ModelKind.SPEECH, language, R.string.assist_voice_title, R.string.assist_speech_model_missing)
         if (!AudioRecorderAvailability.hasPermission(ime)) {
             VoicePermissionActivity.start(ime)
             return
@@ -94,17 +102,15 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     }
 
     /**
-     * The speech model to use: the first one of the catalog (Parakeet before Whisper) that is installed and whose engine
-     * runs on this phone. A Parakeet file that failed to load is marked broken, so the next try finds Whisper.
+     * The speech model to use: the one chosen in Settings if it is installed (and meant for the current language), else
+     * the first installed one of the catalog (Parakeet before Whisper), whose engine runs on this phone. [only] limits
+     * the engine. A file that failed to load is marked broken, so the next try finds another model.
      */
-    internal fun speechModel(only: SpeechEngine? = null): ModelSpec? = ModelCatalog.all.firstOrNull {
-        it.kind == ModelKind.SPEECH && (only == null || it.engine == only) &&
-            store.status(it) is ModelStatus.Installed && engineRuns(it.engine)
-    }
-
-    private fun engineRuns(engine: SpeechEngine?) = when (engine) {
-        SpeechEngine.PARAKEET -> Build.SUPPORTED_ABIS.firstOrNull().let { it == "arm64-v8a" || it == "x86_64" }
-        else -> true
+    internal fun speechModel(only: SpeechEngine? = null): ModelSpec? {
+        val code = language?.code ?: currentLanguage()?.code
+        return store.best(ModelKind.SPEECH, ModelChoice.selectedId(ime, ModelKind.SPEECH), code) {
+            (only == null || it.engine == only) && ModelChoice.runsHere(it)
+        }
     }
 
     /**
@@ -267,11 +273,18 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
     }
 
+    /** Debug builds' WAV entry point: the chosen speech model decides between the live path and the Whisper path. */
+    fun debugTranscribe(pcm: ShortArray, language: AssistLanguage) {
+        this.language = language // the model is chosen for this language
+        if (speechModel()?.engine == SpeechEngine.PARAKEET) debugLive(pcm, language) else transcribeAndInsert(pcm, language)
+    }
+
     /**
      * Debug builds' stand-in for the microphone with Parakeet: runs the live path with [pcm] fed in blocks of 1,600
      * samples every 100 ms, and presses Stop when it is all sent.
      */
     fun debugLive(pcm: ShortArray, language: AssistLanguage) {
+        this.language = language
         val speech = speechModel()?.takeIf { it.engine == SpeechEngine.PARAKEET }
             ?: return message(R.string.assist_voice_title, missingModelText(ModelKind.SPEECH, R.string.assist_speech_model_missing), settings = true)
         val info = ime.currentInputEditorInfo
@@ -309,7 +322,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         val multiLine = FieldKind.acceptsLineBreaks(info.inputType)
         val maxChars = OutputSanitizer.maxCharsForClip(samples)
         var text = OutputSanitizer.clean(text, multiLine, maxChars)
-        val cleanUp = store.best(ModelKind.CLEAN_UP)
+        val cleanUp = store.best(ModelKind.CLEAN_UP, ModelChoice.selectedId(ime, ModelKind.CLEAN_UP), language.code, ModelChoice::runsHere)
         if (text.isNotBlank() && language.cleanUpWithS1Mini && cleanUp != null && AssistSettings.s1MiniEnabled(ime.prefs())) {
             panel?.showWorking(ime.getString(R.string.assist_cleaning))
             try {
@@ -337,6 +350,85 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (prepared.isNotEmpty()) ime.onTextInput(prepared)
     }
 
+    // ------------------------------------------------------------------ needs-a-model sheet
+
+    /**
+     * The feature has no model. A model that is installed but could not be loaded keeps the old "import it again" message;
+     * otherwise the panel offers to download the recommended models (the sheet), or to get the Clackatoo Models app.
+     */
+    private fun missingModel(kind: ModelKind, language: AssistLanguage, titleRes: Int, missingRes: Int) {
+        val offered = ModelCatalog.recommendedFor(kind).filter {
+            store.status(it) is ModelStatus.Missing && (it.kind != ModelKind.CLEAN_UP || language.cleanUpWithS1Mini)
+        }
+        val broken = ModelCatalog.forKind(kind).any { store.status(it) is ModelStatus.Broken }
+        if (broken || offered.isEmpty()) return message(titleRes, missingModelText(kind, missingRes), settings = true)
+        job = null
+        recorder?.cancel()
+        recorder = null
+        dropLive()
+        pending = null
+        sheetJob?.cancel()
+        mode = Mode.SHEET
+        sheetSpecs = offered
+        sheetTitleRes = if (kind == ModelKind.SPEECH) R.string.models_sheet_voice_title else R.string.models_sheet_grammar_title
+        val text = if (kind == ModelKind.SPEECH) R.string.models_sheet_voice_text else R.string.models_sheet_grammar_text
+        panel?.showModelSheet(ime.getString(sheetTitleRes), ime.getString(text), sheetItems(offered), ModelDownloads.isCompanionInstalled(ime))
+    }
+
+    private fun sheetItems(specs: List<ModelSpec>) = specs.map { AssistPanelView.SheetItem(it.id, sheetLabel(it), it.sizeBytes) }
+
+    private fun sheetLabel(spec: ModelSpec): String = ime.getString(
+        when (spec.id) {
+            Catalog.PARAKEET_TDT_V3.id -> R.string.models_label_parakeet
+            Catalog.S1_MINI.id -> R.string.models_label_clean_up
+            Catalog.QWEN3_5_0_8B.id -> R.string.models_label_grammar
+            else -> R.string.models_label_other
+        }
+    )
+
+    override fun onSheetDownload(ids: List<String>) {
+        if (mode != Mode.SHEET) return
+        val chosen = sheetSpecs.filter { it.id in ids }
+        if (chosen.isEmpty()) return
+        // without the companion app this opens its download page in the browser; nothing is downloaded by the keyboard
+        if (!ModelDownloads.isCompanionInstalled(ime)) {
+            ModelDownloads.download(ime, chosen.first().id)
+            return close()
+        }
+        sheetSpecs = chosen
+        chosen.forEach { ModelDownloads.download(ime, it.id) }
+        sheetJob?.cancel()
+        sheetJob = scope.launch {
+            combine(chosen.map { ModelDownloads.state(it.id) }) { it.toList() }.collect { states ->
+                if (mode != Mode.SHEET) return@collect
+                val statuses = chosen.zip(states).associate { (spec, state) -> spec.id to stateText(state) }
+                val progress = when {
+                    states.any { it is ModelState.Failed } -> AssistPanelView.SheetProgress.FAILED
+                    states.all { it is ModelState.Installed } -> AssistPanelView.SheetProgress.DONE
+                    states.any { it is ModelState.NotInstalled } -> AssistPanelView.SheetProgress.FAILED // cancelled elsewhere
+                    else -> AssistPanelView.SheetProgress.RUNNING
+                }
+                panel?.showSheetProgress(ime.getString(sheetTitleRes), sheetItems(chosen), statuses, progress)
+            }
+        }
+    }
+
+    override fun onSheetCancel() {
+        if (mode != Mode.SHEET) return
+        sheetSpecs.forEach { ModelDownloads.cancel(ime, it.id) }
+        close()
+    }
+
+    private fun stateText(state: ModelState): String = when (state) {
+        ModelState.NotInstalled -> ime.getString(R.string.models_failed_other)
+        is ModelState.Downloading -> ime.getString(
+            R.string.models_downloading, Formatter.formatShortFileSize(ime, state.bytes), Formatter.formatShortFileSize(ime, state.total),
+        )
+        ModelState.Installing -> ime.getString(R.string.models_installing)
+        ModelState.Installed -> ime.getString(R.string.models_ready)
+        is ModelState.Failed -> state.message
+    }
+
     // ------------------------------------------------------------------ grammar check
 
     fun onCheckKey() {
@@ -347,8 +439,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         val info = ime.currentInputEditorInfo
         if (SensitiveField.isSensitive(info)) return message(R.string.assist_check_title, ime.getString(R.string.assist_check_private))
         val language = currentLanguage() ?: return message(R.string.assist_check_title, unsupportedLanguageText())
-        val grammar = store.best(ModelKind.GRAMMAR)
-            ?: return message(R.string.assist_check_title, missingModelText(ModelKind.GRAMMAR, R.string.assist_grammar_model_missing), settings = true)
+        val grammar = store.best(ModelKind.GRAMMAR, ModelChoice.selectedId(ime, ModelKind.GRAMMAR), language.code, ModelChoice::runsHere)
+            ?: return missingModel(ModelKind.GRAMMAR, language, R.string.assist_check_title, R.string.assist_grammar_model_missing)
         val target = when (val read = readTarget()) {
             is CheckTarget.Result.Found -> read.target
             CheckTarget.Result.Empty -> return message(R.string.assist_check_title, ime.getString(R.string.assist_check_empty))
@@ -474,6 +566,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     fun close() {
         job?.cancel()
         job = null
+        sheetJob?.cancel()
+        sheetJob = null
         recorder?.cancel() // drops the audio
         recorder = null
         dropLive()
@@ -510,6 +604,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         recorder = null
         dropLive()
         pending = null
+        sheetJob?.cancel()
+        sheetJob = null
         mode = Mode.MESSAGE
         panel?.showMessage(ime.getString(titleRes), text, settings)
     }
