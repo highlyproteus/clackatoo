@@ -1,4 +1,5 @@
-# The unit tests, as upstream runs them (offline; skips the tests known to fail). No native code is built.
+# The unit tests, as upstream runs them (offline; skips the tests known to fail), and a host build of the
+# native dictionary engine that decodes a few synthetic swipes (tools/gesture-eval).
 name: Test
 
 on:
@@ -30,3 +31,23 @@ jobs:
         with:
           name: reports
           path: '*/build/reports'
+
+  gesture-selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Provides the JNI headers the engine sources include (no JVM is linked or started).
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Build the gesture harness
+        run: |
+          cmake -S tools/gesture-eval -B build/gesture-eval -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/gesture-eval -j"$(nproc)"
+
+      - name: Swipe a few words through the built-in decoder
+        run: build/gesture-eval/gesture_eval --dict app/src/main/assets/dicts/main_en-US.dict --selftest

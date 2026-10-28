@@ -7,8 +7,11 @@ GitHub releases. Design: square, not pills (6dp corner radius for keys and panel
 ## Rules
 
 1. **GPL-3.0-only.** Keep LICENSE and every upstream copyright header. New files get
-   `SPDX-License-Identifier: GPL-3.0-only`. Keep the modifications notice in README.md and NOTICE accurate
-   (GPL-3.0 section 5a): add a dated line to NOTICE for every user-visible modification.
+   `SPDX-License-Identifier: GPL-3.0-only`. The one exception is the swipe (gesture) decoder in
+   `app/src/main/jni/src/suggest/policyimpl/gesture/`: its files are Apache-2.0 (`Copyright (C) 2026 The Clackatoo
+   Authors`, `SPDX-License-Identifier: Apache-2.0`) so that other AOSP-derived keyboards can reuse them. Keep the
+   modifications notice in README.md and NOTICE accurate (GPL-3.0 section 5a): add a dated line to NOTICE for every
+   user-visible modification.
 2. **Never add the `INTERNET` permission**, or any network-capable component, library or dependency (the llama.cpp
    build in `ml/` has its HTTP client, server and tools switched off; keep it that way). The release workflow fails if
    the APK asks for INTERNET; check locally with `aapt2 dump permissions <apk>`.
@@ -32,13 +35,14 @@ GitHub releases. Design: square, not pills (6dp corner radius for keys and panel
 6. **No user-supplied native library in any build type.** `BuildConfig.ALLOW_USER_LIBRARY` is false for every build
    type, and `UserLibraryPolicy` (checked in `JniUtils` and the advanced settings screen) keeps HeliBoard's "load
    gesture typing library" closed: such a library would run inside the keyboard process and void the isolation
-   above. Releases are `assembleNouserlib`. Never set the flag to true.
+   above. Releases are `assembleNouserlib`. Never set the flag to true. Swipe typing does not need one: the built-in
+   `jni_latinime` decodes gestures (`policyimpl/gesture/`), and `JniUtils` loads nothing else.
 7. **Versions.** `versionName` is Clackatoo's own (1.0.0, ...) and must equal the release tag without "v".
    `versionCode` stays in HeliBoard's numbering (`AppUpgrade` migrates settings by comparing it with upstream codes):
    one more per release, above the merged upstream release's code and below upstream's next release.
 8. **Signing.** Releases are signed only by the Release workflow, with the key `tools/make-release-key` put in the
    repository secrets. Never create, read, copy or replace the release key; the owner runs that script.
-9. Non-goals until a task says otherwise: GIFs, emoji redesign, swipe typing.
+9. Non-goals until a task says otherwise: GIFs, emoji redesign.
 
 ## Build, install, test
 
@@ -67,6 +71,22 @@ $ADB shell settings put secure show_ime_with_hard_keyboard 1    # restore to 0 w
 Test by tapping keys (`$ADB shell input tap X Y`, key centres from a screenshot); `input text` bypasses the
 IME and proves nothing. Read the field's text with `uiautomator dump`. Put UI screenshots in `docs/screenshots/`.
 Debug builds change the label to "Clackatoo debug".
+
+## Swipe typing
+
+The native dictionary engine (`app/src/main/jni`) already captured and sampled strokes; Clackatoo adds the decoder
+policy in `app/src/main/jni/src/suggest/policyimpl/gesture/` (Apache-2.0). Its constants are `GestureParams`. To change
+it, build the host harness and run it on the HeliBoard Gesture Data Project (downloaded, never committed; needs `zstd`):
+
+```sh
+cmake -S tools/gesture-eval -B build/gesture-eval -DCMAKE_BUILD_TYPE=Release && cmake --build build/gesture-eval -j
+build/gesture-eval/gesture_eval --dict app/src/main/assets/dicts/main_en-US.dict --selftest   # also run by CI
+python3 tools/gesture-eval/run_eval.py --binary build/gesture-eval/gesture_eval \
+    --dict app/src/main/assets/dicts/main_en-US.dict --split dev --jobs 4 --param LANGUAGE_WEIGHT=8
+```
+
+Tune on `--split dev`; run `--split test` once per change you keep. `run_eval.py` prints top-1/top-3 next to Google's
+decoder on the same strokes and the decoding time.
 
 ## Style notes
 

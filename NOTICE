@@ -80,6 +80,16 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   replaced (unit tests; signed releases), HeliBoard's issue, discussion and
   pull-request templates removed, HeliBoard's CONTRIBUTING.md and AI_USAGE.md
   moved to docs/.
+- 2026-10-27: added swipe typing without any closed-source library. HeliBoard's
+  native engine already captured strokes and computed per-point key
+  probabilities; only the decoder that turns them into words came from Google's
+  proprietary library. Clackatoo has its own, new Apache-2.0 decoder in
+  `app/src/main/jni/src/suggest/policyimpl/gesture/`, replacing the factory hook
+  for the library; `JniUtils` no longer tries to load `libjni_latinimegoogle.so`;
+  the gesture settings no longer offer the (unsupported) space-aware option. The
+  engine also builds on a host for testing (`tools/gesture-eval/`, never shipped;
+  small additive changes to `ProximityInfo`, `Dictionary` and `SuggestionResults`
+  for that, and a larger node cache for gestures in `DicNodesCache`).
 
 Upstream copyright
 ------------------
@@ -141,3 +151,7 @@ Spanish test recordings were made with the Piper text-to-speech voices
 en_US-lessac-medium and es_ES-davefx-medium (https://github.com/rhasspy/piper-voices).
 The grammar models compared in ml/README.md (Qwen3-0.6B, Qwen3-1.7B, Granite 4.0
 350M; all Apache-2.0) are not used by the app.
+The swipe decoder was tuned and tested on the HeliBoard Gesture Data Project
+(https://codeberg.org/eclexic/heliboard-gesture-data, CC BY-SA 4.0), which
+tools/gesture-eval/run_eval.py downloads and checks by SHA-256; none of that data
+is shipped or committed.

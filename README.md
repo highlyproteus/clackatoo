@@ -18,6 +18,9 @@ recognition and grammar correction all run on the device.
   palette. The keyboard follows palette and dark-theme changes without a restart.
 - **Voice typing.** Speech to text with Whisper (English and Spanish). English transcripts are cleaned up by S1-mini by
   Superwhisper (filler words, self-corrections, punctuation, numbers).
+- **Swipe typing.** Decoded on the device by the keyboard's own dictionary engine, with no closed-source library. In a
+  host test on HeliBoard's gesture data it picks the intended word first for 82% of swipes and among the top three
+  for 92% (Google's decoder: 86% and 96%). Settings > Gesture typing.
 - **Grammar check.** Corrects the selection or the whole field with Qwen3.5 0.8B. Changes are shown highlighted and
   applied only when accepted.
 - **Everything from HeliBoard.** Layouts, dictionaries, clipboard history, colour themes and the Material, Holo and
@@ -73,7 +76,8 @@ white where a system colour would not meet it.
 - **Microphone.** `RECORD_AUDIO` is requested on first use of the Voice key. Audio is held in memory only, and
   recording stops when the voice panel is hidden. Voice and Check are disabled in password fields.
 - **No external native code.** HeliBoard's option to load a user-supplied gesture-typing library is removed in every
-  build type, so no third-party code runs inside the keyboard process. As a result, swipe typing is not available.
+  build type, so no third-party code runs inside the keyboard process. Swipe typing uses a decoder built into the
+  keyboard instead (`app/src/main/jni/src/suggest/policyimpl/gesture/`, Apache-2.0).
 - **Clipboard.** Clips marked sensitive (`android.content.extra.IS_SENSITIVE`) are not stored, and clipboard history
   is excluded from backups.
 - **System-app installs.** When preinstalled in a ROM, the keyboard works before the first unlock while clipboard
@@ -107,6 +111,7 @@ signing certificate before publishing. Signing is configured once with `tools/ma
 ## License
 
 GPL-3.0-only, as HeliBoard; see [LICENSE](LICENSE). Portions from AOSP are Apache-2.0
-([LICENSE-Apache-2.0](LICENSE-Apache-2.0)). The bundled Inter font is under the SIL Open Font License 1.1
+([LICENSE-Apache-2.0](LICENSE-Apache-2.0)), as are the swipe decoder's files in
+`app/src/main/jni/src/suggest/policyimpl/gesture/`. The bundled Inter font is under the SIL Open Font License 1.1
 ([third_party/inter/OFL.txt](third_party/inter/OFL.txt)). Modifications to HeliBoard (GPL-3.0 section 5a) and
 third-party notices are listed in [NOTICE](NOTICE).
