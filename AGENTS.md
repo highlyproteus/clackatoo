@@ -119,7 +119,7 @@ decoder on the same strokes and the decoding time.
   hairline border. The switch "Glass background" (`GlassStyle.PREF_GLASS`, default on) falls back to opaque Material 3
   surfaces. The alphas are fixed because text must keep 4.5:1 over any wallpaper, in light and dark mode;
   `GlassStyleTest` checks it, so change the alphas only together with that test. Text directly on the window uses
-  `onSurface`; `onSurfaceVariant` only inside panels. In glass mode the theme's `background` colour is transparent so
+  `onSurface`; `onSurfaceVariant` only inside panels. Models are shown as `ModelCard`s (Voice typing, Grammar check). In glass mode the theme's `background` colour is transparent so
   Scaffolds do not paint over the wallpaper.
 - Key labels use Inter (`app/src/main/assets/fonts/`, Regular and Medium; SIL OFL, licence in
   `third_party/inter/`). Medium replaces bold (`KeyboardTypeface.resolve`). A user-selected custom font still wins.

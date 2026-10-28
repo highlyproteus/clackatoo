@@ -133,8 +133,15 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   Changed: `SearchScreen`, `Preference`, `Theme`, `SettingsActivity`,
   `SettingsNavHost`, `MainSettingsScreen`, `WelcomeWizard`,
   `ThreeButtonAlertDialog` and the rows of the language, dictionary, personal
-  dictionary, colour and subtype screens. No preference key changed. The
-  Material 3 default shapes replace the square 6dp/4dp design rule.
+  dictionary, colour and subtype screens. The Voice typing and Grammar check
+  screens show each model as a card (neutral icon, maker as text, size, radio
+  choice per role, Download / progress and Cancel / Ready with a delete menu,
+  "Get Clackatoo Models" when the companion app is missing) on the
+  `ModelDownloads` and `ModelChoice` API; "Import model file" stays. The first
+  model of a fresh install is no longer refused for "not enough storage"
+  (`ModelStore` checked the free space of a folder that did not exist yet).
+  No preference key changed. The Material 3 default shapes replace the square
+  6dp/4dp design rule.
 
 Upstream copyright
 ------------------

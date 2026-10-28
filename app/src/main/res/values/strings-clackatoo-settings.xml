@@ -26,8 +26,15 @@
     <string name="glass_background_summary">Show your wallpaper behind the settings. Off gives solid surfaces.</string>
 
     <!-- model cards (Voice typing, Grammar check) -->
-    <string name="model_card_ready">Ready</string>
-    <string name="model_card_installing">Installing…</string>
     <string name="model_card_progress">%1$s of %2$s</string>
     <string name="model_card_more">More options</string>
+    <string name="model_card_by">by %1$s</string>
+    <string name="model_desc_live">Shows your words while you speak</string>
+    <string name="model_desc_speech">Turns speech into text when you tap Stop</string>
+    <string name="model_desc_cleanup">Removes ums and fixes punctuation</string>
+    <string name="model_desc_grammar">Finds and fixes mistakes</string>
+    <string name="assist_speech_models">Speech models</string>
+    <string name="assist_cleanup_models">Clean-up</string>
+    <string name="assist_grammar_models">Grammar models</string>
+    <string name="assist_options">Options</string>
 </resources>

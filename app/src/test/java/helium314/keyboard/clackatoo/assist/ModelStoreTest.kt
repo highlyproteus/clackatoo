@@ -174,6 +174,15 @@ class ModelStoreTest {
         assertTrue(dir.listFiles().isNullOrEmpty())
     }
 
+    @Test fun `the first model goes into a model folder that does not exist yet, with the real free-space check`() {
+        val fresh = File(dir, "not-created-yet")
+        val first = ModelStore(fresh, object : BrokenMarks {
+            override fun get(fileName: String) = marks[fileName]
+            override fun set(fileName: String, value: String?) { if (value == null) marks.remove(fileName) else marks[fileName] = value }
+        }, catalog)
+        assertIs<ImportResult.Imported>(first.import("speech.bin", ByteArrayInputStream(speechBytes)))
+    }
+
     @Test fun `a read error leaves nothing behind and keeps the old model`() {
         import("speech.bin", speechBytes)
         val failing = object : InputStream() {

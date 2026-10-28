@@ -70,6 +70,8 @@ fun ModelCard(
     onSelect: () -> Unit = {},
 ) {
     val installed = state is ModelCardState.Installed
+    // a long label ("Get Clackatoo Models") would squeeze the name, so it goes below the text instead of beside it
+    val buttonBelow = downloadLabel.length > SHORT_LABEL
     val select = if (installed && selectable) Modifier.clickable(role = Role.RadioButton, onClick = onSelect) else Modifier
     SettingsPanel(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
@@ -97,7 +99,7 @@ fun ModelCard(
                     is ModelCardState.Installing -> {
                         LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 10.dp))
                         Text(
-                            stringResource(R.string.model_card_installing),
+                            stringResource(R.string.models_installing),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -112,13 +114,15 @@ fun ModelCard(
                         )
                     else -> {}
                 }
+                if (buttonBelow && (state is ModelCardState.NotInstalled || state is ModelCardState.Failed))
+                    FilledTonalButton(onClick = onDownload, modifier = Modifier.padding(top = 10.dp)) { Text(downloadLabel) }
             }
             when (state) {
                 is ModelCardState.NotInstalled, is ModelCardState.Failed ->
-                    FilledTonalButton(onClick = onDownload) { Text(downloadLabel) }
+                    if (!buttonBelow) FilledTonalButton(onClick = onDownload) { Text(downloadLabel) }
                 is ModelCardState.Installed -> {
                     if (selectable) RadioButton(selected = selected, onClick = onSelect)
-                    else Text(stringResource(R.string.model_card_ready), style = MaterialTheme.typography.labelLarge)
+                    else Text(stringResource(R.string.models_ready), style = MaterialTheme.typography.labelLarge)
                     ModelMenu(onDelete)
                 }
                 else -> {}
@@ -126,6 +130,8 @@ fun ModelCard(
         }
     }
 }
+
+private const val SHORT_LABEL = 12
 
 @Composable
 private fun DownloadProgress(state: ModelCardState.Downloading, onCancel: () -> Unit) {
@@ -146,7 +152,7 @@ private fun DownloadProgress(state: ModelCardState.Downloading, onCancel: () -> 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onCancel) { Text(stringResource(android.R.string.cancel)) }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.models_cancel)) }
         }
     }
 }
@@ -160,7 +166,7 @@ private fun ModelMenu(onDelete: () -> Unit) {
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.delete)) },
+                text = { Text(stringResource(R.string.models_delete)) },
                 onClick = { open = false; onDelete() },
             )
         }

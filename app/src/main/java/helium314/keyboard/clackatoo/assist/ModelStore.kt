@@ -108,8 +108,8 @@ class ModelStore(
     }
 
     private fun install(spec: ModelSpec, input: InputStream): ImportResult {
+        dir.mkdirs() // first: File.usableSpace of a folder that does not exist yet is 0, which refused every first model
         if (usableSpace() < spec.sizeBytes) return ImportResult.Rejected(RejectReason.NOT_ENOUGH_SPACE)
-        dir.mkdirs()
         var part: File? = null
         try {
             val temp = File.createTempFile(spec.fileName + ".", PART_SUFFIX, dir)
