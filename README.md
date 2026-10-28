@@ -98,10 +98,13 @@ white where a system colour would not meet it.
 
 ### Glass and Omarchy themes
 
-The Glass themes make the keyboard window translucent. On Android 12 and later, where the phone allows window blur
-(not in battery saver, not switched off in developer options), what is behind the keyboard is blurred; otherwise the
-tint is nearly opaque. Whatever is behind it, labels keep a contrast of at least 4.5:1 (checked over white and over
-black). The 23 Omarchy themes use the colour tables (`colors.toml`) of [Omarchy](https://github.com/basecamp/omarchy)
+The Glass themes make the keyboard window translucent: the gaps between the keys are clear glass, a light tint over
+the blurred app behind, and every key, every suggestion and toolbar button, the emoji tabs and the voice panel's text sit
+on a frosted backing (about 78% opaque, with a hairline) so that text never sits on the clear glass. On Android 12 and
+later, where the phone allows window blur (not in battery saver, not switched off in developer options), what is behind
+the keyboard is blurred; otherwise the clear parts get a heavier tint. The theme picker says which of the two applies
+now. Whatever is behind the keyboard, every label keeps a contrast of at least 4.5:1 on its own backing (checked over
+white, black, mid grey and saturated colours, in light and dark mode, with and without blur). The 23 Omarchy themes use the colour tables (`colors.toml`) of [Omarchy](https://github.com/basecamp/omarchy)
 (MIT) at a pinned commit, mapped as: keyboard `background`; letter keys `lighter_background` (dark themes) or
 `dark_background` (light themes); function keys `selection` or `darker_background`; labels `foreground`; hints
 `light_foreground`; accent `accent`; labels and hints are raised to 4.5:1 where a theme is fainter. They are generated
