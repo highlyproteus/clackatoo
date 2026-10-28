@@ -125,9 +125,10 @@ class MlClient(context: Context) {
     /**
      * Live dictation with Parakeet: audio goes to the model process while the user speaks ([LiveCall.write]) and
      * [onText] gets the text so far on the main thread: the finished utterances joined by single spaces, and the
-     * utterance still being spoken. [LiveCall.finish] ends the audio; [LiveCall.await] returns the whole text after the
-     * last event. Must be called on the main thread. Everything the model process sends is checked ([LiveFrames]) and
-     * sanitised; a frame that breaks the rules ends the call with an error.
+     * utterance still being spoken. [LiveCall.finish] ends the audio; [LiveCall.await] returns the whole text once the
+     * end event, the end of the event stream and the service's result have all arrived. Must be called on the main
+     * thread. Everything the model process sends is checked ([LiveFrames]) and sanitised; a frame that breaks the rules
+     * ends the call with an error.
      */
     fun live(model: File, vad: File, language: String, onText: (committed: String, partial: String) -> Unit): LiveCall {
         val call = LiveCall()
@@ -220,6 +221,9 @@ class MlClient(context: Context) {
                         }
                     }
                 }
+                // the model process closes its end right after the end event: the text is final only at that end of
+                // file, and anything sent after the end event is a broken stream
+                if (ended) LiveFrames.readEndOfStream(input)
             }
             if (!ended && !call.stopped) failure = "The model process stopped unexpectedly"
         } catch (_: LiveFrames.ProtocolException) {
@@ -629,6 +633,11 @@ internal object LiveFrames {
         }
         val text = String(payload, Charsets.UTF_8)
         return if (type == MlProtocol.EVENT_PARTIAL) Frame.Partial(text) else Frame.Segment(text, length)
+    }
+
+    /** Waits for the end of the stream after [Frame.End]; any byte after the end event throws [ProtocolException]. */
+    fun readEndOfStream(input: java.io.InputStream) {
+        if (input.read() >= 0) throw ProtocolException("data after the end event")
     }
 
     private fun readByte(input: java.io.InputStream): Int {

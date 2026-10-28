@@ -263,6 +263,28 @@ class MlClientTest {
         }
     }
 
+    @Test fun `data after the end event fails the call`() {
+        for (trailing in listOf(frame(MlProtocol.EVENT_PARTIAL, "late".toByteArray()), byteArrayOf(0))) {
+            val (call, service) = liveCallWithEvents(frame(MlProtocol.EVENT_SEGMENT, "hello".toByteArray()) + frame(MlProtocol.EVENT_END) + trailing)
+            assertEnds(call, service, unexpected)
+        }
+    }
+
+    @Test fun `after the end event the reader waits for the end of the stream`() {
+        // Robolectric's pipes always end at once, so this uses a pipe whose writer stays open until the test closes it
+        val out = java.io.PipedOutputStream()
+        val input = java.io.PipedInputStream(out)
+        var error: Throwable? = null
+        val reader = Thread { try { LiveFrames.readEndOfStream(input) } catch (t: Throwable) { error = t } }
+        reader.start()
+        reader.join(300)
+        assertTrue(reader.isAlive, "the stream is not over while the model process still holds its end open")
+        out.close()
+        reader.join(5000)
+        assertFalse(reader.isAlive)
+        assertEquals(null, error)
+    }
+
     @Test fun `more text than a result may hold cancels the live call`() {
         val segment = frame(MlProtocol.EVENT_SEGMENT, ByteArray(MlProtocol.MAX_EVENT_BYTES) { 'a'.code.toByte() })
         val all = ByteArray(0).let { var acc = it; repeat(MlProtocol.MAX_RESULT_BYTES / MlProtocol.MAX_EVENT_BYTES + 1) { acc += segment }; acc }
