@@ -33,11 +33,12 @@ switches), see Style notes.
    the app's files): models arrive as file descriptors, never as paths, and replies from it are untrusted (numbers
    only, text through a size-limited pipe, sanitised by `OutputSanitizer`). Model files are pinned by size and SHA-256
    in `ModelCatalog`; changing a model means changing both there and in NOTICE. Audio is only in memory, recording
-   never starts without the recording panel on screen (a panel that is shown but still waiting for its first layout
-   may keep the microphone open for at most `FIRST_LAYOUT_MS`, 1 s, then the recording ends; Stop before it was ever seen
-   drops the audio), and RECORD_AUDIO is requested on first use of the Voice key
-   only. Never log text the user typed, said or that a model produced, in any build. Any change that touches the
-   microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
+   never starts without the recording panel on screen, and RECORD_AUDIO is requested on first use of the Voice key
+   only. The microphone opens only after the panel is on screen (laid out, visible, with area up the whole chain, in a shown
+   window): the Voice key shows the panel and the start waits for it (mode STARTING, microphone closed, no live call), and a
+   start that cannot show the panel within 1 s (`AssistController.START_TIMEOUT_MS`) is cancelled with the microphone still
+   closed. Once recording, the recording ends as soon as the panel is no longer on screen. Never log text the user typed,
+   said or that a model produced, in any build. Any change that touches the microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
    **Catalog model files are pinned by size and SHA-256. Custom (experimental) model files are allowed only through two
    user-started paths, labelled "Experimental · not verified", and always run in the isolated process:** (1) "Import file" in
    Settings, (2) the companion's "Browse Hugging Face" screen, where the user types the search or repo id, which hands the
