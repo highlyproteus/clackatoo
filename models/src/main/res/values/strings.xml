@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <string name="app_name">Clackatoo Models</string>
+    <string name="intro">Downloads the models for the Clackatoo keyboard\'s offline voice typing and grammar check, and hands them to the keyboard. The keyboard itself never connects to the internet.</string>
+    <string name="empty">Downloads you start from the Clackatoo keyboard appear here.</string>
+    <string name="open_clackatoo">Open Clackatoo</string>
+    <string name="licences">Model licences</string>
+    <string name="close">Close</string>
+    <string name="cancel">Cancel</string>
+    <string name="downloads">Downloads</string>
+    <string name="queued">Waiting</string>
+    <string name="downloading">Downloading, %1$s of %2$s</string>
+    <string name="verifying">Checking the file</string>
+    <string name="handing_over">Handing it to the keyboard</string>
+    <string name="done">Done</string>
+    <string name="failed_network">The download failed.</string>
+    <string name="failed_size">The file has the wrong size.</string>
+    <string name="failed_digest">The file does not match its checksum.</string>
+    <string name="failed_space">Not enough free storage.</string>
+    <string name="failed_host">Redirected to an address that is not trusted.</string>
+    <string name="failed_other">The download failed.</string>
+    <string name="failed_keyboard">The Clackatoo keyboard did not accept the file.</string>
+    <string name="cancelled">Cancelled</string>
+    <string name="notification_channel">Model downloads</string>
+    <string name="notification_title">Downloading %1$s</string>
+    <string name="notification_done">%1$s is ready</string>
+    <string name="notification_failed">%1$s could not be downloaded</string>
+    <string name="notification_permission_hint">Allow notifications to see the progress of downloads in the notification shade.</string>
+</resources>

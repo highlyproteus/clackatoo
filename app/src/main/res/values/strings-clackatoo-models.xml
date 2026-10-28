@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <!-- downloads through the Clackatoo Models companion app -->
+    <string name="models_download">Download</string>
+    <string name="models_get_companion">Get Clackatoo Models</string>
+    <string name="models_cancel">Cancel</string>
+    <string name="models_delete">Delete</string>
+    <string name="models_downloading">Downloading, %1$s of %2$s</string>
+    <string name="models_ready">Ready</string>
+    <string name="models_installing">Installing</string>
+    <string name="models_failed_network">The download failed. Check your connection and try again.</string>
+    <string name="models_failed_size">The downloaded file has the wrong size.</string>
+    <string name="models_failed_digest">The downloaded file does not match its checksum.</string>
+    <string name="models_failed_space">There is not enough free storage.</string>
+    <string name="models_failed_host">The download was redirected to an address that is not trusted, and was stopped.</string>
+    <string name="models_failed_other">The download failed.</string>
+    <string name="models_failed_stalled">Clackatoo Models stopped answering.</string>
+    <string name="models_failed_start">Clackatoo Models could not be started.</string>
+    <string name="models_failed_install">The model could not be installed.</string>
+    <string name="models_no_browser">There is no app to open the download page.</string>
+
+    <!-- "needs a model" sheet in the keyboard panel -->
+    <string name="models_sheet_voice_title">Voice typing needs a model</string>
+    <string name="models_sheet_voice_text">Download the speech model once. After that, voice typing works offline.</string>
+    <string name="models_sheet_grammar_title">Check needs a model</string>
+    <string name="models_sheet_grammar_text">Download the grammar model once. After that, checking works offline.</string>
+    <string name="models_sheet_total">Total %1$s \u2022 Wi-Fi recommended</string>
+    <string name="models_sheet_not_now">Not now</string>
+    <string name="models_sheet_get_companion">Get Clackatoo Models</string>
+    <string name="models_sheet_companion_hint">Models are downloaded by the separate app Clackatoo Models, so this keyboard never needs the internet.</string>
+    <string name="models_sheet_progress">Downloading, %1$s of %2$s</string>
+    <string name="models_sheet_done">Ready. Tap the key again.</string>
+    <string name="models_sheet_choose_one">Choose at least one model.</string>
+    <string name="models_sheet_item">%1$s \u2022 %2$s</string>
+    <string name="models_label_parakeet">Parakeet live text</string>
+    <string name="models_label_clean_up">Clean-up</string>
+    <string name="models_label_grammar">Grammar model</string>
+    <string name="models_label_other">Model</string>
+    <string name="models_choose_model">Use this model</string>
+</resources>

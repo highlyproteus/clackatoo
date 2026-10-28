@@ -18,6 +18,17 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <!--
+      Clackatoo: one-tap model downloads. The keyboard has no INTERNET permission; the separate app "Clackatoo Models"
+      downloads the pinned model files and hands them over. Only apps signed with the Clackatoo key hold this permission,
+      in both directions (the same permission is declared by the companion). A debug build uses its own name.
+    -->
+    <permission android:name="${modelsPermission}" android:protectionLevel="signature" />
+    <uses-permission android:name="${modelsPermission}" />
+    <queries>
+        <package android:name="${companionApplicationId}" />
+    </queries>
+
+    <!--
       Clackatoo: deliberately NOT defaultToDeviceProtectedStorage and not directBootAware on the application. Both are
       ignored for an app installed from an APK, but a system app (a ROM that preinstalls this keyboard) gets them, and then its
       clipboard history, pinned clips, learned words and models would sit in device-protected storage, readable before the
@@ -68,6 +79,11 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
                 android:process=":ml"
                 android:isolatedProcess="true"
                 android:exported="false" />
+
+        <!-- Clackatoo: receives download progress and the finished model file from the Clackatoo Models app (same-signature apps only) -->
+        <service android:name="helium314.keyboard.clackatoo.models.ModelReceiverService"
+                android:permission="${modelsPermission}"
+                android:exported="true" />
 
         <!-- Activities -->
         <activity android:name="helium314.keyboard.settings.SettingsActivity"

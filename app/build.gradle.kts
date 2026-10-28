@@ -1,4 +1,5 @@
 import com.android.build.api.variant.ApplicationVariant
+import com.android.build.api.variant.BuildConfigField
 
 plugins {
     id("com.android.application")
@@ -23,6 +24,9 @@ android {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        // Clackatoo: the release values of the companion link; debug build types override them below (androidComponents)
+        manifestPlaceholders["modelsPermission"] = "io.github.highlyproteus.clackatoo.permission.MODELS"
+        manifestPlaceholders["companionApplicationId"] = "io.github.highlyproteus.clackatoo.models"
         // Clackatoo: no user-supplied native library in the keyboard process, in any build type (see UserLibraryPolicy)
         buildConfigField("boolean", "ALLOW_USER_LIBRARY", "false")
         externalNativeBuild {
@@ -141,6 +145,8 @@ dependencies {
     implementation(project(":ml"))
     // Clackatoo: NVIDIA Parakeet speech engine (parakeet.cpp with its own ggml), for live text while speaking
     implementation(project(":asr"))
+    // Clackatoo: the list of downloadable models, shared with the Clackatoo Models companion app that downloads them
+    implementation(project(":catalog"))
 
     // androidx
     implementation("androidx.core:core-ktx:1.17.0") // 1.18.0 requires minSdk 23
@@ -170,4 +176,19 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.test:runner:1.7.0")
     testImplementation("androidx.test:core:1.7.0")
+}
+
+// Clackatoo: the keyboard talks to the Clackatoo Models companion app only through a signature permission. A debug keyboard
+// and a release keyboard are signed with different keys, so each build type has its own permission name (declaring one name
+// with two different signatures would make the second install fail), and its own companion package.
+androidComponents {
+    onVariants { variant ->
+        val suffix = if (variant.buildType == "debug" || variant.buildType == "debugNoMinify") ".debug" else ""
+        val companion = "io.github.highlyproteus.clackatoo.models$suffix"
+        variant.manifestPlaceholders.put("modelsPermission", "io.github.highlyproteus.clackatoo$suffix.permission.MODELS")
+        variant.manifestPlaceholders.put("companionApplicationId", companion)
+        variant.buildConfigFields?.put(
+            "COMPANION_APPLICATION_ID", BuildConfigField("String", "\"$companion\"", "package name of the Clackatoo Models app"),
+        )
+    }
 }
