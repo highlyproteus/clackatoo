@@ -34,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -228,14 +229,16 @@ private fun ThemeTile(
  */
 @Composable
 private fun MiniKeyboard(colors: Colors, modifier: Modifier = Modifier) {
-    Canvas(modifier.semantics { }) {
+    Canvas(modifier.clipToBounds().semantics { }) {
         val corner = size.width * 0.022f // 8dp on a 360dp keyboard
         val round = CornerRadius(corner)
-        // a stand-in for what is behind a translucent keyboard
-        drawRect(Brush.linearGradient(listOf(Color(0xFFFF7A59), Color(0xFFFFC857), Color(0xFF2BB5C8), Color(0xFF6A4FD8)), Offset.Zero, Offset(size.width, size.height)))
-        drawCircle(Color(0xFFFFFFFF), radius = size.height * 0.3f, center = Offset(size.width * 0.2f, size.height * 0.25f))
-        drawCircle(Color(0xFF111111), radius = size.height * 0.22f, center = Offset(size.width * 0.8f, size.height * 0.6f))
         val keyboardBackground = colors.get(ColorType.MAIN_BACKGROUND)
+        if (keyboardBackground ushr 24 < 255) {
+            // a stand-in for what is behind a translucent keyboard
+            drawRoundRect(Brush.linearGradient(listOf(Color(0xFFFF7A59), Color(0xFFFFC857), Color(0xFF2BB5C8), Color(0xFF6A4FD8)), Offset.Zero, Offset(size.width, size.height)), cornerRadius = round)
+            drawCircle(Color(0xFFFFFFFF), radius = size.height * 0.3f, center = Offset(size.width * 0.2f, size.height * 0.25f))
+            drawCircle(Color(0xFF111111), radius = size.height * 0.22f, center = Offset(size.width * 0.8f, size.height * 0.6f))
+        }
         drawRoundRect(Color(keyboardBackground), size = size, cornerRadius = round)
 
         val pad = size.width * 0.012f

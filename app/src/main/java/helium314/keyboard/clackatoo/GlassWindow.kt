@@ -104,7 +104,8 @@ object GlassWindow {
 
     private fun createBlurDialog(service: InputMethodService, token: android.os.IBinder): Dialog {
         val dialog = Dialog(service, android.R.style.Theme_Translucent_NoTitleBar)
-        dialog.setContentView(View(service))
+        // nothing to read or touch: the window is only a blurred background
+        dialog.setContentView(View(service).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
         dialog.setCancelable(false)
         val window = dialog.window!!
         window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
