@@ -28,6 +28,7 @@ import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import helium314.keyboard.clackatoo.GlassBacking
 import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.keyboard.KeyboardTypeface
 import helium314.keyboard.latin.R
@@ -71,6 +72,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     private val previewScroll = ScrollView(context)
     private val preview = TextView(context)
     private val buttons = LinearLayout(context)
+    /** What the panel shows between its title and its buttons. */
+    private val body = FrameLayout(context)
     private val content = LinearLayout(context)
     /** The needs-a-model sheet: a description, one row per model (tick box, name and size, later its progress) and the total. */
     private val sheetScroll = ScrollView(context)
@@ -91,9 +94,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        content.addView(title, LinearLayout.LayoutParams(-1, -2))
+        content.addView(title, LinearLayout.LayoutParams(-2, -2))
 
-        val body = FrameLayout(context)
         content.addView(body, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(6); bottomMargin = dp(8) })
         listeningBox.orientation = LinearLayout.VERTICAL
         listeningBox.addView(meter, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -143,7 +145,22 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     private val borderColor get() = colors.keyBorder
 
     private fun styleForTheme() {
-        setBackgroundColor(ColorUtils.setAlphaComponent(colors.get(ColorType.MAIN_BACKGROUND), 255))
+        val glass = colors.translucentWindow
+        if (glass) {
+            // clear glass, with the keys underneath hidden (see keysHidden); the title and the body carry text, so each has a frosted backing
+            background = null
+            GlassBacking.apply(title, colors)
+            title.setPadding(dp(12), dp(5), dp(12), dp(5))
+            GlassBacking.apply(body, colors)
+            body.setPadding(dp(12), dp(8), dp(12), dp(8))
+        } else {
+            setBackgroundColor(ColorUtils.setAlphaComponent(colors.get(ColorType.MAIN_BACKGROUND), 255))
+            title.background = null
+            title.setPadding(0, 0, 0, 0)
+            body.background = null
+            body.setPadding(0, 0, 0, 0)
+        }
+        keysHidden = glass
         title.setTextColor(textColor)
         message.setTextColor(textColor)
         preview.setTextColor(textColor)
@@ -384,7 +401,10 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     // is told, so that it can stop a recording that nobody can see.
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        if (visibility != VISIBLE) notifyUnavailable()
+        if (visibility != VISIBLE) {
+            if (changedView === this) keysHidden = false
+            notifyUnavailable()
+        }
     }
 
     // also called, with GONE, while the panel is being detached from its window
@@ -394,6 +414,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     }
 
     override fun onDetachedFromWindow() {
+        keysHidden = false
         super.onDetachedFromWindow()
         notifyUnavailable()
     }
@@ -407,7 +428,18 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         }
     }
 
+    /**
+     * In the glass theme the panel is clear, so the keys under it must not show through: they are made invisible (not hidden: the
+     * keyboard's blur and its touch region follow the keys being shown) while the panel is up.
+     */
+    private var keysHidden = false
+        set(value) {
+            field = value
+            (parent as? ViewGroup)?.findViewById<View>(R.id.keyboard_view)?.alpha = if (value) 0f else 1f
+        }
+
     fun hide() {
+        keysHidden = false
         visibility = GONE
         sheetRows.removeAllViews()
         sheetChecks.clear()

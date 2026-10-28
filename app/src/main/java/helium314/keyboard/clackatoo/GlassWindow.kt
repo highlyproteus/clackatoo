@@ -4,7 +4,11 @@ package helium314.keyboard.clackatoo
 
 import android.app.Dialog
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.inputmethodservice.InputMethodService
@@ -13,6 +17,11 @@ import android.view.Gravity
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import androidx.annotation.ColorInt
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import helium314.keyboard.latin.common.Colors
 import helium314.keyboard.latin.utils.Log
 import java.util.WeakHashMap
@@ -30,6 +39,8 @@ object GlassWindow {
     private const val TAG = "GlassWindow"
     /** The background the window had before the first glass theme, so that other themes get it back. */
     private val originalBackgrounds = WeakHashMap<Window, Drawable?>()
+    /** Whether the system's navigation icons were dark (light navigation bar) before the first glass theme. */
+    private val originalLightNavigation = WeakHashMap<Window, Boolean>()
     private var blurDialog: Dialog? = null
 
     /**
@@ -47,12 +58,46 @@ object GlassWindow {
     @JvmStatic
     fun apply(window: Window?, colors: Colors) {
         window ?: return
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (colors.translucentWindow) {
-            if (!originalBackgrounds.containsKey(window)) originalBackgrounds[window] = window.decorView.background
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            if (!originalBackgrounds.containsKey(window)) {
+                originalBackgrounds[window] = window.decorView.background
+                originalLightNavigation[window] = controller.isAppearanceLightNavigationBars
+            }
+            // clear, except under the system's navigation icons (back, keyboard switcher), which get the frosted backing too
+            if ((window.decorView.background as? NavigationBacking)?.color != colors.backing) window.setBackgroundDrawable(NavigationBacking(colors.backing))
+            // the icons are dark on a light backing and light on a dark one
+            controller.isAppearanceLightNavigationBars = ColorUtils.calculateLuminance(ColorUtils.compositeColors(colors.backing, Color.GRAY)) > 0.5
         } else if (originalBackgrounds.containsKey(window)) {
             window.setBackgroundDrawable(originalBackgrounds.remove(window))
+            originalLightNavigation.remove(window)?.let { controller.isAppearanceLightNavigationBars = it }
         }
+    }
+
+    /** The bottom [height] pixels in [color], the rest clear: the window background of the glass keyboard. */
+    private class NavigationBacking(@ColorInt val color: Int) : Drawable() {
+        private val paint = Paint().apply { color = this@NavigationBacking.color }
+        var height = 0
+            set(value) {
+                if (field == value) return
+                field = value
+                invalidateSelf()
+            }
+
+        override fun draw(canvas: Canvas) {
+            if (height > 0) canvas.drawRect(bounds.left.toFloat(), (bounds.bottom - height).toFloat(), bounds.right.toFloat(), bounds.bottom.toFloat(), paint)
+        }
+
+        override fun setAlpha(alpha: Int) {}
+        override fun setColorFilter(colorFilter: ColorFilter?) {}
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity() = PixelFormat.TRANSLUCENT
+    }
+
+    /** Tells the glass window background how high the system's navigation bar is now. */
+    private fun updateNavigationBacking(window: Window) {
+        val backing = window.decorView.background as? NavigationBacking ?: return
+        backing.height = ViewCompat.getRootWindowInsets(window.decorView)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
     }
 
     /**
@@ -62,6 +107,7 @@ object GlassWindow {
     @JvmStatic
     fun updateBlur(service: InputMethodService, colors: Colors, topY: Int?) {
         val imeWindow = service.window?.window
+        imeWindow?.let { updateNavigationBacking(it) }
         val decor = imeWindow?.decorView
         val token = decor?.windowToken
         val height = if (decor != null && topY != null) decor.height - topY.coerceAtLeast(0) else 0

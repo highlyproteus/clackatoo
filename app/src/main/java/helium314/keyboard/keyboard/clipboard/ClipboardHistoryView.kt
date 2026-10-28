@@ -13,6 +13,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import helium314.keyboard.clackatoo.GlassBacking
 import helium314.keyboard.event.HapticEvent
 import helium314.keyboard.keyboard.KeyboardActionListener
 import helium314.keyboard.keyboard.KeyboardElement
@@ -33,6 +34,7 @@ import helium314.keyboard.latin.settings.Settings
 import helium314.keyboard.latin.utils.ResourceUtils
 import helium314.keyboard.latin.utils.ToolbarKey
 import helium314.keyboard.latin.utils.createToolbarKey
+import helium314.keyboard.latin.utils.dpToPx
 import helium314.keyboard.latin.utils.getEnabledClipboardToolbarKeys
 import helium314.keyboard.latin.utils.onClickToolbarKey
 import helium314.keyboard.latin.utils.onLongClickToolbarKey
@@ -107,6 +109,7 @@ class ClipboardHistoryView @JvmOverloads constructor(
             it.setOnLongClickListener(this@ClipboardHistoryView)
             colors.setColor(it, ColorType.TOOL_BAR_KEY)
             colors.setBackground(it, ColorType.STRIP_BACKGROUND)
+            GlassBacking.applyChip(it, colors) // Clackatoo glass: a frosted backing behind each button
         }
     }
 
@@ -161,6 +164,9 @@ class ClipboardHistoryView @JvmOverloads constructor(
         setupBottomRowKeyboard(editorInfo, keyboardActionListener)
 
         placeholderView.apply {
+            // Clackatoo glass: the text sits on a frosted backing, not on the clear glass
+            GlassBacking.apply(this, Settings.getValues().mColors)
+            if (background != null) setPadding(16.dpToPx(resources), 4.dpToPx(resources), 16.dpToPx(resources), 4.dpToPx(resources))
             KeyboardTypeface.applyToTextView(this)
             setTextColor(params.mTextColor)
             setTextSize(TypedValue.COMPLEX_UNIT_PX, params.mLabelSize.toFloat() * 2)

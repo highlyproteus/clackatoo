@@ -47,6 +47,7 @@ import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
 import helium314.keyboard.latin.SingleDictionaryFacilitator;
+import helium314.keyboard.clackatoo.GlassBacking;
 import helium314.keyboard.latin.common.ColorType;
 import helium314.keyboard.latin.common.Colors;
 import helium314.keyboard.latin.settings.Settings;
@@ -238,6 +239,7 @@ public final class EmojiPalettesView extends LinearLayout
     private void addTab(LinearLayout host, EmojiCategory.Category category) {
         final ImageView iconView = new ImageView(getContext());
         mColors.setBackground(iconView, ColorType.STRIP_BACKGROUND);
+        GlassBacking.applyChip(iconView, mColors); // Clackatoo glass: a frosted backing behind each tab
         mColors.setColor(iconView, ColorType.EMOJI_CATEGORY);
         iconView.setScaleType(ImageView.ScaleType.CENTER);
         iconView.setImageResource(mEmojiCategory.getCategoryTabIcon(category));

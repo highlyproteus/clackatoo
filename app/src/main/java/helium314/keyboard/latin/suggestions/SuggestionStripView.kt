@@ -24,6 +24,7 @@ import android.view.View.OnLongClickListener
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
@@ -31,6 +32,7 @@ import androidx.core.view.doOnNextLayout
 import androidx.core.view.isVisible
 import helium314.keyboard.event.HapticEvent
 import helium314.keyboard.clackatoo.ClackatooStyle
+import helium314.keyboard.clackatoo.GlassBacking
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
@@ -102,8 +104,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             word.setOnClickListener(this)
             word.setOnLongClickListener(this)
             colors.setBackground(word, ColorType.STRIP_BACKGROUND)
+            GlassBacking.applyChip(word, colors) // Clackatoo glass: every suggestion has a frosted backing
             wordViews.add(word)
             val divider = inflater.inflate(R.layout.suggestion_divider, null)
+            if (colors.translucentWindow) (divider as ImageView).setImageDrawable(null) // glass: the gap between the backings divides
             dividerViews.add(divider)
             val info = TextView(context, null, R.attr.suggestionWordStyle)
             info.setTextColor(colors.get(ColorType.KEY_TEXT))
@@ -176,7 +180,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             pinnedKeys.addView(button)
             val pinnedKeyInToolbar = toolbar.findViewWithTag<View>(pinnedKey)
             if (pinnedKeyInToolbar != null && Settings.getValues().mQuickPinToolbarKeys)
-                pinnedKeyInToolbar.background = enabledToolKeyBackground
+                pinnedKeyInToolbar.background = pinnedKeyBackground()
         }
         toolbarContainer.doOnNextLayout {
             // set min with of the toolbar so the weight of the toolbar keys actually does something
@@ -372,6 +376,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
 
     // actually private stuff
 
+    /** The background of a pinned toolbar key: the accent square, or in the glass theme a backing with the accent in it. */
+    private fun pinnedKeyBackground(): Drawable =
+        GlassBacking.chip(resources, Settings.getValues().mColors, highlighted = true) ?: enabledToolKeyBackground
+
     private fun onLongClickToolbarKey(view: View) {
         val tag = view.tag as? ToolbarKey ?: return
         if (!Settings.getValues().mQuickPinToolbarKeys || view.parent === pinnedKeys) {
@@ -381,11 +389,12 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             val pinnedKeyView = pinnedKeys.findViewWithTag<View>(tag)
             if (pinnedKeyView == null) {
                 addKeyToPinnedKeys(tag)
-                toolbar.findViewWithTag<View>(tag).background = enabledToolKeyBackground
+                toolbar.findViewWithTag<View>(tag).background = pinnedKeyBackground()
                 addPinnedKey(context.prefs(), tag)
             } else {
                 removePinnedKey(context.prefs(), tag)
-                toolbar.findViewWithTag<View>(tag).background = defaultToolbarBackground.constantState?.newDrawable(resources)
+                toolbar.findViewWithTag<View>(tag).background = GlassBacking.chip(resources, Settings.getValues().mColors)
+                    ?: defaultToolbarBackground.constantState?.newDrawable(resources)
                 pinnedKeys.removeView(pinnedKeyView)
             }
         }
@@ -554,6 +563,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         (view.layoutParams as LinearLayout.LayoutParams).weight = 1f
         colors.setColor(view, ColorType.TOOL_BAR_KEY)
         colors.setBackground(view, ColorType.STRIP_BACKGROUND)
+        GlassBacking.applyChip(view, colors) // Clackatoo glass: every toolbar key has a frosted backing
     }
 
     companion object {

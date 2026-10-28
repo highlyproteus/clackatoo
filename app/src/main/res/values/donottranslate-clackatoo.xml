@@ -23,6 +23,8 @@
     <string name="theme_picker_new_custom" translatable="false">New custom theme</string>
     <string name="theme_picker_edit_custom" translatable="false">Edit colours</string>
     <string name="theme_picker_selected" translatable="false">Selected</string>
+    <string name="theme_picker_glass_blur_on" translatable="false">Your phone blurs what is behind the keyboard.</string>
+    <string name="theme_picker_glass_blur_off" translatable="false">Your phone does not blur windows right now (battery saver or not supported); glass is tinted instead.</string>
     <string name="theme_picker_glass_note" translatable="false">Glass blurs the app behind the keyboard where the phone allows it, and tints it otherwise.</string>
     <string name="theme_picker_omarchy_note" translatable="false">Colours of the Omarchy themes (MIT, github.com/basecamp/omarchy).</string>
 </resources>
