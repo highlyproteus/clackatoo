@@ -61,6 +61,21 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     private var listeningSince = 0L
     /** Whether the recording panel has been seen on screen (laid out, visible) since this recording started. */
     private var panelSeen = false
+    /** Counts recordings, so that the delayed check of an older one does nothing to a newer one. */
+    private var listeningToken = 0
+
+    /** Records that the panel is on screen; the first time, how long it took (numbers only). */
+    private fun noteSeen() {
+        if (panelSeen) return
+        panelSeen = true
+        Log.d(TAG, "recording panel first seen ${elapsedRealtime() - listeningSince} ms after the start")
+    }
+
+    /** Whether the panel has been seen on screen since this recording started, looking now if it has not been yet. */
+    private fun seenNow(): Boolean {
+        if (!panelSeen && panel?.isOnScreen() == true) noteSeen()
+        return panelSeen
+    }
 
     private enum class Mode { NONE, LISTENING, WORKING, PREVIEW, MESSAGE, SHEET }
     private var mode = Mode.NONE
@@ -179,16 +194,20 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     ): ListeningStart {
         if (!view.canBeSeen()) return ListeningStart.PANEL_HIDDEN
         val call = newLiveCall?.invoke()
+        // reset before the microphone opens: the allowance for the panel's first layout counts from here
+        panelSeen = false
+        listeningSince = elapsedRealtime()
+        val token = ++listeningToken
         val rec = factory(
             { level ->
                 main.post {
                     if (mode == Mode.LISTENING) {
                         if (panel?.isOnScreen() == true) {
-                            panelSeen = true
+                            noteSeen()
                             panel?.setLevel(level)
                         } else if (!panelSeen && elapsedRealtime() - listeningSince < FIRST_LAYOUT_MS && panel?.isVisibleAwaitingLayout() == true) {
-                            // the panel was made visible a moment ago and has not been laid out yet (the first level update comes
-                            // within 100 ms, which a keyboard that has just started can take longer to draw): not hidden, wait for it
+                            // the panel was made visible a moment ago and is waiting for its first layout pass (the first level
+                            // update comes within 100 ms, which a keyboard that has just started can take longer to draw)
                         } else {
                             close()
                         }
@@ -204,9 +223,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
         recorder = rec
         liveCall = call
-        panelSeen = false
-        listeningSince = elapsedRealtime()
         mode = Mode.LISTENING
+        // the allowance ends on the clock, whatever the audio does: a recording whose panel was never seen is dropped
+        main.postDelayed({ if (mode == Mode.LISTENING && token == listeningToken && !seenNow()) close() }, FIRST_LAYOUT_MS)
         view.showListening()
         if (!view.isShown) { // the panel could not be shown after all
             close()
@@ -226,6 +245,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     override fun onStop() {
         val rec = recorder ?: return
+        // a recording whose panel was never on screen is not transcribed or inserted, however Stop came about
+        if (!seenNow()) return close()
         val pcm = rec.stop()
         recorder = null
         val language = language ?: return close()
@@ -659,7 +680,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
          * How long a panel that has been made visible but not laid out yet may go without area before the level check ends the
          * recording. A panel that was never seen is waited for; one that was seen and then loses its area ends at once.
          */
-        internal const val FIRST_LAYOUT_MS = 2_000L
+        internal const val FIRST_LAYOUT_MS = 1_000L
         private const val CHUNK_CHARS = 600
         private const val MAX_NEW_TOKENS_CLEAN_UP = 600
     }

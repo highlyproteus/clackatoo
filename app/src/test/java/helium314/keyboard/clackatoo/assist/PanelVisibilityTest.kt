@@ -334,21 +334,31 @@ class PanelVisibilityTest {
     // The bug: on a keyboard that has just started, the first level update (100 ms after the start) can come before the panel's
     // first layout pass. It saw a panel without area, ended the recording and cancelled the live call that was still waiting for
     // the model process to connect: nothing happened, silently.
-    @Test fun `a panel that was made visible but not laid out yet is waited for, not treated as hidden`() {
+
+    /** The state of the bug: the key wrapper above the panel is laid out, the panel itself has no area and a layout is pending for it. */
+    private fun panelWaitingForLayout() {
+        idle() // let the layout that showing the panel asked for happen first, then take it away again
+        panel.layout(0, 0, 0, 0)
+        panel.forceLayout() // a layout is pending, but no traversal is scheduled that would run it
+    }
+
+    private fun idleFor(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(ms))
+
+    @Test fun `a panel waiting for its first layout is waited for, not treated as hidden`() {
         val recorders = ArrayList<FakeRecorder>()
         var now = 1_000L
         val controller = controller(recorders)
         controller.elapsedRealtime = { now }
         controller.startListening(panel)
-        wrapper.layout(0, 0, width, 0) // visible, attached, but no area yet
+        panelWaitingForLayout()
         assertFalse(panel.isOnScreen())
+        assertTrue(panel.isVisibleAwaitingLayout())
         now += 100
         recorders.single().onLevel(0.5f)
         idle()
         assertTrue(controller.isListening)
         assertEquals(0, recorders.single().cancelled)
         // once it is laid out it is seen, and from then on losing its area ends the recording at once
-        wrapper.layout(0, 0, width, height)
         panel.layout(0, 0, width, height)
         assertTrue(panel.isOnScreen())
         recorders.single().onLevel(0.5f)
@@ -361,14 +371,71 @@ class PanelVisibilityTest {
         assertTrue(controller.isIdle)
     }
 
-    @Test fun `a panel that never gets its layout ends the recording after the allowance`() {
+    @Test fun `a panel that never gets its layout ends the recording after the allowance, on the next level update`() {
         val recorders = ArrayList<FakeRecorder>()
         var now = 1_000L
         val controller = controller(recorders)
         controller.elapsedRealtime = { now }
         controller.startListening(panel)
-        wrapper.layout(0, 0, width, 0)
+        panelWaitingForLayout()
         now += AssistController.FIRST_LAYOUT_MS + 1
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `the allowance ends on the clock even when no audio arrives`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        controller.startListening(panel)
+        panelWaitingForLayout()
+        idleFor(AssistController.FIRST_LAYOUT_MS - 100)
+        assertTrue(controller.isListening)
+        idleFor(200)
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `the delayed check leaves a panel that was seen alone, and one recording's check never ends the next`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        controller.startListening(panel)
+        recorders.last().onLevel(0.5f)
+        idle()
+        idleFor(AssistController.FIRST_LAYOUT_MS + 100)
+        assertTrue(controller.isListening)
+        controller.close()
+        controller.startListening(panel)
+        panelWaitingForLayout()
+        idleFor(AssistController.FIRST_LAYOUT_MS - 100) // the first recording's check is long past; this one's is not due yet
+        assertTrue(controller.isListening)
+    }
+
+    @Test fun `a key wrapper that collapses before the panel was seen ends the recording at once`() {
+        val recorders = ArrayList<FakeRecorder>()
+        var now = 1_000L
+        val controller = controller(recorders)
+        controller.elapsedRealtime = { now }
+        controller.startListening(panel)
+        idle()
+        wrapper.layout(0, 0, width, 0) // laid out without area: the panel below it has none either
+        assertFalse(panel.isVisibleAwaitingLayout())
+        now += 100
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `a finished layout that gives the panel no size ends the recording at once`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        controller.startListening(panel)
+        idle()
+        panel.layout(0, 0, 0, 0) // laid out, no layout pending
+        assertFalse(panel.isLayoutRequested)
+        assertFalse(panel.isVisibleAwaitingLayout())
         recorders.single().onLevel(0.5f)
         idle()
         assertEquals(1, recorders.single().cancelled)
@@ -381,13 +448,24 @@ class PanelVisibilityTest {
         val controller = controller(recorders)
         controller.elapsedRealtime = { now }
         controller.startListening(panel)
-        wrapper.layout(0, 0, width, 0)
+        panelWaitingForLayout()
         wrapper.visibility = View.GONE
         idle()
         now += 100
         recorders.single().onLevel(0.5f)
         idle()
         assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+    }
+
+    @Test fun `stopping a recording whose panel was never seen drops it instead of transcribing it`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        controller.startListening(panel)
+        panelWaitingForLayout()
+        controller.onStop()
+        assertEquals(1, recorders.single().cancelled)
+        assertEquals(0, recorders.single().stopped)
         assertTrue(controller.isIdle)
     }
 
