@@ -3,7 +3,7 @@
 <resources>
     <!-- home screen -->
     <string name="settings_search_hint">Search settings</string>
-    <string name="home_subtitle">Private keyboard · everything stays on your phone</string>
+    <string name="home_subtitle">Private keyboard with no internet access</string>
     <string name="home_try_hint">Type or swipe to try your keyboard</string>
     <string name="home_quick_voice">Voice</string>
     <string name="home_quick_languages">Languages</string>

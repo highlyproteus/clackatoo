@@ -229,6 +229,11 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   (`site/assets/badge_obtainium.png`, `docs/badge-obtainium.png`; from
   https://github.com/ImranR98/Obtainium, GPL-3.0) and screenshots from
   `docs/screenshots/`.
+- 2026-10-29: clearer privacy wording in the settings: the home subtitle reads
+  "Private keyboard with no internet access" and the Voice typing summary says
+  speech is turned into text on the phone and the recording never leaves it
+  (instead of "everything stays on your phone", which could be read as covering
+  messages the user sends).
 
 Upstream copyright
 ------------------

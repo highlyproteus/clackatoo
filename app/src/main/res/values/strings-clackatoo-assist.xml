@@ -55,7 +55,7 @@
     <string name="assist_import_no_space">There is not enough free storage.</string>
     <string name="assist_import_error">The file could not be read.</string>
     <string name="assist_importing">Importing</string>
-    <string name="assist_voice_summary">Tap the Voice key on the toolbar, speak, then tap Stop. Everything stays on your phone.</string>
+    <string name="assist_voice_summary">Tap the Voice key on the toolbar, speak, then tap Stop. Your speech is turned into text on your phone; the recording never leaves it.</string>
     <string name="assist_voice_languages">Languages: English and Spanish, following the current keyboard language.</string>
     <string name="assist_s1_mini_switch">Clean up English text</string>
     <string name="assist_s1_mini_summary">Removes fillers and fixes self-corrections, punctuation and numbers.</string>
