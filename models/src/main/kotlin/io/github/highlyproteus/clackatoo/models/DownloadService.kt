@@ -14,6 +14,8 @@ import android.os.Binder
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import android.text.format.Formatter
 import android.annotation.TargetApi
 import helium314.keyboard.clackatoo.catalog.CatalogModel
@@ -39,7 +41,10 @@ class DownloadService : Service() {
     private val limiter get() = limiterFor(this)
     private var link: KeyboardLink? = null
     private val active = AtomicInteger()
-    @Volatile private var lastStartId = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
+    // Admission, start ids and teardown share this service's monitor; transfers and handovers do not hold it.
+    private var lastStartId = 0
+    private var stopping = false
     @Volatile private var notifiedResult = false
     private val downloader = Downloader()
     private var lastNotified = 0L
@@ -61,6 +66,7 @@ class DownloadService : Service() {
             pm.checkSignatures(uid, applicationInfo.uid) == PackageManager.SIGNATURE_MATCH
     }
 
+    @Synchronized
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // a service started with startForegroundService() must go to the foreground at once, whoever started it; what the
         // Intent says is never read (requests come over the Binder), so a stranger can only make it flash a notification
@@ -82,59 +88,61 @@ class DownloadService : Service() {
 
     /** The service cannot go to the foreground: no download may run (and none was handed anything); end quietly instead of crashing. */
     private fun giveUp() {
+        stopping = true
         cancelFlags.values.forEach { it.set(true) }
         CustomDownloads.withdrawAll()
         stopSelf()
     }
 
     /** Runs a request that [DownloadBinder] has checked for caller and shape. Returns a `REQUEST_*` code. */
-    private fun handle(request: Request): Int = when (request) {
-        is Request.Cancel -> { cancelFlags[request.model.id]?.set(true); ModelsProtocol.REQUEST_OK }
-        is Request.Download -> when (limiter.tryStart(request.model.id)) {
-            RequestLimiter.Verdict.ALREADY -> ModelsProtocol.REQUEST_OK
-            RequestLimiter.Verdict.LATER -> ModelsProtocol.REQUEST_LATER
-            RequestLimiter.Verdict.START -> {
-                // Started (not yet foreground) so that it survives the keyboard unbinding; the keyboard, which is on
-                // screen and so may, then starts it in the foreground (this app may not go to the foreground by itself)
-                val queued = enqueue(request.model)
-                try {
-                    startService(Intent(this, DownloadService::class.java))
-                    ModelsProtocol.REQUEST_OK
-                } catch (e: RuntimeException) { // not allowed to start it now: nothing stays queued or counted
-                    withdraw(request.model, queued)
-                    ModelsProtocol.REQUEST_REFUSED
+    @Synchronized
+    private fun handle(request: Request): Int {
+        if (stopping) return ModelsProtocol.REQUEST_REFUSED
+        return when (request) {
+            is Request.Cancel -> { cancelFlags[request.model.id]?.set(true); ModelsProtocol.REQUEST_OK }
+            is Request.Download -> when (limiter.tryStart(request.model.id)) {
+                RequestLimiter.Verdict.ALREADY -> ModelsProtocol.REQUEST_OK
+                RequestLimiter.Verdict.LATER -> ModelsProtocol.REQUEST_LATER
+                RequestLimiter.Verdict.START -> {
+                    // The keyboard holds its binding until its foreground start is accepted. Do not self-start:
+                    // our background start can be denied foreground promotion and tear down the keyboard's start.
+                    if (enqueue(request.model)) ModelsProtocol.REQUEST_OK else ModelsProtocol.REQUEST_REFUSED
                 }
             }
         }
     }
 
-    /** Takes back a queued download that never started (or, if it already did, cancels it). */
-    private fun withdraw(model: CatalogModel, queued: java.util.concurrent.Future<*>) {
-        if (queued.cancel(false)) {
-            cancelFlags.remove(model.id)
-            active.decrementAndGet()
-            limiter.refund(model.id)
-            DownloadTracker.update(Progress(model.id, Progress.Phase.CANCELLED, 0, model.sizeBytes, ModelsProtocol.FAIL_CANCELLED))
-        } else {
-            cancelFlags[model.id]?.set(true)
-        }
+    /** Executor rejection must not leave a running limiter entry or a queued UI state. */
+    private fun refund(model: CatalogModel) {
+        limiter.refund(model.id)
+        DownloadTracker.update(Progress(model.id, Progress.Phase.CANCELLED, 0, model.sizeBytes, ModelsProtocol.FAIL_CANCELLED))
     }
 
-    private fun enqueue(model: CatalogModel): java.util.concurrent.Future<*> {
+    private fun enqueue(model: CatalogModel): Boolean {
         val flag = AtomicBoolean(false)
         cancelFlags[model.id] = flag
         active.incrementAndGet()
         DownloadTracker.update(Progress(model.id, Progress.Phase.QUEUED, 0, model.sizeBytes))
-        return worker.submit {
-            try {
-                run(model, flag)
-            } finally {
-                cancelFlags.remove(model.id)
-                limiter.released(model.id) // whatever happened, it is no longer running
-                active.decrementAndGet()
-                finishIfIdle()
+        try {
+            worker.submit {
+                try {
+                    run(model, flag)
+                } finally {
+                    synchronized(this) {
+                        cancelFlags.remove(model.id, flag)
+                        limiter.released(model.id) // whatever happened, it is no longer running
+                        active.decrementAndGet()
+                    }
+                    finishIfIdle()
+                }
             }
+        } catch (e: java.util.concurrent.RejectedExecutionException) {
+            cancelFlags.remove(model.id, flag)
+            active.decrementAndGet()
+            refund(model)
+            return false
         }
+        return true
     }
 
     private fun run(model: CatalogModel, cancelled: AtomicBoolean) {
@@ -298,24 +306,36 @@ class DownloadService : Service() {
     }
 
     private fun finishIfIdle() {
-        if (active.get() != 0) return
-        link?.close()
-        link = null
-        // keep the last notification (ready / failed) when there was a result; remove the placeholder otherwise
-        stopForeground(!notifiedResult)
-        // only ends the service if no newer request has arrived meanwhile
-        stopSelf(lastStartId)
+        // The worker only schedules an idle check. Main-thread start callbacks cannot race foreground teardown;
+        // Binder admission takes the same monitor, and the count is rechecked after either can accept more work.
+        mainHandler.post {
+            synchronized(this) {
+                if (active.get() != 0) return@synchronized
+                // Android may already know about a start whose onStartCommand has not run yet.
+                if (!stopSelfResult(lastStartId)) return@synchronized
+                stopping = true
+                link?.close()
+                link = null
+                // keep the last notification (ready / failed); otherwise remove the placeholder
+                stopForeground(!notifiedResult)
+            }
+        }
     }
 
     @TargetApi(35)
+    @Synchronized
     override fun onTimeout(startId: Int, fgsType: Int) {
         // Android limits a data-sync foreground service to 6 hours a day: stop what is running and end the service
+        stopping = true
         cancelFlags.values.forEach { it.set(true) }
         CustomDownloads.cancelAll()
         stopSelf()
     }
 
+    @Synchronized
     override fun onDestroy() {
+        stopping = true
+        mainHandler.removeCallbacksAndMessages(null)
         cancelFlags.values.forEach { it.set(true) }
         CustomDownloads.cancelAll()
         worker.shutdown()

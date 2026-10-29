@@ -16,19 +16,20 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Sends one request (download or cancel of a catalog id, nothing else) to the companion app's download service over a
- * Binder call: bind, one transaction, unbind. The companion checks who is calling; the signature permission keeps other
- * apps out of the service. Runs on a background thread; [onResult] gets a `REQUEST_*` code, or null when the companion
- * could not be reached.
+ * Binder call: bind, one transaction, deliver its result, unbind. The result callback starts accepted downloads in the
+ * foreground while the binding still keeps them alive; the started service then survives unbinding or leaving settings.
+ * The companion checks the caller and signature permission. Runs on a background thread; [onResult] gets a `REQUEST_*`
+ * code, or null when the companion could not be reached.
  */
 internal object CompanionRequests {
     private val executor = Executors.newSingleThreadExecutor()
 
     fun send(context: Context, companionPackage: String, action: String, id: String, onResult: (Int?) -> Unit) {
         val app = context.applicationContext
-        executor.execute { onResult(transact(app, companionPackage, action, id)) }
+        executor.execute { transact(app, companionPackage, action, id, onResult) }
     }
 
-    private fun transact(app: Context, companionPackage: String, action: String, id: String): Int? {
+    private fun transact(app: Context, companionPackage: String, action: String, id: String, onResult: (Int?) -> Unit) {
         val latch = CountDownLatch(1)
         var binder: IBinder? = null
         val connection = object : ServiceConnection {
@@ -42,28 +43,32 @@ internal object CompanionRequests {
         val intent = Intent().setComponent(ComponentName(companionPackage, ModelsProtocol.DOWNLOAD_SERVICE_CLASS))
         val bound = try { app.bindService(intent, connection, Context.BIND_AUTO_CREATE) } catch (_: SecurityException) { false }
         try {
-            if (!bound) return null
-            if (!latch.await(8, TimeUnit.SECONDS)) return null
-            val remote = binder ?: return null
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken(ModelsProtocol.DOWNLOAD_DESCRIPTOR)
-                data.writeString(action)
-                data.writeString(id)
-                remote.transact(ModelsProtocol.TX_REQUEST, data, reply, 0)
-                reply.readException()
-                return reply.readInt()
-            } catch (_: RemoteException) {
-                return null
-            } catch (_: RuntimeException) {
-                return null
-            } finally {
-                data.recycle()
-                reply.recycle()
-            }
+            val result = if (!bound || !latch.await(8, TimeUnit.SECONDS)) null
+                else binder?.let { request(it, action, id) }
+            // In particular, do not unbind an accepted but not-yet-started download before its foreground start.
+            onResult(result)
         } finally {
             app.unbindService(connection) // also after a bindService that returned false, as the documentation asks
+        }
+    }
+
+    private fun request(remote: IBinder, action: String, id: String): Int? {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(ModelsProtocol.DOWNLOAD_DESCRIPTOR)
+            data.writeString(action)
+            data.writeString(id)
+            remote.transact(ModelsProtocol.TX_REQUEST, data, reply, 0)
+            reply.readException()
+            return reply.readInt()
+        } catch (_: RemoteException) {
+            return null
+        } catch (_: RuntimeException) {
+            return null
+        } finally {
+            data.recycle()
+            reply.recycle()
         }
     }
 }

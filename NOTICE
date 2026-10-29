@@ -234,6 +234,12 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   speech is turned into text on the phone and the recording never leaves it
   (instead of "everything stays on your phone", which could be read as covering
   messages the user sends).
+- 2026-10-29: model downloads keep the keyboard's binding until its foreground
+  start is accepted, avoiding a competing companion self-start that could crash
+  Clackatoo Models and leave progress at zero. Downloads remain started when
+  settings is closed. Idle teardown is serialised with request admission so an
+  ending download cannot remove a newer one's foreground state; requests
+  rejected during shutdown are refunded rather than left queued indefinitely.
 
 Upstream copyright
 ------------------
