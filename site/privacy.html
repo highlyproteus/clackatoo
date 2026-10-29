@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0f1318">
+<meta name="referrer" content="no-referrer">
+<title>Clackatoo and Clackatoo Models — Privacy policy</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body><main>
+<header class="hero"><h1>Privacy policy</h1><p>Clackatoo and Clackatoo Models<br>Updated 29 October 2026</p></header>
+<section><h2>Who this covers</h2><div class="card">
+<p>This policy covers the Clackatoo keyboard (<code>io.github.highlyproteus.clackatoo</code>) and its optional Clackatoo Models companion (<code>io.github.highlyproteus.clackatoo.models</code>), published by highlyproteus.</p>
+<p>The developer collects no personal data through these apps. There are no developer servers, accounts, advertisements, analytics SDKs or automatic crash-report uploads. The model download host receives network requests, as explained below.</p>
+</div></section>
+<section><h2>Clackatoo: an offline keyboard</h2><div class="card">
+<p>The keyboard has no <code>INTERNET</code> permission. Typing, swipe recognition, speech recognition, transcript clean-up and grammar check are processed on the phone. Text and audio are not sent to the developer or to a speech service.</p>
+<p>Microphone access (<code>RECORD_AUDIO</code>) is requested on first use of the Voice key. Recording only runs with the voice panel visible, stops when it is hidden and can be cancelled. Audio is held in memory for processing, not saved as audio recordings. Models run in a separate isolated process with no internet access.</p>
+<p>Keyboard settings, dictionaries, model files and enabled clipboard history may be stored locally. The keyboard does not log what you type, say or receive from a model. You can delete model files and clipboard entries in the app, clear app storage in Android settings, or uninstall to remove app-private data. Exported files are under your control and must be deleted separately.</p>
+<p>When you type or insert text into another app, that app receives it. If you send a message, upload a document or otherwise share that text, the receiving app's privacy policy applies. Clackatoo does not prevent those apps from using the internet.</p>
+<p>Android's keyboard-enable warning describes the sensitive access all input methods need. Clackatoo uses this access to enter text at your request. Optional contact-based suggestions, if you enable them and grant <code>READ_CONTACTS</code>, are processed locally, not uploaded. Dictionary permissions support local user-dictionary entries; <code>VIBRATE</code> supports key haptics, and <code>RECEIVE_BOOT_COMPLETED</code> supports keyboard initialization after a restart.</p>
+</div></section>
+<section><h2>Clackatoo Models: downloads from Hugging Face</h2><div class="card">
+<p>The companion has <code>INTERNET</code> permission to download models and, in the experimental browser, search Hugging Face. It uses HTTPS and only allows Hugging Face hosts (<code>huggingface.co</code> and <code>*.hf.co</code>). Hugging Face and its hosting infrastructure receive your IP address, requested files and repository lookups, and any search terms you enter in that browser. They can infer approximate location from your IP address and retain network and usage records according to <a href="https://huggingface.co/privacy">Hugging Face's privacy policy</a>. The developer does not receive these requests or records. Do not put private text into model searches.</p>
+<p>The companion never receives your typed text, speech audio or grammar-check text. It receives model-download requests and transfers model files to the keyboard. Both apps must have matching signing certificates for this transfer.</p>
+<p>Pinned catalog models are checked against exact size and SHA-256. Experimental custom downloads are checked by SHA-256 only when Hugging Face publishes one; they are not verified catalog models. The keyboard checks their format and a test load before accepting them. These checks do not guarantee model quality or trustworthy output.</p>
+<p><code>FOREGROUND_SERVICE</code> and <code>FOREGROUND_SERVICE_DATA_SYNC</code> keep a user-started download running with visible progress. <code>POST_NOTIFICATIONS</code> lets the companion display download progress and a cancel action. No notification is used for advertising. The companion deletes its temporary downloaded copy after hand-over; installed models remain in the keyboard until you delete them.</p>
+</div></section>
+<section><h2>Deletion and contact</h2><div class="card">
+<p>There is no Clackatoo account or developer-held personal-data database to delete. Clearing app storage or uninstalling removes local app-private data. For Hugging Face's network records or privacy rights, contact <a href="mailto:privacy@huggingface.co">privacy@huggingface.co</a>; Clackatoo cannot delete records controlled by that independent service.</p>
+<p>For questions about these apps or this policy, use <a href="https://github.com/highlyproteus/clackatoo/issues">Clackatoo's GitHub issues</a>. Issues are public: do not post private messages, recordings, passwords or other sensitive data. Information you choose to post there is handled by GitHub and visible to the project maintainers.</p>
+<p>This page loads no scripts, external fonts or tracking resources. Its GitHub Pages host receives ordinary web requests under GitHub's own privacy practices.</p>
+</div></section>
+<footer><a href="index.html">Clackatoo download page</a> · <a href="https://github.com/highlyproteus/clackatoo">Source code</a></footer>
+</main></body></html>

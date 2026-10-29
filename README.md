@@ -11,6 +11,9 @@ recognition and grammar correction all run on the device.
 
 Download page: <https://highlyproteus.github.io/clackatoo/>
 
+[Privacy policy for Clackatoo and Clackatoo Models](https://highlyproteus.github.io/clackatoo/privacy.html).
+The keyboard has no internet access. Only the optional companion connects to Hugging Face for model downloads and model searches.
+
 | Dark | Dark, alternate palette | Light |
 | --- | --- | --- |
 | ![Dark](docs/screenshots/16-follow-phone-dark-baseline.png) | ![Dark, alternate palette](docs/screenshots/17-follow-phone-dark-amber.png) | ![Light](docs/screenshots/18-follow-phone-light-baseline.png) |

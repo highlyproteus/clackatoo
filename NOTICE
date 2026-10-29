@@ -11,6 +11,11 @@ This program is a modified version of HeliBoard v4.2
 2026-10-20. The modifications are recorded in this repository's git history on
 top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
 
+- 2026-10-29: added a shared privacy policy for Clackatoo and Clackatoo Models
+  to the static site, linked from the download page and README. Both apps expose
+  the policy in their settings/main screen via an external browser; the keyboard
+  entry is searchable and no network permission was added.
+
 - 2026-10-20: application id, labels and content provider authorities changed
   (now `io.github.highlyproteus.clackatoo` and "Clackatoo", see 2026-10-27).
 - 2026-10-20: added the "Clackatoo" keyboard style (square keys with a thin
