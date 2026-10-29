@@ -55,7 +55,7 @@ serve the newest release:
 | APK | App | Needs the internet | Latest release |
 | --- | --- | --- | --- |
 | `clackatoo-X.Y.Z.apk` | **Clackatoo**, the keyboard | No. It has no `INTERNET` permission. | [`clackatoo.apk`](https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo.apk) |
-| `clackatoo-models-X.Y.Z.apk` | **Clackatoo Models**, an optional companion that downloads the voice and grammar models | Yes, only to download the pinned model files | [`clackatoo-models.apk`](https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo-models.apk) |
+| `clackatoo-models-X.Y.Z.apk` | **Clackatoo Models**, an optional companion that downloads the voice and grammar models | Yes, only to Hugging Face: the pinned catalog models, and models you pick yourself in its experimental browser | [`clackatoo-models.apk`](https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo-models.apk) |
 
 Install the keyboard, then enable it under Settings > System > Keyboard > On-screen keyboard. Install Clackatoo Models too if
 you want one-tap model downloads (see [Models](#models)); without it you can import model files by hand.
@@ -106,7 +106,9 @@ says plainly: not checked by Clackatoo, may not work, may be slow or use a lot o
 import any file from your storage (the keyboard finds the format from the file's header: Whisper `ggml-*.bin`, a Parakeet GGUF,
 or a text GGUF that you use for clean-up or grammar; it refuses everything else, files over 4 GB and files that fail a test
 load), or "Browse Hugging Face" in Clackatoo Models, where you type a search or `owner/name`, see the files and sizes, and pick
-one. The keyboard sends the companion nothing for this. Custom models run in the same isolated process without internet, are
+one. The keyboard sends the companion nothing for this. These files are not pinned: Clackatoo Models checks the SHA-256 only
+when Hugging Face's API publishes one for the file (plus the exact size it reports), and the keyboard then checks size,
+format and a test load. Custom models run in the same isolated process without internet, are
 kept apart from the catalog models, are marked "Experimental · not verified", can be chosen like any model and deleted from
 the card's menu. Text models are prompted with the chat template stored in the model file.
 
@@ -146,10 +148,11 @@ by `python3 tools/omarchy-themes/generate.py` (needs network, or `--source` with
 
 - **No network access.** The keyboard does not request `INTERNET`; the release workflow fails if it appears. Downloads
   are done by the separate app Clackatoo Models, which asks for nothing but the network, a foreground service for the
-  download and notifications (the workflow fails on any other permission). It accepts only the id of a model from its
-  built-in catalog from the keyboard, never a URL, size or hash, follows redirects only to Hugging Face hosts, and
-  hands the file over only to the keyboard. The two apps talk through a signature permission, so only apps signed with
-  the Clackatoo key can use the link; the keyboard checks every file again before installing it.
+  download and notifications (the workflow fails on any other permission). From the keyboard it accepts only the id of a
+  model from its built-in catalog, never a URL, size or hash; experimental custom downloads start only from its own screen.
+  It follows redirects only to Hugging Face hosts and hands files over only to the keyboard. The two apps talk through a
+  signature permission, so only apps signed with the Clackatoo key can use the link. The keyboard checks catalog files
+  again by size and SHA-256, and custom files by size, format and a test load, before installing them.
 - **Isolated model process.** whisper.cpp, parakeet.cpp and llama.cpp run in an isolated process
   (`android:isolatedProcess="true"`) with no permissions and no access to the keyboard's files. Models are passed as
   read-only file descriptors and all output is treated as untrusted.

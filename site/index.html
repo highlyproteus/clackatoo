@@ -68,7 +68,7 @@
     <div class="card">
       <ul class="facts">
         <li><b>No internet in the keyboard.</b> Clackatoo does not ask for the <code>INTERNET</code> permission, and the release build fails if it ever appears. Typing, swipe, speech recognition and grammar check run on the phone.</li>
-        <li><b>Models come from a separate app.</b> Only Clackatoo Models connects to the network, only to download the pinned model files from Hugging Face. It checks every file by size and SHA-256.</li>
+        <li><b>Models come from a separate app.</b> Only Clackatoo Models connects to the network, and only to Hugging Face. The suggested models are pinned: each download is checked by exact size and SHA-256, by the Models app and again by the keyboard. Your own models from the experimental “Browse Hugging Face” screen are not pinned: they are checked by SHA-256 only when Hugging Face publishes one, then by size, format and a test load in the keyboard.</li>
         <li><b>No tracking on this page.</b> No scripts, no cookies, no fonts or images from other sites.</li>
         <li><b>Open source.</b> GPL-3.0, based on <a href="https://github.com/HeliBorg/HeliBoard">HeliBoard</a>.</li>
       </ul>
