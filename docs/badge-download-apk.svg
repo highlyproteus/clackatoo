@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="161" height="48" viewBox="0 0 161 48" role="img" aria-label="Download APK">
+  <rect x="0.5" y="0.5" width="160" height="47" rx="8" fill="#000" stroke="#a6a6a6"/>
+  <g fill="none" stroke="#a9cbff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 12v17M22 22l8 8 8-8M21 37h18"/>
+  </g>
+  <text x="52" y="21" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="700" letter-spacing=".4">DOWNLOAD</text>
+  <text x="52" y="38" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="19">Clackatoo</text>
+</svg>

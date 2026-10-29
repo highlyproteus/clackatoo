@@ -1,5 +1,10 @@
 # Builds Clackatoo and its companion app Clackatoo Models, signs both with the release key and publishes the two APKs
-# (clackatoo-X.Y.Z.apk and clackatoo-models-X.Y.Z.apk) on a GitHub release.
+# (clackatoo-X.Y.Z.apk and clackatoo-models-X.Y.Z.apk) on a GitHub release, each also as a byte-identical version-less
+# copy (clackatoo.apk and clackatoo-models.apk), so that
+# https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo.apk always serves the newest keyboard.
+# Obtainium's filters ^clackatoo-[0-9].*\.apk$ and ^clackatoo-models-.*\.apk$ still keep exactly one file each (the
+# versioned one): "clackatoo.apk" has no hyphen before the extension and "clackatoo-models.apk" has no hyphen after
+# "models", so the version-less names match neither.
 #
 # - A tag vX.Y.Z (X.Y.Z = versionName in app/build.gradle.kts, which models/build.gradle.kts must repeat) builds, signs
 #   and publishes the release.
@@ -173,6 +178,15 @@ jobs:
           sign "${{ steps.apk.outputs.keyboard }}" "clackatoo-$version.apk"
           # the same key: the keyboard and the companion only talk to apps signed alike
           sign "${{ steps.apk.outputs.companion }}" "clackatoo-models-$version.apk"
+          # the stable download names: copies of the signed files, so the signature and certificate checks above hold
+          cp "clackatoo-$version.apk" clackatoo.apk
+          cp "clackatoo-models-$version.apk" clackatoo-models.apk
+          cmp "clackatoo-$version.apk" clackatoo.apk
+          cmp "clackatoo-models-$version.apk" clackatoo-models.apk
+          for f in clackatoo.apk clackatoo-models.apk; do
+            "$bt/apksigner" verify --print-certs "$f" | grep -q "certificate SHA-256 digest: $want" ||
+              { echo "::error::$f is not signed with the release certificate"; exit 1; }
+          done
           echo "APK=clackatoo-$version.apk" >> "$GITHUB_ENV"
           echo "MODELS_APK=clackatoo-models-$version.apk" >> "$GITHUB_ENV"
           echo "CERT=$EXPECTED_CERT" >> "$GITHUB_ENV"
@@ -184,6 +198,9 @@ jobs:
         run: |
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
           models_sha=$(sha256sum "$MODELS_APK" | cut -d' ' -f1)
+          # the version-less copies are byte-identical; the notes state their digests too, from the files themselves
+          [ "$(sha256sum clackatoo.apk | cut -d' ' -f1)" = "$sha" ] && [ "$(sha256sum clackatoo-models.apk | cut -d' ' -f1)" = "$models_sha" ] ||
+            { echo "::error::a version-less APK differs from its versioned file"; exit 1; }
           cat > notes.md <<EOF
           AppVerifier verification info (both apps carry the same signing certificate):
 
@@ -194,7 +211,11 @@ jobs:
           \`\`\`
 
           Clackatoo (the keyboard, no internet access): \`$APK\`, SHA-256 \`$sha\`
+          (the same file as \`clackatoo.apk\`, SHA-256 \`$sha\`)
 
           Clackatoo Models (optional companion that downloads the voice and grammar models for the keyboard): \`$MODELS_APK\`, SHA-256 \`$models_sha\`
+          (the same file as \`clackatoo-models.apk\`, SHA-256 \`$models_sha\`)
+
+          The version-less names give a link that always serves the newest release: https://github.com/$GITHUB_REPOSITORY/releases/latest/download/clackatoo.apk
           EOF
-          gh release create "$GITHUB_REF_NAME" "$APK" "$MODELS_APK" --title "Clackatoo ${{ steps.version.outputs.name }}" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" "$APK" "$MODELS_APK" clackatoo.apk clackatoo-models.apk --title "Clackatoo ${{ steps.version.outputs.name }}" --notes-file notes.md

@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# Checks the download page (site/): every Obtainium link decodes to a valid app config whose APK filter matches exactly
+# one file of a release (the versioned name) and not the version-less copies, every local file the page references
+# exists, nothing is loaded from another site, and the certificate matches the README-documented release format.
+#
+#   tools/check-site            run from anywhere
+#
+# Standard library only. Exits 1 on the first problem list.
+import html.parser, json, os, re, sys, urllib.parse
+
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+SITE = os.path.join(ROOT, 'site')
+REPO = 'https://github.com/highlyproteus/clackatoo'
+VERSION = re.search(r'^\s*versionName = "(.*)"$', open(os.path.join(ROOT, 'app/build.gradle.kts')).read(), re.M).group(1)
+ASSETS = [f'clackatoo-{VERSION}.apk', f'clackatoo-models-{VERSION}.apk', 'clackatoo.apk', 'clackatoo-models.apk']
+EXPECT = {  # package id -> (name, the one asset its filter must keep)
+    'io.github.highlyproteus.clackatoo': ('Clackatoo', f'clackatoo-{VERSION}.apk'),
+    'io.github.highlyproteus.clackatoo.models': ('Clackatoo Models', f'clackatoo-models-{VERSION}.apk'),
+}
+CERT = 'F6:B2:5F:23:73:F8:3C:19:45:64:76:1C:06:F3:CD:D8:2E:60:11:32:D2:08:2F:73:D7:81:2D:85:73:3E:BC:8D'
+errors = []
+
+
+def err(msg):
+    errors.append(msg)
+
+
+class Page(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.refs = []  # (tag, attr, value)
+
+    def handle_starttag(self, tag, attrs):
+        for k, v in attrs:
+            if k in ('href', 'src') and v:
+                self.refs.append((tag, k, v))
+            if tag == 'script':
+                err('the page must not contain a <script>')
+
+
+text = open(os.path.join(SITE, 'index.html'), encoding='utf-8').read()
+page = Page()
+page.feed(text)
+
+seen = set()
+for tag, attr, value in page.refs:
+    if value.startswith('obtainium://app/') or value.startswith('https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/'):
+        enc = value.split('obtainium://app/', 1)[1]
+        cfg = json.loads(urllib.parse.unquote(enc))
+        for key in ('id', 'url', 'author', 'name', 'additionalSettings'):
+            if key not in cfg:
+                err(f'obtainium link lacks {key}')
+        pkg = cfg.get('id')
+        if pkg not in EXPECT:
+            err(f'unexpected app id {pkg}')
+            continue
+        name, want = EXPECT[pkg]
+        if cfg.get('name') != name or cfg.get('url') != REPO or cfg.get('author') != 'highlyproteus':
+            err(f'{pkg}: wrong name/url/author {cfg}')
+        # Obtainium stores additionalSettings as a JSON string (App.fromJson jsonDecode()s it)
+        if not isinstance(cfg['additionalSettings'], str):
+            err(f'{pkg}: additionalSettings must be a JSON string')
+            continue
+        flt = json.loads(cfg['additionalSettings'])['apkFilterRegEx']
+        kept = [a for a in ASSETS if re.search(flt, a)]
+        if kept != [want]:
+            err(f'{pkg}: filter {flt!r} keeps {kept}, wanted [{want!r}]')
+        seen.add((pkg, value.startswith('obtainium://')))
+    elif value.startswith(('http://', 'https://')):
+        if tag in ('img', 'link', 'script', 'iframe') or attr == 'src':
+            err(f'external resource {value}')
+        elif not value.startswith(('https://github.com/', 'https://apps.obtainium.imranr.dev/')):
+            err(f'unexpected external link {value}')
+    elif value.startswith(('obtainium://', '#', 'mailto:')):
+        if value.startswith('obtainium://') and not value.startswith('obtainium://app/'):
+            err(f'unexpected scheme link {value}')
+    else:
+        if not os.path.isfile(os.path.join(SITE, value.split('#')[0])):
+            err(f'missing file {value}')
+
+for pkg in EXPECT:
+    for direct in (False, True):
+        if (pkg, direct) not in seen:
+            err(f'no {"direct" if direct else "redirect"} Obtainium link for {pkg}')
+
+for want in (f'{REPO}/releases/latest/download/clackatoo.apk', f'{REPO}/releases/latest/download/clackatoo-models.apk'):
+    if want not in [v for _, _, v in page.refs]:
+        err(f'missing download link {want}')
+if CERT not in text:
+    err('certificate fingerprint missing')
+for pkg in EXPECT:
+    if pkg not in text:
+        err(f'package name {pkg} missing')
+css = open(os.path.join(SITE, 'style.css'), encoding='utf-8').read()
+if re.search(r'url\(\s*[\'"]?(https?:)?//|@import', css):
+    err('style.css loads something from elsewhere')
+
+if errors:
+    print('\n'.join(errors))
+    sys.exit(1)
+print('site ok:', len(page.refs), 'references checked')

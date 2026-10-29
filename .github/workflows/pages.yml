@@ -1,0 +1,43 @@
+# Publishes the download page (site/) to GitHub Pages at https://highlyproteus.github.io/clackatoo/.
+# Needs Settings > Pages > Build and deployment > Source = "GitHub Actions" once.
+# tools/check-site verifies the page first (Obtainium links decode and their filters keep one release file each, no
+# script, nothing loaded from another site).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'tools/check-site'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the page
+        run: tools/check-site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

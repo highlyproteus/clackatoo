@@ -4,6 +4,13 @@ An offline Android keyboard with voice typing and a grammar check, based on
 [HeliBoard](https://github.com/HeliBorg/HeliBoard) v4.2. Clackatoo has no `INTERNET` permission: typing, speech
 recognition and grammar correction all run on the device.
 
+<p>
+  <a href="https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo.apk"><img src="docs/badge-download-apk.svg" alt="Download APK" height="48"></a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.highlyproteus.clackatoo%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fhighlyproteus%2Fclackatoo%22%2C%22author%22%3A%22highlyproteus%22%2C%22name%22%3A%22Clackatoo%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Eclackatoo-%5B0-9%5D.*%5C%5C%5C%5C.apk%24%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D"><img src="docs/badge-obtainium.png" alt="Get it on Obtainium" height="48"></a>
+</p>
+
+Download page: <https://highlyproteus.github.io/clackatoo/>
+
 | Dark | Dark, alternate palette | Light |
 | --- | --- | --- |
 | ![Dark](docs/screenshots/16-follow-phone-dark-baseline.png) | ![Dark, alternate palette](docs/screenshots/17-follow-phone-dark-amber.png) | ![Light](docs/screenshots/18-follow-phone-light-baseline.png) |
@@ -40,19 +47,25 @@ recognition and grammar correction all run on the device.
 
 ## Installation
 
-Clackatoo is distributed as two signed APKs on the [releases page](https://github.com/highlyproteus/clackatoo/releases):
+Clackatoo is distributed as two signed APKs on the [releases page](https://github.com/highlyproteus/clackatoo/releases)
+and on the [download page](https://highlyproteus.github.io/clackatoo/). Every release carries each APK twice, with and
+without the version in its name; the two files are byte-identical, and the version-less names give links that always
+serve the newest release:
 
-| APK | App | Needs the internet |
-| --- | --- | --- |
-| `clackatoo-X.Y.Z.apk` | **Clackatoo**, the keyboard | No. It has no `INTERNET` permission. |
-| `clackatoo-models-X.Y.Z.apk` | **Clackatoo Models**, an optional companion that downloads the voice and grammar models | Yes, only to download the pinned model files |
+| APK | App | Needs the internet | Latest release |
+| --- | --- | --- | --- |
+| `clackatoo-X.Y.Z.apk` | **Clackatoo**, the keyboard | No. It has no `INTERNET` permission. | [`clackatoo.apk`](https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo.apk) |
+| `clackatoo-models-X.Y.Z.apk` | **Clackatoo Models**, an optional companion that downloads the voice and grammar models | Yes, only to download the pinned model files | [`clackatoo-models.apk`](https://github.com/highlyproteus/clackatoo/releases/latest/download/clackatoo-models.apk) |
 
 Install the keyboard, then enable it under Settings > System > Keyboard > On-screen keyboard. Install Clackatoo Models too if
 you want one-tap model downloads (see [Models](#models)); without it you can import model files by hand.
 
-Updates can be tracked with [Obtainium](https://github.com/ImranR98/Obtainium). Add the same repository URL twice,
-`https://github.com/highlyproteus/clackatoo`, once for each app, and give each a different APK filter under "Filter APKs by
-regular expression" (the app is identified by the APK it installs):
+Updates can be tracked with [Obtainium](https://github.com/ImranR98/Obtainium). These links open Obtainium with the
+repository and the right APK filter filled in (Obtainium asks you to confirm before adding): [Clackatoo](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.highlyproteus.clackatoo%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fhighlyproteus%2Fclackatoo%22%2C%22author%22%3A%22highlyproteus%22%2C%22name%22%3A%22Clackatoo%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Eclackatoo-%5B0-9%5D.*%5C%5C%5C%5C.apk%24%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D)
+and [Clackatoo Models](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.highlyproteus.clackatoo.models%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fhighlyproteus%2Fclackatoo%22%2C%22author%22%3A%22highlyproteus%22%2C%22name%22%3A%22Clackatoo%20Models%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Eclackatoo-models-.*%5C%5C%5C%5C.apk%24%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D). By hand, add the same repository URL
+twice, `https://github.com/highlyproteus/clackatoo`, once for each app, and give each a different APK filter under "Filter APKs
+by regular expression" (the app is identified by the APK it installs). The filters keep only the versioned file, so the
+version-less copies are ignored:
 
 | App | Filter APKs by regular expression |
 | --- | --- |

@@ -208,3 +208,9 @@ decoder on the same strokes and the decoding time.
   API that the settings screens and the panel use. A completed download becomes the chosen model of its role.
 - The release workflow builds both APKs with `assembleNouserlib`; `versionName` of `models/build.gradle.kts` must equal the
   keyboard's.
+- The release also uploads version-less copies of both APKs (`clackatoo.apk`, `clackatoo-models.apk`), so the
+  `releases/latest/download/` links never change. Keep the versioned names: Obtainium's filters `^clackatoo-[0-9].*\.apk$` and
+  `^clackatoo-models-.*\.apk$` must keep matching exactly one file each, and the version-less names match neither.
+- `site/` is the download page (GitHub Pages, deployed by `.github/workflows/pages.yml`). It must stay static and
+  self-contained: no scripts, trackers, external fonts or CDNs. `tools/check-site` decodes the Obtainium links in it and
+  checks their filters; run it after editing the page.

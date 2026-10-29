@@ -217,6 +217,18 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   four live theme swatches that apply a theme, and a "More settings" list that
   keeps every screen reachable (`HomeScreen`, `HomeComponents`,
   `SetupChecklist`, `ThemeSelection`, `ThemeMiniature`, `SearchScreen`).
+- 2026-10-28: key vibration and key sounds are on by default
+  (`Defaults.PREF_VIBRATE_ON` and `PREF_SOUND_ON` are true; HeliBoard has both
+  off). Existing choices are kept: a saved setting always wins over the default.
+- 2026-10-28: stable download links and a download page. Each release also
+  carries byte-identical version-less copies (`clackatoo.apk`,
+  `clackatoo-models.apk`) so that `releases/latest/download/clackatoo.apk`
+  always works, and `site/` (published to GitHub Pages by the Pages workflow,
+  checked by `tools/check-site`) is a static download page with no scripts or
+  third-party resources. It contains the Obtainium "Get it on Obtainium" badge
+  (`site/assets/badge_obtainium.png`, `docs/badge-obtainium.png`; from
+  https://github.com/ImranR98/Obtainium, GPL-3.0) and screenshots from
+  `docs/screenshots/`.
 
 Upstream copyright
 ------------------
