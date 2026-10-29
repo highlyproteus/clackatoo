@@ -5,8 +5,10 @@ package io.github.highlyproteus.clackatoo.models
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.format.Formatter
@@ -19,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import helium314.keyboard.clackatoo.catalog.Catalog
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 
@@ -43,6 +46,7 @@ class MainActivity : Activity() {
         root.addView(button(R.string.open_clackatoo) { openKeyboard() })
         root.addView(button(R.string.browse_huggingface) { startActivity(Intent(this, BrowseActivity::class.java)) })
         root.addView(button(R.string.licences) { showLicences() })
+        root.addView(button(R.string.privacy_policy) { openPrivacyPolicy() })
         root.addView(text(R.string.downloads, 18f).apply { setPadding(0, dp(24), 0, dp(8)) })
         empty = text(R.string.empty, 14f)
         root.addView(empty)
@@ -139,6 +143,14 @@ class MainActivity : Activity() {
     private fun openKeyboard() {
         val intent = packageManager.getLaunchIntentForPackage(BuildConfig.KEYBOARD_APPLICATION_ID) ?: return
         startActivity(intent)
+    }
+
+    private fun openPrivacyPolicy() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ModelsProtocol.PRIVACY_URL)))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.no_browser, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showLicences() {

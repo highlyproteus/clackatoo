@@ -91,6 +91,8 @@ object ModelsProtocol {
 
     /** Where the keyboard sends the user when the companion is not installed (it never downloads anything itself). */
     const val RELEASES_URL = "https://github.com/highlyproteus/clackatoo/releases"
+    /** Opened by an external browser; the keyboard never fetches this page itself. */
+    const val PRIVACY_URL = "https://highlyproteus.github.io/clackatoo/privacy.html"
 
     /** Package names: the companion's is the keyboard's with `.models` before an optional `.debug`. */
     const val KEYBOARD_PACKAGE = "io.github.highlyproteus.clackatoo"

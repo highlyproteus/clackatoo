@@ -73,6 +73,7 @@ object SettingsWithoutKey {
     const val APP = "app"
     const val VERSION = "version"
     const val LICENSE = "license"
+    const val PRIVACY_POLICY = "clackatoo_privacy_policy"
     const val HIDDEN_FEATURES = "hidden_features"
     const val GITHUB = "github"
     const val GITHUB_WIKI = "github_wiki"

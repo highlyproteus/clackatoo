@@ -3,6 +3,7 @@ package helium314.keyboard.settings.screens
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.text.method.LinkMovementMethod
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
+import helium314.keyboard.clackatoo.catalog.ModelsProtocol
 import helium314.keyboard.latin.BuildConfig
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.common.Links
@@ -47,6 +49,16 @@ import androidx.core.content.edit
 import helium314.keyboard.latin.utils.IntentUtils
 import java.util.Locale
 
+internal fun openPrivacyPolicy(context: Context) {
+    try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, ModelsProtocol.PRIVACY_URL.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.models_no_browser, Toast.LENGTH_LONG).show()
+    }
+}
+
 @Composable
 fun AboutScreen(
     onClickBack: () -> Unit,
@@ -55,6 +67,7 @@ fun AboutScreen(
         SettingsWithoutKey.APP,
         SettingsWithoutKey.VERSION,
         SettingsWithoutKey.LICENSE,
+        SettingsWithoutKey.PRIVACY_POLICY,
         SettingsWithoutKey.HIDDEN_FEATURES,
         SettingsWithoutKey.GITHUB_WIKI,
         SettingsWithoutKey.COMMUNITY_LINKS,
@@ -106,6 +119,15 @@ fun createAboutSettings(context: Context) = listOf(
                 intent.action = Intent.ACTION_VIEW
                 ctx.startActivity(intent)
             },
+            icon = R.drawable.ic_settings_about_license
+        )
+    },
+    Setting(context, SettingsWithoutKey.PRIVACY_POLICY, R.string.clackatoo_privacy_policy, R.string.clackatoo_privacy_policy_summary) {
+        val ctx = LocalContext.current
+        Preference(
+            name = it.title,
+            description = it.description,
+            onClick = { openPrivacyPolicy(ctx) },
             icon = R.drawable.ic_settings_about_license
         )
     },

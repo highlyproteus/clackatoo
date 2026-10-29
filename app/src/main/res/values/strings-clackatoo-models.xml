@@ -21,7 +21,7 @@
     <string name="models_failed_stalled">Clackatoo Models stopped answering.</string>
     <string name="models_failed_start">Clackatoo Models could not be started.</string>
     <string name="models_failed_install">The model could not be installed.</string>
-    <string name="models_no_browser">There is no app to open the download page.</string>
+    <string name="models_no_browser">There is no app to open this web page.</string>
 
     <!-- "needs a model" sheet in the keyboard panel -->
     <string name="models_sheet_voice_title">Voice typing needs a model</string>

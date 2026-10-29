@@ -7,6 +7,8 @@
     <string name="browse_huggingface">Browse Hugging Face</string>
     <string name="open_clackatoo">Open Clackatoo</string>
     <string name="licences">Model licences</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="no_browser">No browser is available to open this link.</string>
     <string name="close">Close</string>
     <string name="cancel">Cancel</string>
     <string name="downloads">Downloads</string>
