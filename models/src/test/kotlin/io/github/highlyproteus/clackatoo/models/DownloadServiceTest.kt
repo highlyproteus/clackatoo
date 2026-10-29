@@ -88,6 +88,26 @@ class DownloadServiceTest {
         assertFalse(shadowOf(service).isStoppedBySelf)
     }
 
+    @Test fun `idle stopped but still bound service accepts a request and returns to foreground`() {
+        service.onBind(Intent())
+        active.set(1)
+        service.onStartCommand(Intent(), 0, 1)
+        active.set(0)
+        invoke("finishIfIdle")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(shadowOf(service).isStoppedBySelf)
+        assertTrue(shadowOf(service).isForegroundStopped)
+        assertFalse(worker.isShutdown)
+
+        // The binding prevents destruction, so this same live instance must accept the next download.
+        assertEquals(ModelsProtocol.REQUEST_OK, request())
+        assertEquals(1, active.get())
+        service.onStartCommand(Intent(), 0, 2)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(shadowOf(service).isForegroundStopped)
+        assertEquals(1, shadowOf(service).lastForegroundNotificationId)
+    }
+
     @Test fun `executor rejection refunds admission and leaves no queued download`() {
         worker.shutdown()
         assertEquals(ModelsProtocol.REQUEST_REFUSED, request())

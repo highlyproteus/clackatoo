@@ -313,7 +313,8 @@ class DownloadService : Service() {
                 if (active.get() != 0) return@synchronized
                 // Android may already know about a start whose onStartCommand has not run yet.
                 if (!stopSelfResult(lastStartId)) return@synchronized
-                stopping = true
+                // A binding may keep this idle-stopped instance alive. It can accept work and be started again;
+                // only destruction, timeout or failed foreground promotion closes admission.
                 link?.close()
                 link = null
                 // keep the last notification (ready / failed); otherwise remove the placeholder
