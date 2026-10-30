@@ -556,6 +556,24 @@ public class LatinIME extends InputMethodService implements
     @NonNull
     public AssistController getAssist() { return mAssist; }
 
+    /** Clackatoo: while a dictation runs, Back asks before it is discarded (AssistController.onBack). */
+    private android.window.OnBackInvokedCallback mDictationBack;
+
+    private void takeBackForDictation(final boolean take) {
+        // before Android 13 Back arrives as a key event, see onKeyDown
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+        final android.app.Dialog window = getWindow();
+        if (window == null) return;
+        final android.window.OnBackInvokedDispatcher dispatcher = window.getOnBackInvokedDispatcher();
+        if (take && mDictationBack == null) {
+            mDictationBack = () -> mAssist.onBack();
+            dispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY, mDictationBack);
+        } else if (!take && mDictationBack != null) {
+            dispatcher.unregisterOnBackInvokedCallback(mDictationBack);
+            mDictationBack = null;
+        }
+    }
+
     /** Clackatoo: used by the voice typing and grammar check to read and replace text. */
     @NonNull
     public InputLogic getInputLogic() { return mInputLogic; }
@@ -569,6 +587,7 @@ public class LatinIME extends InputMethodService implements
         AccessibilityUtils.init(this);
         mStatsUtilsManager.onCreate(this, mDictionaryFacilitator);
         if (BuildConfig.DEBUG) mDebugWavReceiver = DebugWavReceiver.Companion.register(this, mAssist);
+        mAssist.setOnDictationChanged(dictating -> { takeBackForDictation(dictating); return kotlin.Unit.INSTANCE; });
         mDisplayContext = KtxKt.getDisplayContext(this);
         KeyboardSwitcher.init(this);
         super.onCreate();
@@ -1183,6 +1202,8 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onSwipeDownOnToolbar() {
+        // Clackatoo: hiding the keyboard ends a running dictation, so that asks first
+        if (mAssist.askBeforeLeaving(KeyCode.NOT_SPECIFIED, () -> { requestHideSelf(0); return kotlin.Unit.INSTANCE; })) return;
         requestHideSelf(0);
     }
 
@@ -1724,6 +1745,10 @@ public class LatinIME extends InputMethodService implements
     // Hooks for hardware keyboard
     @Override
     public boolean onKeyDown(final int keyCode, final KeyEvent keyEvent) {
+        // Clackatoo: Back would hide the keyboard and end a dictation (Android 13+ deliver it to takeBackForDictation instead);
+        // a held key's repeats are taken without flipping between the question and Keep
+        if (keyCode == KeyEvent.KEYCODE_BACK && (keyEvent.getRepeatCount() > 0 ? mAssist.takesBackUp() : mAssist.onBack()))
+            return true;
         if (mKeyboardActionListener.onKeyDown(keyCode, keyEvent))
             return true;
         return super.onKeyDown(keyCode, keyEvent);
@@ -1731,6 +1756,8 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onKeyUp(final int keyCode, final KeyEvent keyEvent) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mAssist.takesBackUp())
+            return true;
         if (mKeyboardActionListener.onKeyUp(keyCode, keyEvent))
             return true;
         return super.onKeyUp(keyCode, keyEvent);

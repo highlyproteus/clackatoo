@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
+import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
 import helium314.keyboard.latin.App
 import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.settings.Settings
@@ -16,6 +17,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.runner.RunWith
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -594,7 +597,7 @@ class PanelVisibilityTest {
         val ways = linkedMapOf<String, (AssistController) -> Unit>(
             "close" to { it.close() },
             "the session changed" to { it.onSessionChanged() },
-            "Cancel" to { it.onCancel() },
+            "Cancel, then Discard" to { it.onCancel(); it.onDiscardDictation() },
             "Stop" to { it.onStop() },
             "hidden ancestor" to { wrapper.visibility = View.GONE },
         )
@@ -629,5 +632,158 @@ class PanelVisibilityTest {
         start(controller)
         assertEquals(2, recorders.size)
         assertTrue(controller.isListening)
+    }
+
+    // ---- leaving a dictation asks first, and the screen stays on while it runs
+
+    @Test fun `Cancel while recording asks first, and the recording goes on until Discard`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        assertEquals(AssistController.ListeningStart.STARTED, start(controller))
+        controller.onCancel()
+        assertTrue(panel.isAskingToDiscard)
+        assertTrue(controller.isListening, "the question does not end the recording")
+        recorders.single().onLevel(0.5f)
+        idle()
+        assertTrue(controller.isListening, "the panel is still on screen, so recording goes on")
+        controller.onKeepDictation()
+        assertFalse(panel.isAskingToDiscard)
+        assertTrue(controller.isListening)
+        assertEquals(0, recorders.single().cancelled)
+        controller.onCancel()
+        controller.onDiscardDictation()
+        assertEquals(1, recorders.single().cancelled)
+        assertEquals(0, recorders.single().stopped, "discarded audio is dropped, never transcribed")
+        assertTrue(controller.isIdle)
+        assertFalse(panel.isShowing)
+    }
+
+    @Test fun `a recording that fills up while the question shows closes the microphone and is never transcribed on Discard`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val ime = mock(LatinIME::class.java)
+        val controller = controller(recorders, ime)
+        var full: () -> Unit = {}
+        controller.recorderFactory = { onLevel, onFull, _ -> full = onFull; FakeRecorder(onLevel).also { recorders += it } }
+        start(controller)
+        controller.onCancel()
+        full() // the length limit, from the audio thread
+        idle()
+        assertEquals(1, recorders.single().stopped, "the microphone is closed at the limit")
+        assertTrue(panel.isAskingToDiscard, "the question stays: the audio waits for the answer")
+        assertFalse(controller.isIdle)
+        controller.onDiscardDictation()
+        assertTrue(controller.isIdle)
+        assertFalse(panel.isShowing)
+        verifyNoInteractions(ime) // transcribing starts by asking the keyboard for the editor and the models: never happened
+    }
+
+    @Test fun `a recording that fills up while the question shows is dropped when its panel leaves the screen`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val ime = mock(LatinIME::class.java)
+        val controller = controller(recorders, ime)
+        var full: () -> Unit = {}
+        controller.recorderFactory = { onLevel, onFull, _ -> full = onFull; FakeRecorder(onLevel).also { recorders += it } }
+        start(controller)
+        controller.onCancel()
+        full()
+        idle()
+        wrapper.visibility = View.GONE
+        idle()
+        assertTrue(controller.isIdle)
+        controller.onKeepDictation() // too late: nothing is left to keep
+        verifyNoInteractions(ime)
+    }
+
+    /** Clicks the panel's button labelled [label]; fails if there is none on screen. */
+    private fun press(label: String) {
+        val found = ArrayList<View>()
+        panel.findViewsWithText(found, label, View.FIND_VIEWS_WITH_TEXT)
+        found.single { it.isShown }.performClick()
+    }
+
+    @Test fun `the discard question covers the recording's buttons, which come back on Keep`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        start(controller)
+        press("Cancel")
+        assertTrue(panel.isAskingToDiscard)
+        press("Keep")
+        assertFalse(panel.isAskingToDiscard)
+        // Stop is a button of the recording state again: it ends the recording and takes the audio
+        press("Stop")
+        assertEquals(1, recorders.single().stopped)
+        assertEquals(0, recorders.single().cancelled)
+    }
+
+    @Test fun `Back while recording asks, Back again keeps dictating, and Discard then hides the keyboard`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val ime = mock(LatinIME::class.java)
+        val controller = controller(recorders, ime)
+        start(controller)
+        assertTrue(controller.onBack(), "Back is taken while recording")
+        assertTrue(controller.takesBackUp())
+        assertTrue(panel.isAskingToDiscard)
+        assertTrue(controller.onBack())
+        assertFalse(panel.isAskingToDiscard, "Back again answers Keep")
+        assertTrue(controller.isListening)
+        verify(ime, never()).requestHideSelf(0)
+        controller.onBack()
+        controller.onDiscardDictation()
+        assertEquals(1, recorders.single().cancelled)
+        assertTrue(controller.isIdle)
+        verify(ime).requestHideSelf(0)
+    }
+
+    @Test fun `a key during a recording runs only after Discard, and the Voice key stays Stop`() {
+        val recorders = ArrayList<FakeRecorder>()
+        val controller = controller(recorders)
+        start(controller)
+        assertFalse(controller.askBeforeLeaving(KeyCode.VOICE_INPUT) { error("Stop is never held back") })
+        var opened = 0
+        assertTrue(controller.askBeforeLeaving(KeyCode.CLIPBOARD) { opened++ })
+        assertTrue(panel.isAskingToDiscard)
+        controller.onKeepDictation()
+        assertEquals(0, opened, "Keep drops the key")
+        assertTrue(controller.isListening)
+        controller.askBeforeLeaving(KeyCode.CLIPBOARD) { opened++ }
+        controller.onDiscardDictation()
+        assertEquals(1, opened)
+        assertTrue(controller.isIdle)
+        assertEquals(1, recorders.single().cancelled)
+    }
+
+    @Test fun `without a dictation nothing is asked or held back`() {
+        val controller = controller(ArrayList())
+        assertFalse(controller.onBack())
+        assertFalse(controller.takesBackUp())
+        assertFalse(controller.askBeforeLeaving(KeyCode.CLIPBOARD) { })
+        controller.startListening(panel) { } // a pending start: the microphone is closed, nothing to lose
+        assertTrue(controller.isStarting)
+        assertFalse(controller.onBack())
+        controller.onCancel()
+        assertTrue(controller.isIdle, "Cancel before the microphone opened closes at once")
+        assertFalse(panel.isAskingToDiscard)
+    }
+
+    @Test fun `the screen is kept on from the start of a recording until it ends, however it ends`() {
+        val ways = linkedMapOf<String, (AssistController) -> Unit>(
+            "Discard" to { it.onCancel(); it.onDiscardDictation() },
+            "the session changed" to { it.onSessionChanged() },
+            "hidden ancestor" to { wrapper.visibility = View.GONE },
+        )
+        for ((name, way) in ways) {
+            tearDownViews(); setUp()
+            val controller = controller(ArrayList())
+            assertFalse(panel.keepScreenOn, name)
+            controller.startListening(panel) { }
+            assertTrue(panel.keepScreenOn, "$name: while the start waits for the panel")
+            idle()
+            assertTrue(controller.isListening, name)
+            assertTrue(panel.keepScreenOn, "$name: while recording")
+            way(controller)
+            idle()
+            assertTrue(controller.isIdle, name)
+            assertFalse(panel.keepScreenOn, "$name: after the recording ended")
+        }
     }
 }

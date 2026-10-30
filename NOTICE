@@ -251,6 +251,12 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   typing, where the switch now heads the Clean-up section and hides the writing
   style while off. With clean-up off, the needs-a-model sheet no longer offers
   the clean-up model.
+- 2026-10-29: voice typing keeps the screen on while it records and transcribes,
+  and asks "Discard this dictation?" (Discard / Keep) before Cancel, Back, swiping
+  the toolbar down or a toolbar key throws a dictation away; the key runs after
+  Discard. The microphone stays on while the question shows in the recording
+  panel; a recording or transcript that finishes meanwhile is inserted only on
+  Keep. Added CONTRIBUTING.md.
 
 Upstream copyright
 ------------------

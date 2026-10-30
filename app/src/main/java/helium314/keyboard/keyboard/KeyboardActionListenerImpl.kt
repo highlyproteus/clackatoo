@@ -103,6 +103,8 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     override fun onCodeInput(primaryCode: Int, x: Int, y: Int, isKeyRepeat: Boolean) {
+        // Clackatoo: during a dictation a key that would end it (clipboard, emoji, settings, Check...) asks first, and runs only after "Discard"
+        if (latinIME.assist.askBeforeLeaving(primaryCode) { onCodeInput(primaryCode, x, y, isKeyRepeat) }) return
         when (primaryCode) {
             // Clackatoo: built-in offline voice typing and grammar check (no other voice input method is started)
             KeyCode.VOICE_INPUT -> return latinIME.assist.onVoiceKey()

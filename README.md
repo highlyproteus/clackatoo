@@ -189,6 +189,11 @@ Releases are built and signed by the [Release workflow](.github/workflows/releas
 `versionName` in `app/build.gradle.kts` is pushed. The workflow verifies the package name, version, permissions and
 signing certificate before publishing. Signing is configured once with `tools/make-release-key`.
 
+## Contributing
+
+Pull requests are welcome and all of them are considered, including ones written with coding agents: Clackatoo is
+agent native. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Upstream
 
 `main` is HeliBoard v4.2 plus Clackatoo's changes. HeliBoard releases are merged from the `upstream` remote

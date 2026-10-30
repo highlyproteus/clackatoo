@@ -54,6 +54,10 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         fun onSheetCancel() {}
         /** The clean-up toggle while recording was pressed. */
         fun onToggleCleanUp() {}
+        /** "Discard" in the discard question ([showDiscardQuestion]). */
+        fun onDiscardDictation() {}
+        /** "Keep dictating" in the discard question. */
+        fun onKeepDictation() {}
     }
 
     /** One model offered by the needs-a-model sheet. */
@@ -87,6 +91,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     private val sheetStatus = LinkedHashMap<String, TextView>()
     /** The clean-up toggle of the recording state; null when it is not shown. */
     private var cleanUpButton: TextView? = null
+    /** While the discard question shows: the title and buttons it covers, put back by [endDiscardQuestion]. */
+    private var covered: Pair<CharSequence, List<TextView>>? = null
 
     init {
         visibility = GONE
@@ -98,6 +104,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        title.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE // screen readers hear "Listening", the discard question...
         content.addView(title, LinearLayout.LayoutParams(-2, -2))
 
         content.addView(body, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(6); bottomMargin = dp(8) })
@@ -220,6 +227,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     ) {
         styleForTheme()
         cleanUpButton = null
+        covered = null
         // keep the buttons clear of the navigation bar that the keyboard window draws at its bottom
         val navigationBar = ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
         content.setPadding(dp(12), dp(8), dp(12), dp(12) + navigationBar)
@@ -298,6 +306,44 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         show(titleText, false, true, null, false)
         setButtons(button(context.getString(R.string.assist_cancel), false) { listener?.onCancel() })
     }
+
+    /**
+     * Asks whether to throw away the dictation, over the recording or transcribing state: only the title ([titleRes])
+     * and the buttons change, the level meter, live text or progress stay, so it is plain that the microphone is still
+     * on while it asks.
+     */
+    fun showDiscardQuestion(titleRes: Int) {
+        if (covered != null) return
+        covered = title.text to (0 until buttons.childCount).map { buttons.getChildAt(it) as TextView }
+        title.text = context.getString(titleRes)
+        setButtons(
+            button(context.getString(R.string.assist_discard), false) { listener?.onDiscardDictation() },
+            button(context.getString(R.string.assist_keep_dictating), true) { listener?.onKeepDictation() },
+        )
+    }
+
+    /** A new title for the discard question that is showing (the recording stopped at its length limit meanwhile). */
+    fun retitleDiscardQuestion(titleRes: Int) {
+        if (covered != null) title.text = context.getString(titleRes)
+    }
+
+    /** The work behind the discard question has finished: the progress stops and the panel says the text waits for an answer. */
+    fun showTextReadyUnderQuestion() {
+        if (covered == null) return
+        progress.visibility = GONE
+        message.text = context.getString(R.string.assist_discard_text_ready)
+        message.visibility = VISIBLE
+    }
+
+    /** Puts back what the discard question covered. */
+    fun endDiscardQuestion() {
+        val (oldTitle, oldButtons) = covered ?: return
+        covered = null
+        title.text = oldTitle
+        setButtons(*oldButtons.toTypedArray())
+    }
+
+    val isAskingToDiscard get() = covered != null
 
     /** [changed]: ranges of [corrected] to highlight; null for none. */
     fun showPreview(corrected: String, changed: List<IntRange>?) {
@@ -463,7 +509,9 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     fun hide() {
         keysHidden = false
         visibility = GONE
+        keepScreenOn = false
         cleanUpButton = null
+        covered = null
         sheetRows.removeAllViews()
         sheetChecks.clear()
         sheetStatus.clear()

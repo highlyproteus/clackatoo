@@ -20,6 +20,13 @@
     <!-- the clean-up toggle while recording; flips the "Clean up English text" setting -->
     <string name="assist_cleanup_on">Clean-up on</string>
     <string name="assist_cleanup_off">Clean-up off</string>
+    <!-- asked before a dictation is thrown away (Cancel, Back, a toolbar key while recording or transcribing) -->
+    <string name="assist_discard_title">Discard this dictation?</string>
+    <string name="assist_discard_title_listening">Still listening. Discard this dictation?</string>
+    <string name="assist_discard_title_stopped">Recording stopped at its time limit. Discard it?</string>
+    <string name="assist_discard_text_ready">The text is ready. Keep inserts it; Discard throws it away.</string>
+    <string name="assist_discard">Discard</string>
+    <string name="assist_keep_dictating">Keep</string>
 
     <!-- messages in the panel -->
     <string name="assist_no_speech">No speech heard.</string>

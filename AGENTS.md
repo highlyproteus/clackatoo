@@ -26,7 +26,8 @@ switches), see Style notes.
    `helium314.keyboard.latin`; only the `applicationId` is Clackatoo's. Clackatoo-only classes live in
    `helium314.keyboard.clackatoo`.
 4. Upstream's AI policy (`docs/HELIBOARD_AI_USAGE.md`) forbids AI-generated upstream PRs and issues. Nothing here goes
-   upstream unless a human writes the PR and says AI was used.
+   upstream unless a human writes the PR and says AI was used. Clackatoo's own repository welcomes agent-written PRs
+   (`CONTRIBUTING.md`).
 5. Offline voice typing and grammar check live in `helium314.keyboard.clackatoo.assist` and the `ml` and `asr` modules
    (read `ml/README.md`; `asr` is Parakeet with its own static ggml). Everything stays on the phone: models run in the
    separate `:ml` service, which is an **isolated process** (`android:isolatedProcess="true"`, own UID, no access to
@@ -38,7 +39,11 @@ switches), see Style notes.
    has area up the whole chain, in a shown window): the Voice key shows the panel and the start waits for it (mode STARTING, microphone closed, no live call), and a
    start that cannot show the panel within 1 s (`AssistController.START_TIMEOUT_MS`) is cancelled with the microphone still
    closed. Once recording, the recording ends on the first frame in which the panel is no longer on screen (a pre-draw
-   check), and at the latest at the next level update (100 ms); hiding or detaching it ends it at once. Never log text the user typed,
+   check), and at the latest at the next level update (100 ms); hiding or detaching it ends it at once. While a dictation
+   records or is transcribed the panel keeps the screen on, and Cancel, Back, swiping the toolbar down and toolbar keys
+   ask before discarding it (`AssistController.askToDiscard`): the question shows in the same on-screen panel with the
+   level meter, so the panel rules above still end it; a recording that reaches its limit, or a transcript that is
+   ready, while the question shows is held and inserted only on "Keep". Never log text the user typed,
    said or that a model produced, in any build. Any change that touches the microphone, the debug WAV entry point, model import, the model process or text replacement needs a security review.
    **Catalog model files are pinned by size and SHA-256. Custom (experimental) model files are allowed only through two
    user-started paths, labelled "Experimental · not verified", and always run in the isolated process:** (1) "Import file" in

@@ -20,6 +20,7 @@ import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.RichInputMethodManager
 import helium314.keyboard.keyboard.KeyboardSwitcher
+import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
 import helium314.keyboard.latin.utils.InputTypeUtils
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.prefs
@@ -56,8 +57,27 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
     /** Increases whenever the editor, keyboard visibility or language changes; results of older work are dropped. */
     private var session = 0
 
-    private enum class Mode { NONE, STARTING, LISTENING, WORKING, PREVIEW, MESSAGE, SHEET }
+    /** TRANSCRIBING: a recording's audio is being turned into text and inserted (the voice part of what WORKING is for Check). */
+    private enum class Mode { NONE, STARTING, LISTENING, TRANSCRIBING, WORKING, PREVIEW, MESSAGE, SHEET }
     private var mode = Mode.NONE
+        set(value) {
+            val wasDictating = isDictating
+            field = value
+            // a dictation can take minutes: the screen must not go off (and so hide the panel and end it) while it runs
+            panel?.keepScreenOn = value == Mode.STARTING || value == Mode.LISTENING || value == Mode.TRANSCRIBING
+            if (isDictating != wasDictating) onDictationChanged(isDictating)
+        }
+    /**
+     * Told when a dictation (recording or transcribing) begins or ends: the keyboard takes Back for [onBack] meanwhile
+     * (Android 13 and later deliver Back to a callback, not as a key event).
+     */
+    var onDictationChanged: (Boolean) -> Unit = {}
+    /** What to do once the user confirms throwing the dictation away (the key or Back they pressed), or null. */
+    private var afterDiscard: (() -> Unit)? = null
+    /** While the discard question shows: a recording that reached its length limit (microphone closed), waiting for "Keep". */
+    private var heldAudio: ShortArray? = null
+    /** While the discard question shows: the finished transcript, inserted only on "Keep". */
+    private var heldText: String? = null
     /** The clock of the start timeout and of the timing log; tests replace nothing but may read it. */
     internal var elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime
 
@@ -113,6 +133,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     fun attachPanel(view: AssistPanelView) {
         panel?.listener = null
+        panel?.keepScreenOn = false
         panel = view
         view.listener = this
         if (mode != Mode.NONE) close()
@@ -285,7 +306,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                     }
                 }
             },
-            { main.post { if (mode == Mode.LISTENING && recorder === recorderOfThisStart) onStop() } },
+            { main.post { if (mode == Mode.LISTENING && recorder === recorderOfThisStart) onFull() } },
             call?.let { c -> { block, count -> c.write(block, count) } },
         )
         if (!rec.start()) {
@@ -322,6 +343,24 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         stopWatchingPanel()
         val pcm = rec.stop()
         recorder = null
+        finishRecording(pcm)
+    }
+
+    /**
+     * The recording reached its length limit. While the discard question shows, the microphone closes but the audio is
+     * only held: nothing is transcribed or inserted unless the user answers "Keep" (the panel watch still drops it if
+     * the panel leaves the screen); otherwise this is Stop.
+     */
+    private fun onFull() {
+        if (panel?.isAskingToDiscard != true) return onStop()
+        val rec = recorder ?: return
+        heldAudio = rec.stop()
+        recorder = null
+        panel?.retitleDiscardQuestion(R.string.assist_discard_title_stopped)
+    }
+
+    /** The audio of a recording that has ended: transcribe it (live: let the model finish), then insert. */
+    private fun finishRecording(pcm: ShortArray) {
         val language = language ?: return close()
         if (AudioRecorder.isSilent(pcm)) return message(R.string.assist_voice_title, ime.getString(R.string.assist_no_speech))
         val call = liveCall
@@ -340,7 +379,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
         val speech = speechModel()
         val mySession = session
-        mode = Mode.WORKING
+        mode = Mode.TRANSCRIBING
         panel?.showWorking(ime.getString(R.string.assist_transcribing))
         call.finish()
         launchVoiceJob(mySession) {
@@ -372,7 +411,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (info == null || InputTypeUtils.isAnyPasswordInputType(info.inputType)) return close()
         val mySession = session
         endWatches()
-        mode = Mode.WORKING
+        mode = Mode.TRANSCRIBING
         panel?.showWorking(ime.getString(R.string.assist_transcribing))
         launchVoiceJob(mySession) {
             val raw = try {
@@ -439,7 +478,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         var text = OutputSanitizer.clean(text, multiLine, maxChars)
         val cleanUp = cleanUpModel(language)
         if (text.isNotBlank() && language.cleanUpWithS1Mini && cleanUp != null && AssistSettings.s1MiniEnabled(ime.prefs())) {
-            panel?.showWorking(ime.getString(R.string.assist_cleaning))
+            if (panel?.isAskingToDiscard != true) panel?.showWorking(ime.getString(R.string.assist_cleaning))
             try {
                 val styling = AssistSettings.styling(ime.prefs())
                 val cleaned = if (cleanUp.ownTemplate) { // an experimental custom model: its own chat template
@@ -457,6 +496,12 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         }
         if (mySession != session) return
         if (text.isBlank()) return message(R.string.assist_voice_title, ime.getString(R.string.assist_no_speech))
+        // the user asked to leave while this was being written: nothing is inserted unless they answer "Keep"
+        if (panel?.isAskingToDiscard == true) {
+            heldText = text
+            panel?.showTextReadyUnderQuestion()
+            return
+        }
         insert(text)
         close()
     }
@@ -697,8 +742,63 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     // ------------------------------------------------------------------ panel buttons, lifecycle
 
-    override fun onCancel() = close()
+    /** Cancel while recording or transcribing asks first: a long dictation is lost with one tap otherwise. */
+    override fun onCancel() = if (isDictating) askToDiscard(null) else close()
     override fun onClose() = close()
+
+    /** A dictation that would be lost by leaving: being recorded, or recorded and not inserted yet. */
+    private val isDictating get() = mode == Mode.LISTENING || mode == Mode.TRANSCRIBING
+
+    private fun askToDiscard(after: (() -> Unit)?) {
+        afterDiscard = after
+        // say plainly that the microphone is still on while the question shows
+        panel?.showDiscardQuestion(if (recorder != null) R.string.assist_discard_title_listening else R.string.assist_discard_title)
+    }
+
+    override fun onDiscardDictation() {
+        val after = afterDiscard
+        close()
+        after?.invoke()
+    }
+
+    /** Back to the dictation; what finished while the question showed (the recording at its limit, the transcript) goes on now. */
+    override fun onKeepDictation() {
+        afterDiscard = null
+        panel?.endDiscardQuestion()
+        heldText?.let { text ->
+            heldText = null
+            insert(text)
+            return close()
+        }
+        val audio = heldAudio ?: return
+        heldAudio = null
+        stopWatchingPanel()
+        finishRecording(audio)
+    }
+
+    /**
+     * Something the user did on the keyboard would end the dictation (a toolbar key, swiping the toolbar down): during a
+     * dictation it asks first and runs [action] only after "Discard". Returns false, and does nothing, when there is no
+     * dictation to lose; the Voice key while recording is Stop and is never held back.
+     */
+    fun askBeforeLeaving(code: Int, action: () -> Unit): Boolean {
+        if (!isDictating || (code == KeyCode.VOICE_INPUT && mode == Mode.LISTENING)) return false
+        askToDiscard(action)
+        return true
+    }
+
+    /**
+     * Back (the key, the gesture, the keyboard's down arrow) would hide the keyboard and so end the dictation: it asks
+     * first, and Back again answers "Keep". Returns true when it took the event.
+     */
+    fun onBack(): Boolean {
+        if (!isDictating) return false
+        if (panel?.isAskingToDiscard == true) onKeepDictation() else askToDiscard { ime.requestHideSelf(0) }
+        return true
+    }
+
+    /** The key-up and the repeats of a Back key taken by [onBack]. */
+    fun takesBackUp(): Boolean = isDictating
 
     override fun onOpenSettings() {
         close()
@@ -716,6 +816,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         recorder = null
         dropLive()
         pending = null
+        afterDiscard = null
+        heldAudio = null
+        heldText = null
         mode = Mode.NONE
         panel?.hide()
     }
@@ -749,6 +852,9 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         recorder = null
         dropLive()
         pending = null
+        afterDiscard = null
+        heldAudio = null
+        heldText = null
         sheetJob?.cancel()
         sheetJob = null
         mode = Mode.MESSAGE
