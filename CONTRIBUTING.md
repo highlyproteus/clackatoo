@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
 # Contributing to Clackatoo
 
 You're welcome to open pull requests. Every PR gets read and considered: bug fixes, new features, themes, layouts,
