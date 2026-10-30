@@ -23,7 +23,7 @@ internal object MissingModels {
     /**
      * For [kind] (SPEECH or GRAMMAR): the model suggested for this phone ([suggest], see [ModelSuggestions]) if it is not
      * installed yet and can run here ([runs]); for Voice typing also the clean-up model suggested for this phone when the
-     * language has its clean-up ([cleanUp]). The user can still choose any other model in Settings.
+     * language has its clean-up and the user has it switched on ([cleanUp]). The user can still choose any other model in Settings.
      */
     fun plan(
         kind: ModelKind, cleanUp: Boolean, status: (ModelSpec) -> ModelStatus, runs: (ModelSpec) -> Boolean,

@@ -233,7 +233,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         endPendingStart()
         val token = ++startToken
         mode = Mode.STARTING
-        view.showListening()
+        view.showListening(cleanUpToggle())
         if (!view.isShown) { // the panel could not be shown after all
             close()
             return onResult(ListeningStart.PANEL_HIDDEN)
@@ -437,7 +437,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         val multiLine = FieldKind.acceptsLineBreaks(info.inputType)
         val maxChars = OutputSanitizer.maxCharsForClip(samples)
         var text = OutputSanitizer.clean(text, multiLine, maxChars)
-        val cleanUp = store.best(ModelKind.CLEAN_UP, ModelChoice.selectedId(ime, ModelKind.CLEAN_UP), language.code, ModelChoice::runsHere)
+        val cleanUp = cleanUpModel(language)
         if (text.isNotBlank() && language.cleanUpWithS1Mini && cleanUp != null && AssistSettings.s1MiniEnabled(ime.prefs())) {
             panel?.showWorking(ime.getString(R.string.assist_cleaning))
             try {
@@ -469,6 +469,22 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
         if (prepared.isNotEmpty()) ime.onTextInput(prepared)
     }
 
+    private fun cleanUpModel(language: AssistLanguage) =
+        store.best(ModelKind.CLEAN_UP, ModelChoice.selectedId(ime, ModelKind.CLEAN_UP), language.code, ModelChoice::runsHere)
+
+    /** The recording panel's clean-up toggle: whether clean-up is on, or null (no toggle) when the language has none or no clean-up model is installed. */
+    private fun cleanUpToggle(): Boolean? {
+        val language = language?.takeIf { it.cleanUpWithS1Mini } ?: return null
+        if (cleanUpModel(language) == null) return null
+        return AssistSettings.s1MiniEnabled(ime.prefs())
+    }
+
+    /** Flips the "Clean up English text" setting itself; it is read after Stop, so the change applies to this recording. */
+    override fun onToggleCleanUp() {
+        if (mode != Mode.STARTING && mode != Mode.LISTENING) return
+        panel?.setCleanUp(AssistSettings.toggleS1Mini(ime.prefs()))
+    }
+
     // ------------------------------------------------------------------ needs-a-model sheet
 
     /**
@@ -476,7 +492,8 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
      * otherwise the panel offers to download the recommended models (the sheet), or to get the Clackatoo Models app.
      */
     private fun missingModel(kind: ModelKind, language: AssistLanguage, titleRes: Int, missingRes: Int) {
-        val offered = when (val plan = MissingModels.plan(kind, language.cleanUpWithS1Mini, store::status, ModelChoice::runsHere, ::suggestedModel)) {
+        val cleanUp = language.cleanUpWithS1Mini && AssistSettings.s1MiniEnabled(ime.prefs())
+        val offered = when (val plan = MissingModels.plan(kind, cleanUp, store::status, ModelChoice::runsHere, ::suggestedModel)) {
             is MissingModels.Plan.Offer -> plan.specs
             MissingModels.Plan.Broken, MissingModels.Plan.Nothing -> return message(titleRes, missingModelText(kind, missingRes), settings = true)
             MissingModels.Plan.Unsupported -> return message(titleRes, ime.getString(R.string.models_unsupported_phone))

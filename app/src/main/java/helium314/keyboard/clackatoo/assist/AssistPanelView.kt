@@ -52,6 +52,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         fun onSheetDownload(ids: List<String>) {}
         /** "Cancel" while the sheet's downloads run: stop them all. */
         fun onSheetCancel() {}
+        /** The clean-up toggle while recording was pressed. */
+        fun onToggleCleanUp() {}
     }
 
     /** One model offered by the needs-a-model sheet. */
@@ -83,6 +85,8 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     private val sheetTotal = TextView(context)
     private val sheetChecks = LinkedHashMap<String, CheckBox>()
     private val sheetStatus = LinkedHashMap<String, TextView>()
+    /** The clean-up toggle of the recording state; null when it is not shown. */
+    private var cleanUpButton: TextView? = null
 
     init {
         visibility = GONE
@@ -215,6 +219,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         showSheet: Boolean = false,
     ) {
         styleForTheme()
+        cleanUpButton = null
         // keep the buttons clear of the navigation bar that the keyboard window draws at its bottom
         val navigationBar = ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
         content.setPadding(dp(12), dp(8), dp(12), dp(12) + navigationBar)
@@ -228,15 +233,32 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         visibility = VISIBLE
     }
 
-    fun showListening() {
+    /**
+     * Recording: Cancel and Stop, and between them the clean-up toggle when [cleanUp] is not null (true: clean-up runs on
+     * this transcript). The toggle only reports presses; [setCleanUp] shows the new state.
+     */
+    fun showListening(cleanUp: Boolean? = null) {
         meter.clear()
         liveText.text = ""
         liveText.visibility = GONE
         show(context.getString(R.string.assist_listening), true, false, null, false)
-        setButtons(
-            button(context.getString(R.string.assist_cancel), false) { listener?.onCancel() },
-            button(context.getString(R.string.assist_stop), true) { listener?.onStop() },
-        )
+        val cancel = button(context.getString(R.string.assist_cancel), false) { listener?.onCancel() }
+        val stop = button(context.getString(R.string.assist_stop), true) { listener?.onStop() }
+        if (cleanUp == null) return setButtons(cancel, stop)
+        val toggle = button(context.getString(R.string.assist_cleanup_on), false) { listener?.onToggleCleanUp() }
+        cleanUpButton = toggle
+        setCleanUp(cleanUp)
+        setButtons(cancel, toggle, stop)
+    }
+
+    /** The toggle's state: its label, and the accent border while clean-up is on (the text keeps the letter-key colours). */
+    fun setCleanUp(on: Boolean) {
+        val toggle = cleanUpButton ?: return
+        val label = context.getString(if (on) R.string.assist_cleanup_on else R.string.assist_cleanup_off)
+        toggle.text = label
+        toggle.contentDescription = label
+        toggle.isSelected = on
+        (toggle.background as? GradientDrawable)?.setStroke(ClackatooStyle.BORDER_WIDTH_PX.toInt(), if (on) accent else borderColor)
     }
 
     fun setLevel(level: Float) = meter.push(level)
@@ -441,6 +463,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
     fun hide() {
         keysHidden = false
         visibility = GONE
+        cleanUpButton = null
         sheetRows.removeAllViews()
         sheetChecks.clear()
         sheetStatus.clear()

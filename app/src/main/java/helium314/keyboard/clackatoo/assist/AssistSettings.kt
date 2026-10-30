@@ -20,6 +20,13 @@ object AssistSettings {
 
     fun s1MiniEnabled(prefs: SharedPreferences) = prefs.getBoolean(PREF_S1_MINI_ENABLED, true)
 
+    /** Flips the stored clean-up setting (never a copy of it a screen may hold) and returns the new value. */
+    fun toggleS1Mini(prefs: SharedPreferences): Boolean {
+        val on = !s1MiniEnabled(prefs)
+        prefs.edit { putBoolean(PREF_S1_MINI_ENABLED, on) }
+        return on
+    }
+
     fun customModelsConfirmed(prefs: SharedPreferences) = prefs.getBoolean(PREF_CUSTOM_MODELS_CONFIRMED, false)
 
     fun styling(prefs: SharedPreferences): S1Styling {

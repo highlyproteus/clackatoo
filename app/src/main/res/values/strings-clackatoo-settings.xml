@@ -45,7 +45,6 @@
     <string name="assist_speech_models">Speech models</string>
     <string name="assist_cleanup_models">Clean-up</string>
     <string name="assist_grammar_models">Grammar models</string>
-    <string name="assist_options">Options</string>
     <string name="models_more">More models (%1$d)</string>
     <string name="model_facts_live">Live text</string>
     <string name="model_facts_live_fast">Live text, fast</string>

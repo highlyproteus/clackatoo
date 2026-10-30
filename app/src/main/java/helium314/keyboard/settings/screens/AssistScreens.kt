@@ -2,6 +2,7 @@
 package helium314.keyboard.settings.screens
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -24,6 +25,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import helium314.keyboard.clackatoo.assist.AssistSettings
 import helium314.keyboard.clackatoo.assist.CustomImportResult
 import helium314.keyboard.clackatoo.assist.CustomPolicy
@@ -83,7 +87,7 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
     val ctx = LocalContext.current
     val prefs = ctx.prefs()
     var refresh by remember { mutableIntStateOf(0) }
-    var s1Enabled by remember { mutableStateOf(AssistSettings.s1MiniEnabled(prefs)) }
+    val s1Enabled by rememberCleanUpEnabled(prefs)
     var styling by remember { mutableStateOf(AssistSettings.styling(prefs)) }
     var showStyles by remember { mutableStateOf(false) }
 
@@ -96,26 +100,23 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
                 ModelCards(ModelKind.SPEECH, refresh) { refresh++ }
                 CustomModelRows(ModelKind.SPEECH) { refresh++ }
                 SettingsSectionHeader(stringResource(R.string.assist_cleanup_models))
-                ModelCards(ModelKind.CLEAN_UP, refresh) { refresh++ }
-                CustomModelRows(ModelKind.CLEAN_UP) { refresh++ }
-                ImportRow { refresh++ }
-                SettingsSectionHeader(stringResource(R.string.assist_options))
-                SettingsGroup(Modifier.padding(horizontal = 16.dp)) {
+                // the on/off switch heads its section; the keyboard's voice panel flips the same preference
+                SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     SettingsRow(
                         title = stringResource(R.string.assist_s1_mini_switch),
-                        subtitle = stringResource(R.string.assist_s1_mini_summary),
+                        subtitle = stringResource(if (s1Enabled) R.string.assist_s1_mini_summary else R.string.assist_s1_mini_off_summary),
                         icon = R.drawable.ic_model_cleanup,
-                        onClick = {
-                            s1Enabled = !s1Enabled
-                            prefs.edit { putBoolean(AssistSettings.PREF_S1_MINI_ENABLED, s1Enabled) }
-                        },
+                        onClick = { AssistSettings.toggleS1Mini(prefs) },
                     ) { Switch(checked = s1Enabled, onCheckedChange = null) }
-                    SettingsRow(
+                    if (s1Enabled) SettingsRow(
                         title = stringResource(R.string.assist_s1_styling),
                         subtitle = stylingName(styling),
                         onClick = { showStyles = true },
                     ) { NextScreenIcon() }
                 }
+                ModelCards(ModelKind.CLEAN_UP, refresh) { refresh++ }
+                CustomModelRows(ModelKind.CLEAN_UP) { refresh++ }
+                ImportRow { refresh++ }
                 // the credits the licences of S1-mini and Parakeet require wherever they are used
                 SettingsHint(stringResource(R.string.assist_s1_mini_credit))
                 SettingsHint(stringResource(R.string.assist_parakeet_credit))
@@ -134,6 +135,29 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
                 prefs.edit { putString(AssistSettings.PREF_S1_STYLING, it.value) }
             },
         )
+}
+
+/**
+ * The "Clean up English text" switch's state, which the keyboard's voice panel changes too, also while this screen is
+ * in the background (the settings activity stops listening to preferences when it stops): it follows every change of
+ * the stored value for as long as the screen exists, and is read again whenever the screen resumes.
+ */
+@Composable
+internal fun rememberCleanUpEnabled(prefs: SharedPreferences): State<Boolean> {
+    val state = remember(prefs) { mutableStateOf(AssistSettings.s1MiniEnabled(prefs)) }
+    DisposableEffect(prefs) {
+        // held by onDispose: SharedPreferences keeps its listeners only weakly
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
+            if (key == AssistSettings.PREF_S1_MINI_ENABLED || key == null) state.value = AssistSettings.s1MiniEnabled(changed)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    LifecycleResumeEffect(prefs) {
+        state.value = AssistSettings.s1MiniEnabled(prefs)
+        onPauseOrDispose {}
+    }
+    return state
 }
 
 @Composable

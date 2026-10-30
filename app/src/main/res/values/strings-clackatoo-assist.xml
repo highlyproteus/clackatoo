@@ -17,6 +17,9 @@
     <string name="assist_accept">Accept</string>
     <string name="assist_close">Close</string>
     <string name="assist_open_settings">Settings</string>
+    <!-- the clean-up toggle while recording; flips the "Clean up English text" setting -->
+    <string name="assist_cleanup_on">Clean-up on</string>
+    <string name="assist_cleanup_off">Clean-up off</string>
 
     <!-- messages in the panel -->
     <string name="assist_no_speech">No speech heard.</string>
@@ -59,6 +62,7 @@
     <string name="assist_voice_languages">Languages: English and Spanish, following the current keyboard language.</string>
     <string name="assist_s1_mini_switch">Clean up English text</string>
     <string name="assist_s1_mini_summary">Removes fillers and fixes self-corrections, punctuation and numbers.</string>
+    <string name="assist_s1_mini_off_summary">Off: voice typing inserts the plain transcript.</string>
     <string name="assist_s1_mini_credit">The English clean-up uses S1-mini by Superwhisper.</string>
     <string name="assist_parakeet_live_hint">Shows your words while you speak. Whisper is used when Parakeet is not installed.</string>
     <string name="assist_parakeet_credit">Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0.</string>
