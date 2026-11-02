@@ -257,6 +257,7 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   Discard. The microphone stays on while the question shows in the recording
   panel; a recording or transcript that finishes meanwhile is inserted only on
   Keep. Added CONTRIBUTING.md.
+- 2026-11-02: an emoji key next to the space bar is on by default (`Defaults`).
 
 Upstream copyright
 ------------------

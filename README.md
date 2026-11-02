@@ -45,6 +45,7 @@ The keyboard has no internet access. Only the optional companion connects to Hug
   for 92% (Google's decoder: 86% and 96%). Settings > Gesture typing.
 - **Grammar check.** Corrects the selection or the whole field with Qwen3.5 0.8B. Changes are shown highlighted and
   applied only when accepted.
+- **Emoji key.** An emoji key next to the space bar opens the emoji keyboard (Settings > Preferences > Show emoji key).
 - **Everything from HeliBoard.** Layouts, dictionaries, clipboard history, colour themes and the Material, Holo and
   Rounded styles.
 
