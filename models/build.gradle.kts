@@ -18,8 +18,8 @@ android {
         minSdk = 21
         targetSdk = 37
         // the release workflow requires this to equal the keyboard's versionName (both APKs carry the release tag)
-        versionCode = 6
-        versionName = "1.2.4"
+        versionCode = 7
+        versionName = "1.2.5"
         // the release values; debug build types override them below (androidComponents)
         manifestPlaceholders["modelsPermission"] = "io.github.highlyproteus.clackatoo.permission.MODELS"
         manifestPlaceholders["keyboardApplicationId"] = "io.github.highlyproteus.clackatoo"
