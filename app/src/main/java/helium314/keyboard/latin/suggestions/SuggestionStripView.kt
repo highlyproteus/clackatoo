@@ -33,6 +33,7 @@ import androidx.core.view.isVisible
 import helium314.keyboard.event.HapticEvent
 import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.clackatoo.GlassBacking
+import helium314.keyboard.clackatoo.TerminalKeys
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
@@ -256,12 +257,27 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     fun setSuggestions(suggestions: SuggestedWords, isRtlLanguage: Boolean) {
         clear()
         setRtl(isRtlLanguage)
-        suggestedWords = suggestions
-        startIndexOfMoreSuggestions = layoutHelper.layoutAndReturnStartIndexOfMoreSuggestions(
-            context, suggestedWords, suggestionsStrip, this
-        )
+        if (showsTerminalKeys()) { // Clackatoo: a terminal gets Esc, Tab, Ctrl and arrows instead of suggestions
+            suggestedWords = SuggestedWords.getEmptyInstance()
+            startIndexOfMoreSuggestions = 0
+            terminalKeys().forEach { suggestionsStrip.addView(it) }
+        } else {
+            suggestedWords = suggestions
+            startIndexOfMoreSuggestions = layoutHelper.layoutAndReturnStartIndexOfMoreSuggestions(
+                context, suggestedWords, suggestionsStrip, this
+            )
+        }
         isExternalSuggestionVisible = false
         updateKeys()
+    }
+
+    /** Clackatoo: a Ctrl that is on (it stays on until the next key) looks like a pinned key. */
+    fun setCtrlActive(active: Boolean) {
+        if (active == ctrlActive) return
+        ctrlActive = active
+        toolbar.findViewWithTag<View>(ToolbarKey.CTRL)?.let { setCtrlBackground(it) }
+        pinnedKeys.findViewWithTag<View>(ToolbarKey.CTRL)?.let { setCtrlBackground(it) }
+        terminalKeyViews?.forEach { if (it.tag == ToolbarKey.CTRL) setCtrlBackground(it) }
     }
 
     fun setExternalSuggestionView(view: View?, addCloseButton: Boolean) {
@@ -382,7 +398,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
 
     private fun onLongClickToolbarKey(view: View) {
         val tag = view.tag as? ToolbarKey ?: return
-        if (!Settings.getValues().mQuickPinToolbarKeys || view.parent === pinnedKeys) {
+        if (!Settings.getValues().mQuickPinToolbarKeys || view.parent !== toolbar) { // pinned and terminal keys
             onLongClickToolbarKey(view) { code, isRepeat -> listener.onCodeInput(code, Constants.SUGGESTION_STRIP_COORDINATE, Constants.SUGGESTION_STRIP_COORDINATE, isRepeat) }
         } else if (view.parent === toolbar) {
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(this, HapticEvent.KEY_LONG_PRESS)
@@ -564,6 +580,31 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         colors.setColor(view, ColorType.TOOL_BAR_KEY)
         colors.setBackground(view, ColorType.STRIP_BACKGROUND)
         GlassBacking.applyChip(view, colors) // Clackatoo glass: every toolbar key has a frosted backing
+    }
+
+    private var terminalKeyViews: List<ImageButton>? = null
+    private var ctrlActive = false
+
+    private fun showsTerminalKeys(): Boolean {
+        val attributes = Settings.getValues().mInputAttributes
+        return TerminalKeys.isTerminal(attributes.mInputType, attributes.mTargetApplicationPackageName)
+                && TerminalKeys.enabled(context.prefs())
+    }
+
+    private fun terminalKeys(): List<ImageButton> = terminalKeyViews ?: TerminalKeys.KEYS.map { key ->
+        createToolbarKey(context, key).also {
+            it.layoutParams = toolbarKeyLayoutParams
+            setupKey(it, Settings.getValues().mColors)
+            if (key == ToolbarKey.CTRL) setCtrlBackground(it)
+        }
+    }.also { terminalKeyViews = it }
+
+    private fun setCtrlBackground(key: View) {
+        val quickPinned = key.parent === toolbar && Settings.getValues().mQuickPinToolbarKeys
+                && pinnedKeys.findViewWithTag<View>(ToolbarKey.CTRL) != null
+        key.background = if (ctrlActive || quickPinned) pinnedKeyBackground()
+            else GlassBacking.chip(resources, Settings.getValues().mColors)
+                ?: defaultToolbarBackground.constantState?.newDrawable(resources)
     }
 
     companion object {

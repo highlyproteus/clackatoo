@@ -46,6 +46,10 @@ The keyboard has no internet access. Only the optional companion connects to Hug
 - **Grammar check.** Corrects the selection or the whole field with Qwen3.5 0.8B. Changes are shown highlighted and
   applied only when accepted.
 - **Emoji key.** An emoji key next to the space bar opens the emoji keyboard (Settings > Preferences > Show emoji key).
+- **Terminal keys.** In terminal and SSH apps (Termux, ConnectBot, JuiceSSH, Termius, Android's Linux terminal and any
+  field that asks for raw key events) the suggestion strip shows Esc, Tab, Ctrl and the arrow keys. Ctrl stays on for
+  the next key, so Ctrl then c sends Ctrl+C; Up recalls the shell's previous command. Settings > Toolbar > Terminal keys;
+  Esc, Tab and Ctrl can also be added to the toolbar.
 - **Everything from HeliBoard.** Layouts, dictionaries, clipboard history, colour themes and the Material, Holo and
   Rounded styles.
 

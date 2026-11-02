@@ -258,6 +258,16 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   panel; a recording or transcript that finishes meanwhile is inserted only on
   Keep. Added CONTRIBUTING.md.
 - 2026-11-02: an emoji key next to the space bar is on by default (`Defaults`).
+- 2026-11-02: terminal keys. In terminals (fields that ask for raw key events,
+  and a list of terminal and SSH apps) the suggestion strip shows Esc, Tab, Ctrl
+  and arrow keys instead of suggestions (Settings > Toolbar > Terminal keys, on
+  by default); Ctrl stays on until the next key and is highlighted while on.
+  Esc, Tab and Ctrl are new toolbar keys; their Esc and Ctrl icons are Inter
+  Medium glyph outlines. New files: `clackatoo/TerminalKeys.kt`,
+  `res/values/strings-clackatoo-terminal.xml`, `ic_key_esc.xml`,
+  `ic_key_ctrl.xml`; hooks in `ToolbarUtils`, `KeyboardIconsSet`,
+  `SuggestionStripView`, `KeyboardActionListenerImpl`, `LatinIME` and the
+  toolbar settings screen.
 
 Upstream copyright
 ------------------

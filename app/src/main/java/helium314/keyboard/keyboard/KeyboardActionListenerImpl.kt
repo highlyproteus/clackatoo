@@ -429,6 +429,11 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
 
     /** actual Android metaState like in KeyEvent */
     private var metaState = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            latinIME.onMetaStateChanged(value) // Clackatoo: the strip shows a Ctrl that is on
+        }
 
     /** keeps track of the state of meta keys by (HeliBoard) KeyCodes */
     private val metaPressStates = SparseArray<MetaPressState>(4)

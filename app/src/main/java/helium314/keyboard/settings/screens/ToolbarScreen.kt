@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import helium314.keyboard.clackatoo.TerminalKeys
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.settings.Defaults
@@ -64,6 +65,8 @@ fun ToolbarScreen(
         if (toolbarMode == ToolbarMode.EXPANDABLE) Settings.PREF_AUTO_HIDE_TOOLBAR else null,
         if (toolbarMode != ToolbarMode.HIDDEN) Settings.PREF_SHOW_ONLY_TOOLBAR_WITH_HARDWARE_KEYBOARD else null,
         if (toolbarMode != ToolbarMode.HIDDEN) Settings.PREF_VARIABLE_TOOLBAR_DIRECTION else null,
+        // Clackatoo: the terminal keys take the place of the suggestions, which these two modes show
+        if (toolbarMode == ToolbarMode.EXPANDABLE || toolbarMode == ToolbarMode.SUGGESTION_STRIP) TerminalKeys.PREF_TERMINAL_KEYS else null,
     )
     SearchSettingsScreen(
         onClickBack = onClickBack,
@@ -141,6 +144,10 @@ fun createToolbarSettings(context: Context) = listOf(
         R.string.var_toolbar_direction, R.string.var_toolbar_direction_summary)
     {
         SwitchPreference(it, Defaults.PREF_VARIABLE_TOOLBAR_DIRECTION)
+    },
+    Setting(context, TerminalKeys.PREF_TERMINAL_KEYS, R.string.terminal_keys, R.string.terminal_keys_summary)
+    {
+        SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_KEYS)
     }
 )
 

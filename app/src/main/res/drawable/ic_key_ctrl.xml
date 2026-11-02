@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    "Ctrl" key icon for the toolbar and the terminal keys: the glyph outlines of Inter Medium
+    (SIL Open Font License 1.1, third_party/inter/), converted to a path.
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportHeight="24"
+    android:viewportWidth="24">
+    <path android:fillColor="#FFF"
+        android:pathData="M6.89 16.11Q5.85 16.11 5.03 15.61Q4.22 15.12 3.75 14.2Q3.29 13.28 3.29 12.01Q3.29 10.72 3.76 9.8Q4.23 8.88 5.04 8.39Q5.85 7.89 6.89 7.89Q7.73 7.89 8.43 8.21Q9.13 8.53 9.59 9.14Q10.05 9.74 10.19 10.59H8.96Q8.81 9.83 8.23 9.42Q7.65 9.01 6.9 9.01Q6.21 9.01 5.67 9.36Q5.13 9.7 4.81 10.37Q4.5 11.04 4.5 12.01Q4.5 12.98 4.81 13.64Q5.13 14.31 5.67 14.65Q6.21 14.99 6.9 14.99Q7.65 14.99 8.23 14.58Q8.81 14.17 8.96 13.41H10.19Q10.07 14.2 9.62 14.81Q9.17 15.41 8.47 15.76Q7.77 16.11 6.89 16.11ZM14.1 10V10.96H12.91V14.38Q12.91 14.74 13.06 14.91Q13.21 15.08 13.56 15.08Q13.66 15.08 13.81 15.06Q13.95 15.03 14.06 15.01L14.27 15.96Q14.08 16.02 13.87 16.05Q13.65 16.08 13.44 16.08Q12.63 16.08 12.18 15.66Q11.73 15.24 11.73 14.48V10.96H10.85V10H11.73V8.57H12.91V10ZM15.28 16V10H16.42V10.96H16.49Q16.65 10.48 17.07 10.19Q17.48 9.91 18.01 9.91Q18.12 9.91 18.27 9.92Q18.42 9.93 18.51 9.94V11.07Q18.44 11.06 18.26 11.03Q18.08 11.01 17.89 11.01Q17.27 11.01 16.87 11.39Q16.46 11.76 16.46 12.35V16ZM20.71 8V16H19.53V8Z"/>
+</vector>

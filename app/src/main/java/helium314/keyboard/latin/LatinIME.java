@@ -1600,6 +1600,13 @@ public class LatinIME extends InputMethodService implements
         }
     }
 
+    /** Clackatoo: a Ctrl from the toolbar or the terminal keys stays on until the next key; the strip shows it. */
+    public void onMetaStateChanged(final int metaState) {
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setCtrlActive((metaState & KeyEvent.META_CTRL_MASK) != 0);
+        }
+    }
+
     // Called from {@link SuggestionStripView} through the {@link SuggestionStripView#Listener}
     // interface
     @Override
