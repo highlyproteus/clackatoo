@@ -292,7 +292,9 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   arrows; Alt is a new toolbar key and, like Ctrl, stays on for the next key
   and is highlighted while on (`SuggestionStripView.setActiveModifiers`). The
   Tab toolbar key shows the word "Tab". New files `ic_key_alt.xml` and
-  `ic_key_tab.xml` (Inter Medium glyph outlines).
+  `ic_key_tab.xml` (Inter Medium glyph outlines). Alt keys (toolbar and
+  layouts) send the left-Alt meta state, as a hardware Alt does, so that Termux
+  takes them as Alt (`KeyboardActionListenerImpl`).
 
 Upstream copyright
 ------------------

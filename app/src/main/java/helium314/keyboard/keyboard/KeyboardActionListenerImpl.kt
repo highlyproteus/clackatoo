@@ -530,7 +530,8 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
             KeyCode.CTRL, KeyCode.CTRL_LOCK -> KeyEvent.META_CTRL_ON
             KeyCode.CTRL_LEFT               -> KeyEvent.META_CTRL_LEFT_ON
             KeyCode.CTRL_RIGHT              -> KeyEvent.META_CTRL_RIGHT_ON
-            KeyCode.ALT, KeyCode.ALT_LOCK   -> KeyEvent.META_ALT_ON
+            // Clackatoo: Alt is sent as a hardware left Alt reports it; Termux takes only the left Alt as Alt (the right one is AltGr)
+            KeyCode.ALT, KeyCode.ALT_LOCK   -> KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
             KeyCode.ALT_LEFT                -> KeyEvent.META_ALT_LEFT_ON
             KeyCode.ALT_RIGHT               -> KeyEvent.META_ALT_RIGHT_ON
             KeyCode.FN, KeyCode.FN_LOCK     -> KeyEvent.META_FUNCTION_ON
