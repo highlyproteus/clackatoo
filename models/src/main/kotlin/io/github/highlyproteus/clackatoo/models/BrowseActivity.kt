@@ -6,20 +6,18 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
 import android.text.format.Formatter
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
@@ -39,6 +37,7 @@ class BrowseActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     private var request = 0 // the number of the latest request; an older answer that arrives late is dropped
 
+    private lateinit var ui: Ui
     private lateinit var input: EditText
     private lateinit var status: TextView
     private lateinit var content: LinearLayout
@@ -53,10 +52,18 @@ class BrowseActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = getString(R.string.browse_title)
+        ui = Ui(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(text(R.string.browse_warning, 14f).apply { setPadding(0, 0, 0, dp(16)) })
+        root.addView(ui.body(getString(R.string.browse_warning)).apply { setPadding(0, 0, 0, ui.dp(16)) })
 
         input = EditText(this).apply {
+            background = GradientDrawable().apply {
+                setColor(ui.palette.panel)
+                cornerRadius = ui.dp(12).toFloat()
+            }
+            setPadding(ui.dp(16), ui.dp(12), ui.dp(16), ui.dp(12))
+            setTextColor(ui.palette.onSurface)
+            setHintTextColor(ui.palette.onSurfaceVariant)
             setHint(R.string.browse_hint)
             setSingleLine()
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
@@ -67,24 +74,16 @@ class BrowseActivity : Activity() {
             }
         }
         root.addView(input)
-        root.addView(button(R.string.browse_search) { search() })
-        status = TextView(this).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); setPadding(0, dp(8), 0, dp(8)) }
+        root.addView(ui.filledButton(getString(R.string.browse_search)) { search() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.END
+                topMargin = ui.dp(8)
+            })
+        status = ui.body("").apply { setPadding(0, ui.dp(8), 0, ui.dp(8)) }
         root.addView(status)
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(content)
-
-        val scroll = ScrollView(this).apply {
-            addView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            clipToPadding = false
-            // edge-to-edge: keep the content out of the system bars
-            setOnApplyWindowInsetsListener { v, insets ->
-                @Suppress("DEPRECATION")
-                v.setPadding(dp(16) + insets.systemWindowInsetLeft, dp(16) + insets.systemWindowInsetTop,
-                    dp(16) + insets.systemWindowInsetRight, dp(16) + insets.systemWindowInsetBottom)
-                insets
-            }
-        }
-        setContentView(scroll)
+        setContentView(ui.page(root))
         render()
         if (!BrowsePrefs.confirmed(this)) showConfirmation()
     }
@@ -182,38 +181,41 @@ class BrowseActivity : Activity() {
     }
 
     private fun showRepos() {
-        direct?.let { repo -> content.addView(leftButton(getString(R.string.browse_open_repo, repo.toString())) { openRepo(repo) }) }
+        val repos = ui.panel()
+        direct?.let { repo -> repos.addView(ui.row(getString(R.string.browse_open_repo, repo.toString()), null) { openRepo(repo) }) }
         for (hit in hits) {
             if (hit.id == direct) continue
-            val label = if (hit.downloads == null) hit.id.toString() else getString(
-                R.string.two_lines, hit.id.toString(),
-                resources.getQuantityString(R.plurals.browse_downloads, hit.downloads.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), NumberFormat.getIntegerInstance().format(hit.downloads)),
-            )
-            content.addView(leftButton(label) { openRepo(hit.id) })
+            val downloads = hit.downloads?.let {
+                resources.getQuantityString(R.plurals.browse_downloads, it.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), NumberFormat.getIntegerInstance().format(it))
+            }
+            repos.addView(ui.row(hit.id.toString(), downloads) { openRepo(hit.id) })
         }
+        if (repos.childCount > 0) content.addView(repos)
     }
 
     private fun showFiles(repo: RepoId, files: RepoFiles) {
-        content.addView(button(R.string.browse_back) { open = null; error = null; render() })
-        content.addView(text(R.string.browse_files_of, 16f, repo.toString()).apply { setPadding(0, dp(8), 0, dp(8)) })
-        if (files.files.isEmpty()) content.addView(text(R.string.browse_no_files, 14f))
+        content.addView(ui.textButton(getString(R.string.browse_back)) { open = null; error = null; render() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        content.addView(ui.header(getString(R.string.browse_files_of, repo.toString())))
+        if (files.files.isEmpty()) content.addView(ui.body(getString(R.string.browse_no_files)))
         for (file in files.files) {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, dp(8)) }
-            row.addView(TextView(this).apply {
-                text = getString(R.string.two_lines, file.path, Formatter.formatShortFileSize(this@BrowseActivity, file.sizeBytes))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            })
-            val roles = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            roles.addView(text(R.string.browse_use_as, 13f).apply { setPadding(0, 0, dp(8), 0) })
+            val card = ui.panel()
+            card.addView(ui.row(file.path, Formatter.formatShortFileSize(this, file.sizeBytes), null))
+            val roles = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(ui.dp(16), 0, ui.dp(16), 0)
+            }
+            roles.addView(ui.body(getString(R.string.browse_use_as), 13f).apply { setPadding(0, 0, ui.dp(8), 0) })
             for ((label, role) in listOf(
                 R.string.role_button_speech to ModelsProtocol.CUSTOM_ROLE_SPEECH,
                 R.string.role_button_clean_up to ModelsProtocol.CUSTOM_ROLE_CLEAN_UP,
                 R.string.role_button_grammar to ModelsProtocol.CUSTOM_ROLE_GRAMMAR,
             )) {
-                roles.addView(button(label) { start(repo, files.sha, file, role) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                roles.addView(ui.textButton(getString(label)) { start(repo, files.sha, file, role) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
-            row.addView(roles)
-            content.addView(row)
+            card.addView(roles)
+            content.addView(card)
         }
     }
 
@@ -239,27 +241,4 @@ class BrowseActivity : Activity() {
     private fun failed() {
         Toast.makeText(this, R.string.browse_start_failed, Toast.LENGTH_LONG).show()
     }
-
-    // ---------------------------------------------------------------- views
-
-    private fun text(res: Int, sp: Float, vararg args: Any) = TextView(this).apply {
-        text = getString(res, *args)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
-    }
-
-    private fun button(res: Int, onClick: () -> Unit) = Button(this).apply {
-        setText(res)
-        gravity = Gravity.CENTER
-        setAllCaps(false)
-        setOnClickListener { onClick() }
-    }
-
-    private fun leftButton(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label
-        gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        setAllCaps(false)
-        setOnClickListener { onClick() }
-    }
-
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }

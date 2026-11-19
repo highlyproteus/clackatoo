@@ -12,14 +12,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.format.Formatter
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import helium314.keyboard.clackatoo.catalog.Catalog
@@ -35,38 +31,29 @@ class MainActivity : Activity() {
             runOnUiThread { render(all) }
         }
     }
+    private lateinit var ui: Ui
     private lateinit var list: LinearLayout
     private lateinit var empty: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        title = getString(R.string.app_name)
+        ui = Ui(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(text(R.string.intro, 14f).apply { setPadding(0, 0, 0, dp(16)) })
-        root.addView(button(R.string.open_clackatoo) { openKeyboard() })
-        root.addView(button(R.string.browse_huggingface) { startActivity(Intent(this, BrowseActivity::class.java)) })
-        root.addView(button(R.string.licences) { showLicences() })
-        root.addView(button(R.string.privacy_policy) { openPrivacyPolicy() })
-        root.addView(text(R.string.downloads, 18f).apply { setPadding(0, dp(24), 0, dp(8)) })
-        empty = text(R.string.empty, 14f)
+        root.addView(ui.body(getString(R.string.intro)).apply { setPadding(0, 0, 0, ui.dp(16)) })
+        val actions = ui.panel()
+        actions.addView(ui.row(getString(R.string.open_clackatoo), null) { openKeyboard() })
+        actions.addView(ui.row(getString(R.string.browse_huggingface), null) { startActivity(Intent(this, BrowseActivity::class.java)) })
+        actions.addView(ui.row(getString(R.string.licences), null) { showLicences() })
+        actions.addView(ui.row(getString(R.string.privacy_policy), null) { openPrivacyPolicy() })
+        root.addView(actions)
+        root.addView(ui.header(getString(R.string.downloads)))
+        empty = ui.body(getString(R.string.empty))
         root.addView(empty)
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(list)
-
-        val scroll = ScrollView(this).apply {
-            addView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            clipToPadding = false
-            // edge-to-edge: keep the content out of the system bars
-            setOnApplyWindowInsetsListener { v, insets ->
-                @Suppress("DEPRECATION")
-                v.setPadding(dp(16) + insets.systemWindowInsetLeft, dp(16) + insets.systemWindowInsetTop,
-                    dp(16) + insets.systemWindowInsetRight, dp(16) + insets.systemWindowInsetBottom)
-                insets
-            }
-        }
-        setContentView(scroll)
+        setContentView(ui.page(root))
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            root.addView(text(R.string.notification_permission_hint, 13f).apply { setPadding(0, dp(16), 0, 0) })
+            root.addView(ui.body(getString(R.string.notification_permission_hint), 13f).apply { setPadding(0, ui.dp(16), 0, 0) })
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
     }
@@ -86,19 +73,23 @@ class MainActivity : Activity() {
         empty.visibility = if (all.isEmpty()) View.VISIBLE else View.GONE
         for (p in all.asReversed()) {
             val title = p.title ?: Catalog.byId(p.id)?.displayName ?: continue
-            val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, dp(8)) }
-            row.addView(TextView(this).apply { text = title; setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) })
-            row.addView(TextView(this).apply { text = describe(p); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f) })
+            val card = ui.panel()
+            card.addView(ui.row(title, describe(p), null))
             if (p.phase == Progress.Phase.DOWNLOADING || p.phase == Progress.Phase.VERIFYING) {
-                row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                    max = 1000
-                    progress = if (p.total > 0) (p.bytes * 1000 / p.total).toInt() else 0
+                val permille = if (p.total > 0) (p.bytes * 1000 / p.total).toInt() else 0
+                card.addView(ui.progress(permille), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    leftMargin = ui.dp(16)
+                    rightMargin = ui.dp(16)
+                    bottomMargin = ui.dp(12)
                 })
             }
             if (p.phase == Progress.Phase.DOWNLOADING || p.phase == Progress.Phase.QUEUED) {
-                row.addView(button(R.string.cancel) { cancel(p.id) })
+                card.addView(ui.textButton(getString(R.string.cancel)) { cancel(p.id) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    gravity = Gravity.END
+                    rightMargin = ui.dp(4)
+                })
             }
-            list.addView(row)
+            list.addView(card)
         }
     }
 
@@ -155,21 +146,11 @@ class MainActivity : Activity() {
 
     private fun showLicences() {
         val notices = Catalog.all.joinToString("\n\n") {
-            "${it.displayName}\nBy ${it.maker}. Licence: ${it.licence}.\nSource: ${it.url.substringBefore("/resolve/")}"
+            getString(R.string.licence_entry, it.displayName, it.maker, it.licence, it.url.substringBefore("/resolve/"))
         }
         AlertDialog.Builder(this).setTitle(R.string.licences).setMessage(notices)
             .setPositiveButton(R.string.close, null).show()
     }
-
-    private fun text(res: Int, sp: Float) = TextView(this).apply { setText(res); setTextSize(TypedValue.COMPLEX_UNIT_SP, sp) }
-
-    private fun button(res: Int, onClick: () -> Unit) = Button(this).apply {
-        setText(res)
-        gravity = Gravity.CENTER
-        setOnClickListener { onClick() }
-    }
-
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     private companion object {
         /** `Progress.reason` when the keyboard gave no answer to the hand-over (see `KeyboardLink.readHandoverReply`). */
