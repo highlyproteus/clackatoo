@@ -16,6 +16,9 @@ fun createTerminalSettings(context: Context) = listOf(
     Setting(context, TerminalKeys.PREF_TERMINAL_KEYS, R.string.terminal_keys, R.string.terminal_keys_summary) {
         SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_KEYS)
     },
+    Setting(context, TerminalKeys.PREF_TERMINAL_SWIPE, R.string.terminal_swipe, R.string.terminal_swipe_summary) {
+        SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_SWIPE)
+    },
 )
 
 @Composable
@@ -23,6 +26,6 @@ fun TerminalScreen(onClickBack: () -> Unit) {
     SearchSettingsScreen(
         onClickBack = onClickBack,
         title = stringResource(R.string.settings_screen_terminal),
-        settings = listOf(TerminalKeys.PREF_TERMINAL_KEYS),
+        settings = listOf(TerminalKeys.PREF_TERMINAL_KEYS, TerminalKeys.PREF_TERMINAL_SWIPE),
     )
 }

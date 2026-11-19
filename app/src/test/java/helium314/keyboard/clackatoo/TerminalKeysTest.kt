@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.clackatoo
 
+import android.content.Context
 import android.text.InputType
+import androidx.core.content.edit
+import androidx.test.core.app.ApplicationProvider
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@RunWith(RobolectricTestRunner::class)
 class TerminalKeysTest {
     private val text = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
 
@@ -35,5 +41,14 @@ class TerminalKeysTest {
         assertFalse(TerminalKeys.isTerminal(text, "com.google.android.apps.messaging"))
         assertFalse(TerminalKeys.isTerminal(InputType.TYPE_CLASS_NUMBER, "com.termux.api"))
         assertFalse(TerminalKeys.isTerminal(text, null))
+    }
+
+    @Test fun `swipe typing is off in a terminal until it is asked for`() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("terminal-test", Context.MODE_PRIVATE)
+        prefs.edit { clear() }
+        assertTrue(TerminalKeys.swipeAllowed(prefs, terminal = false))
+        assertFalse(TerminalKeys.swipeAllowed(prefs, terminal = true))
+        prefs.edit { putBoolean(TerminalKeys.PREF_TERMINAL_SWIPE, true) }
+        assertTrue(TerminalKeys.swipeAllowed(prefs, terminal = true))
     }
 }

@@ -585,11 +585,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     private var terminalKeyViews: List<ImageButton>? = null
     private var ctrlActive = false
 
-    private fun showsTerminalKeys(): Boolean {
-        val attributes = Settings.getValues().mInputAttributes
-        return TerminalKeys.isTerminal(attributes.mInputType, attributes.mTargetApplicationPackageName)
-                && TerminalKeys.enabled(context.prefs())
-    }
+    private fun showsTerminalKeys(): Boolean = Settings.getValues().mTerminalKeys
 
     private fun terminalKeys(): List<ImageButton> = terminalKeyViews ?: TerminalKeys.KEYS.map { key ->
         createToolbarKey(context, key).also {

@@ -13,6 +13,8 @@ import helium314.keyboard.latin.utils.ToolbarKey
 object TerminalKeys {
     const val PREF_TERMINAL_KEYS = "terminal_keys"
     const val DEFAULT_TERMINAL_KEYS = true
+    const val PREF_TERMINAL_SWIPE = "terminal_swipe"
+    const val DEFAULT_TERMINAL_SWIPE = false
 
     val KEYS = listOf(ToolbarKey.ESCAPE, ToolbarKey.TAB, ToolbarKey.CTRL, ToolbarKey.LEFT, ToolbarKey.UP, ToolbarKey.DOWN, ToolbarKey.RIGHT)
 
@@ -46,4 +48,8 @@ object TerminalKeys {
     }
 
     fun enabled(prefs: SharedPreferences) = prefs.getBoolean(PREF_TERMINAL_KEYS, DEFAULT_TERMINAL_KEYS)
+
+    /** Swipe typing: everywhere but in a terminal, where a slide over the keys would type a word nobody sees coming, unless it is wanted there. */
+    fun swipeAllowed(prefs: SharedPreferences, terminal: Boolean) =
+        !terminal || prefs.getBoolean(PREF_TERMINAL_SWIPE, DEFAULT_TERMINAL_SWIPE)
 }

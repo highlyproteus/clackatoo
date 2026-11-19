@@ -18,6 +18,7 @@ import android.view.inputmethod.InputMethodSubtype;
 import androidx.annotation.NonNull;
 import androidx.core.util.TypedValueCompat;
 
+import helium314.keyboard.clackatoo.TerminalKeys;
 import helium314.keyboard.compat.ConfigurationCompatKt;
 import helium314.keyboard.compat.IsLockedCompatKt;
 import helium314.keyboard.keyboard.KeyboardActionListener;
@@ -170,6 +171,9 @@ public class SettingsValues {
     public final int mScoreLimitForAutocorrect;
     public final SettingsValuesForSuggestion mSettingsValuesForSuggestion;
     public final boolean mIsLocked;
+    // Clackatoo: the field is a terminal (TerminalKeys), and whether the strip shows the terminal keys there
+    public final boolean mIsTerminal;
+    public final boolean mTerminalKeys;
 
     // User-defined colors
     public final Colors mColors;
@@ -183,6 +187,11 @@ public class SettingsValues {
 
         // Store the input attributes
         mInputAttributes = inputAttributes;
+        // Clackatoo: while the strip shows the terminal keys nothing is suggested, corrected, capitalised or spaced.
+        // Settings loaded with no field (an empty EditorInfo: no app, input type 0) are not a terminal's.
+        mIsTerminal = inputAttributes.mTargetApplicationPackageName != null
+                && TerminalKeys.INSTANCE.isTerminal(inputAttributes.mInputType, inputAttributes.mTargetApplicationPackageName);
+        mTerminalKeys = mIsTerminal && TerminalKeys.INSTANCE.enabled(prefs);
 
         // Get the settings preferences
         mIsLocked = IsLockedCompatKt.isDeviceLocked(context);
@@ -190,7 +199,8 @@ public class SettingsValues {
         mToolbarMode = mIsLocked ? ToolbarMode.HIDDEN : Settings.readToolbarMode(prefs);
         mToolbarSwipeDownToHide = prefs.getBoolean(Settings.PREF_TOOLBAR_SWIPE_DOWN_TO_HIDE, Defaults.PREF_TOOLBAR_SWIPE_DOWN_TO_HIDE);
         mToolbarHidingGlobal = mIsLocked || prefs.getBoolean(Settings.PREF_TOOLBAR_HIDING_GLOBAL, Defaults.PREF_TOOLBAR_HIDING_GLOBAL);
-        mAutoCap = prefs.getBoolean(Settings.PREF_AUTO_CAP, Defaults.PREF_AUTO_CAP) && ScriptUtils.scriptSupportsUppercase(mLocale);
+        mAutoCap = prefs.getBoolean(Settings.PREF_AUTO_CAP, Defaults.PREF_AUTO_CAP) && ScriptUtils.scriptSupportsUppercase(mLocale)
+                && !mTerminalKeys; // Clackatoo
         mVibrateOn = Settings.readVibrationEnabled(prefs);
         mVibrateInDndMode = prefs.getBoolean(Settings.PREF_VIBRATE_IN_DND_MODE, Defaults.PREF_VIBRATE_IN_DND_MODE);
         mSoundOn = prefs.getBoolean(Settings.PREF_SOUND_ON, Defaults.PREF_SOUND_ON);
@@ -218,13 +228,14 @@ public class SettingsValues {
         mVarToolbarDirection = mToolbarMode != ToolbarMode.HIDDEN && prefs.getBoolean(Settings.PREF_VARIABLE_TOOLBAR_DIRECTION, Defaults.PREF_VARIABLE_TOOLBAR_DIRECTION);
         mUsePersonalizedDicts = prefs.getBoolean(Settings.PREF_KEY_USE_PERSONALIZED_DICTS, Defaults.PREF_KEY_USE_PERSONALIZED_DICTS);
         mUseDoubleSpacePeriod = prefs.getBoolean(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, Defaults.PREF_KEY_USE_DOUBLE_SPACE_PERIOD)
-                && inputAttributes.mIsGeneralTextInput;
+                && inputAttributes.mIsGeneralTextInput && !mTerminalKeys; // Clackatoo
         mBlockPotentiallyOffensive = prefs.getBoolean(Settings.PREF_BLOCK_POTENTIALLY_OFFENSIVE, Defaults.PREF_BLOCK_POTENTIALLY_OFFENSIVE);
         mUrlDetectionEnabled = prefs.getBoolean(Settings.PREF_URL_DETECTION, Defaults.PREF_URL_DETECTION);
         mAutoCorrectionEnabledPerUserSettings = prefs.getBoolean(Settings.PREF_AUTO_CORRECTION, Defaults.PREF_AUTO_CORRECTION);
         mAutoCorrectEnabled = mAutoCorrectionEnabledPerUserSettings
                 && (mInputAttributes.mInputTypeShouldAutoCorrect || prefs.getBoolean(Settings.PREF_MORE_AUTO_CORRECTION, Defaults.PREF_MORE_AUTO_CORRECTION))
-                && (mUrlDetectionEnabled || !InputTypeUtils.isUriOrEmailType(mInputAttributes.mInputType));
+                && (mUrlDetectionEnabled || !InputTypeUtils.isUriOrEmailType(mInputAttributes.mInputType))
+                && !mTerminalKeys; // Clackatoo
         mCenterSuggestionTextToEnter = prefs.getBoolean(Settings.PREF_CENTER_SUGGESTION_TEXT_TO_ENTER, Defaults.PREF_CENTER_SUGGESTION_TEXT_TO_ENTER);
         float autoCorrectConfidence = prefs.getFloat(Settings.PREF_AUTO_CORRECT_CONFIDENCE, Defaults.PREF_AUTO_CORRECT_CONFIDENCE);
         // confidence -> threshold and score limit are just some formulas that give something similar to the old values, so that confidence can be in a nice 0-1 range
@@ -256,7 +267,8 @@ public class SettingsValues {
         mKeypressSoundVolume = prefs.getFloat(Settings.PREF_KEYPRESS_SOUND_VOLUME, Defaults.PREF_KEYPRESS_SOUND_VOLUME);
         mEnableEmojiAltPhysicalKey = prefs.getBoolean(Settings.PREF_ENABLE_EMOJI_ALT_PHYSICAL_KEY, Defaults.PREF_ENABLE_EMOJI_ALT_PHYSICAL_KEY);
         mEnableHardwareKeyboard = prefs.getBoolean(Settings.PREF_ENABLE_HARDWARE_KEYBOARD, Defaults.PREF_ENABLE_HARDWARE_KEYBOARD);
-        mGestureInputEnabled = JniUtils.sHaveGestureLib && prefs.getBoolean(Settings.PREF_GESTURE_INPUT, Defaults.PREF_GESTURE_INPUT);
+        mGestureInputEnabled = JniUtils.sHaveGestureLib && prefs.getBoolean(Settings.PREF_GESTURE_INPUT, Defaults.PREF_GESTURE_INPUT)
+                && TerminalKeys.INSTANCE.swipeAllowed(prefs, mIsTerminal); // Clackatoo: swipe typing is off in terminals unless wanted
         mGestureTrailEnabled = prefs.getBoolean(Settings.PREF_GESTURE_PREVIEW_TRAIL, Defaults.PREF_GESTURE_PREVIEW_TRAIL);
         mGestureFloatingPreviewTextEnabled = !mInputAttributes.mDisableGestureFloatingPreviewText
                 && prefs.getBoolean(Settings.PREF_GESTURE_FLOATING_PREVIEW_TEXT, Defaults.PREF_GESTURE_FLOATING_PREVIEW_TEXT);
@@ -267,9 +279,11 @@ public class SettingsValues {
         mOverrideShowingSuggestions = mInputAttributes.mMayOverrideShowingSuggestions
                 && prefs.getBoolean(Settings.PREF_ALWAYS_SHOW_SUGGESTIONS, Defaults.PREF_ALWAYS_SHOW_SUGGESTIONS)
                 && ((inputAttributes.mInputType & InputType.TYPE_MASK_VARIATION) != InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT
-                  || !prefs.getBoolean(Settings.PREF_ALWAYS_SHOW_SUGGESTIONS_EXCEPT_WEB_TEXT, Defaults.PREF_ALWAYS_SHOW_SUGGESTIONS_EXCEPT_WEB_TEXT));
+                  || !prefs.getBoolean(Settings.PREF_ALWAYS_SHOW_SUGGESTIONS_EXCEPT_WEB_TEXT, Defaults.PREF_ALWAYS_SHOW_SUGGESTIONS_EXCEPT_WEB_TEXT))
+                && !mTerminalKeys; // Clackatoo
         mSuggestionsEnabled = prefs.getBoolean(Settings.PREF_SHOW_SUGGESTIONS, Defaults.PREF_SHOW_SUGGESTIONS)
-            && (mInputAttributes.mShouldShowSuggestions || mOverrideShowingSuggestions) && !mSuggestionStripHiddenPerUserSettings;
+            && (mInputAttributes.mShouldShowSuggestions || mOverrideShowingSuggestions) && !mSuggestionStripHiddenPerUserSettings
+            && !mTerminalKeys; // Clackatoo
         mIncognitoModeEnabled = prefs.getBoolean(Settings.PREF_ALWAYS_INCOGNITO_MODE, Defaults.PREF_ALWAYS_INCOGNITO_MODE) || mInputAttributes.mNoLearning
                 || mInputAttributes.mIsPasswordField;
         mBottomRowScale = Settings.readBottomRowScale(prefs, isLandscape, isFolded);
@@ -343,7 +357,8 @@ public class SettingsValues {
     }
 
     public boolean needsToLookupSuggestions() {
-        return (mInputAttributes.mShouldShowSuggestions || mOverrideShowingSuggestions)
+        return !mTerminalKeys // Clackatoo
+                && (mInputAttributes.mShouldShowSuggestions || mOverrideShowingSuggestions)
                 && (mAutoCorrectEnabled || mSuggestionsEnabled);
     }
 
@@ -368,7 +383,7 @@ public class SettingsValues {
     }
 
     public boolean shouldInsertSpacesAutomatically() {
-        return mInputAttributes.mShouldInsertSpacesAutomatically;
+        return !mTerminalKeys && mInputAttributes.mShouldInsertSpacesAutomatically; // Clackatoo
     }
 
     public boolean isLanguageSwitchKeyEnabled() {

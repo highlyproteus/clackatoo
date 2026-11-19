@@ -277,6 +277,11 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   screen's "More settings" has a summary line. New files:
   `clackatoo/ui/TerminalSettings.kt`, `ic_settings_terminal.xml` (Material
   "terminal" icon, Apache-2.0).
+- 2026-11-19: terminals. While the strip shows the terminal keys nothing is
+  suggested, auto-corrected, auto-capitalised or auto-spaced, also in a
+  terminal that asks for a text field (`SettingsValues.mTerminalKeys`); swipe
+  typing is off in terminals unless Settings > Terminal > "Swipe typing in
+  terminals" is on (`TerminalKeys.swipeAllowed`).
 
 Upstream copyright
 ------------------

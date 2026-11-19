@@ -133,6 +133,7 @@ class ShadowInputMethodService {
         var composingStart = -1
         var composingEnd = -1
         var currentInputType = InputType.TYPE_CLASS_TEXT
+        var currentPackageName: String? = null // the app the text field belongs to
 
         // convenience for access
         val textBeforeCursor get() = text.substring(0, selectionStart)
@@ -152,12 +153,14 @@ class ShadowInputMethodService {
             composingStart = -1
             composingEnd = -1
             currentInputType = InputType.TYPE_CLASS_TEXT
+            currentPackageName = null
         }
     }
 
     @Implementation
     fun getCurrentInputEditorInfo() = EditorInfo().apply {
         inputType = currentInputType
+        packageName = currentPackageName
         // anything else?
     }
     @Implementation

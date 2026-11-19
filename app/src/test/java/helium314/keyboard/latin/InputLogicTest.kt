@@ -205,6 +205,17 @@ class InputLogicTest {
         assertEquals("", composingText)
     }
 
+    // Clackatoo: while the strip shows the terminal keys there is no suggestion engine behind it
+    @Test fun `a terminal that asks for a text field composes nothing`() {
+        ShadowInputMethodService.currentPackageName = "com.android.virtualization.terminal"
+        setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_AUTO_CORRECT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
+        chainInput("hello")
+        assertEquals("hello", text)
+        assertEquals("", composingText)
+        assertEquals(false, settingsValues.mAutoCorrectEnabled)
+        assertEquals(false, settingsValues.needsToLookupSuggestions())
+    }
+
     @Test fun autospace() {
         setText("hello")
         input('.')
@@ -797,6 +808,7 @@ class InputLogicTest {
     private fun setCursorPosition(start: Int, end: Int = start, weirdTextField: Boolean = false) {
         val ei = EditorInfo()
         ei.inputType = currentInputType
+        ei.packageName = ShadowInputMethodService.currentPackageName
         ei.initialSelStart = start
         ei.initialSelEnd = end
         // imeOptions should not matter
@@ -847,6 +859,7 @@ class InputLogicTest {
         // restarting is false, so this is seen as a new text field
         val ei = EditorInfo()
         ei.inputType = currentInputType
+        ei.packageName = ShadowInputMethodService.currentPackageName
         latinIME.mHandler.onStartInput(ei, false)
         latinIME.mHandler.onStartInputView(ei, false)
         handleMessages() // this is important so the composing span is set correctly
