@@ -70,5 +70,6 @@
     <string name="custom_reject_load">Clackatoo could not load this model. The model process refused it or ran out of memory, so it was removed.</string>
     <string name="custom_reject_too_many">You already have %1$d custom models. Delete one first.</string>
     <string name="custom_delete_title">Delete this model?</string>
+    <string name="custom_model_broken_status">Could not be loaded. Delete it and import it again.</string>
     <string name="custom_clean_up_note">Results depend on the model: the keyboard uses the chat template stored in the model file.</string>
 </resources>

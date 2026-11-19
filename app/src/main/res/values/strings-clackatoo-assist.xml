@@ -52,7 +52,7 @@
     <string name="assist_settings_models">Models</string>
     <string name="assist_model_installed">Installed, %1$s</string>
     <string name="assist_model_missing">Not installed</string>
-    <string name="assist_model_broken_status">Could not be loaded. Import it again.</string>
+    <string name="assist_model_broken_status">Could not be loaded. Download it again.</string>
     <string name="assist_import_model">Import model file</string>
     <string name="assist_import_model_summary">Choose a model file from your storage. The file is copied into the keyboard and checked against the exact reference file; no permission is needed.</string>
     <string name="assist_import_done">Imported %1$s</string>

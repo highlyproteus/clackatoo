@@ -53,7 +53,10 @@
     <string name="assist_speech_models">Speech models</string>
     <string name="assist_cleanup_models">Clean-up</string>
     <string name="assist_grammar_models">Grammar models</string>
+    <string name="assist_import_header">Import and licences</string>
     <string name="models_more">More models (%1$d)</string>
+    <string name="content_show_more">Show more</string>
+    <string name="content_show_less">Show less</string>
     <string name="model_facts_live">Live text</string>
     <string name="model_facts_live_fast">Live text, fast</string>
     <string name="model_facts_speech">After Stop</string>

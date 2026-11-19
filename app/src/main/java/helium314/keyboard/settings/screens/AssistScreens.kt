@@ -17,13 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
@@ -73,6 +71,7 @@ import helium314.keyboard.latin.utils.NextScreenIcon
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.SearchSettingsScreen
 import helium314.keyboard.settings.dialogs.ListPickerDialog
+import helium314.keyboard.settings.dialogs.ThreeButtonAlertDialog
 import helium314.keyboard.settings.filePicker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -101,7 +100,7 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
                 CustomModelRows(ModelKind.SPEECH) { refresh++ }
                 SettingsSectionHeader(stringResource(R.string.assist_cleanup_models))
                 // the on/off switch heads its section; the keyboard's voice panel flips the same preference
-                SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                     SettingsRow(
                         title = stringResource(R.string.assist_s1_mini_switch),
                         subtitle = stringResource(if (s1Enabled) R.string.assist_s1_mini_summary else R.string.assist_s1_mini_off_summary),
@@ -116,6 +115,7 @@ fun VoiceTypingScreen(onClickBack: () -> Unit) {
                 }
                 ModelCards(ModelKind.CLEAN_UP, refresh) { refresh++ }
                 CustomModelRows(ModelKind.CLEAN_UP) { refresh++ }
+                SettingsSectionHeader(stringResource(R.string.assist_import_header))
                 ImportRow { refresh++ }
                 // the credits the licences of S1-mini and Parakeet require wherever they are used
                 SettingsHint(stringResource(R.string.assist_s1_mini_credit))
@@ -172,6 +172,7 @@ fun GrammarCheckScreen(onClickBack: () -> Unit) {
                 SettingsSectionHeader(stringResource(R.string.assist_grammar_models))
                 ModelCards(ModelKind.GRAMMAR, refresh) { refresh++ }
                 CustomModelRows(ModelKind.GRAMMAR) { refresh++ }
+                SettingsSectionHeader(stringResource(R.string.assist_import_header))
                 ImportRow { refresh++ }
                 LicencesRow()
             }
@@ -184,7 +185,7 @@ fun GrammarCheckScreen(onClickBack: () -> Unit) {
 private fun LicencesRow() {
     val ctx = LocalContext.current
     var show by remember { mutableStateOf(false) }
-    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         SettingsRow(
             title = stringResource(R.string.assist_licenses),
             subtitle = stringResource(R.string.assist_licenses_summary),
@@ -193,11 +194,14 @@ private fun LicencesRow() {
     }
     if (show) {
         val notices = remember { runCatching { ctx.assets.open(NOTICES_ASSET).bufferedReader().use { it.readText() } }.getOrDefault("") }
-        AlertDialog(
+        ThreeButtonAlertDialog(
             onDismissRequest = { show = false },
+            onConfirmed = {},
+            confirmButtonText = null,
+            cancelButtonText = stringResource(R.string.dialog_close),
+            scrollContent = true,
             title = { Text(stringResource(R.string.assist_licenses)) },
-            text = { Text(notices, style = MaterialTheme.typography.bodySmall, modifier = Modifier.verticalScroll(rememberScrollState())) },
-            confirmButton = { TextButton(onClick = { show = false }) { Text(stringResource(R.string.dialog_close)) } },
+            content = { Text(notices, style = MaterialTheme.typography.bodySmall) },
         )
     }
 }
@@ -275,11 +279,17 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
     }
     shown.forEach { card(it) }
     if (more.isNotEmpty()) {
-        SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             SettingsRow(
                 title = stringResource(R.string.models_more, more.size),
                 onClick = { expanded = !expanded },
-            ) { Icon(painterResource(R.drawable.ic_arrow_left), null, Modifier.rotate(if (expanded) 90f else -90f)) }
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_arrow_left),
+                    stringResource(if (expanded) R.string.content_show_less else R.string.content_show_more),
+                    Modifier.rotate(if (expanded) 90f else -90f),
+                )
+            }
         }
         if (expanded) more.forEach { card(it) }
     }
@@ -291,7 +301,7 @@ private fun ModelCards(kind: ModelKind, refresh: Int, onChanged: () -> Unit) {
             fullName = spec.displayName,
             subtitle = customSubtitle(ctx, spec),
             icon = modelIcon(spec),
-            state = if (status is ModelStatus.Broken) ModelCardState.Failed(stringResource(R.string.assist_model_broken_status)) else ModelCardState.Installed,
+            state = if (status is ModelStatus.Broken) ModelCardState.Failed(stringResource(R.string.custom_model_broken_status)) else ModelCardState.Installed,
             downloadLabel = "",
             onDownload = {},
             onCancel = {},
@@ -346,7 +356,7 @@ private fun CustomModelRows(kind: ModelKind, onChanged: () -> Unit) {
     fun afterNotice(action: () -> Unit) {
         if (AssistSettings.customModelsConfirmed(prefs)) action() else notice = action
     }
-    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         SettingsRow(
             title = if (working) stringResource(R.string.custom_importing) else stringResource(R.string.custom_row_import),
             subtitle = stringResource(R.string.custom_row_import_summary),
@@ -360,26 +370,26 @@ private fun CustomModelRows(kind: ModelKind, onChanged: () -> Unit) {
     }
     if (kind != ModelKind.SPEECH) SettingsHint(stringResource(R.string.custom_clean_up_note))
     notice?.let { action ->
-        AlertDialog(
+        ThreeButtonAlertDialog(
             onDismissRequest = { notice = null },
-            title = { Text(stringResource(R.string.custom_notice_title)) },
-            text = { Text(stringResource(R.string.custom_notice_text), modifier = Modifier.verticalScroll(rememberScrollState())) },
-            confirmButton = {
-                TextButton(onClick = {
-                    prefs.edit { putBoolean(AssistSettings.PREF_CUSTOM_MODELS_CONFIRMED, true) }
-                    notice = null
-                    action()
-                }) { Text(stringResource(R.string.custom_notice_accept)) }
+            onConfirmed = {
+                prefs.edit { putBoolean(AssistSettings.PREF_CUSTOM_MODELS_CONFIRMED, true) }
+                action()
             },
-            dismissButton = { TextButton(onClick = { notice = null }) { Text(stringResource(android.R.string.cancel)) } },
+            confirmButtonText = stringResource(R.string.custom_notice_accept),
+            scrollContent = true,
+            title = { Text(stringResource(R.string.custom_notice_title)) },
+            content = { Text(stringResource(R.string.custom_notice_text)) },
         )
     }
     rejected?.let { message ->
-        AlertDialog(
+        ThreeButtonAlertDialog(
             onDismissRequest = { rejected = null },
+            onConfirmed = {},
+            confirmButtonText = null,
+            cancelButtonText = stringResource(R.string.dialog_close),
             title = { Text(stringResource(R.string.custom_rejected_title)) },
-            text = { Text(message) },
-            confirmButton = { TextButton(onClick = { rejected = null }) { Text(stringResource(R.string.dialog_close)) } },
+            content = { Text(message) },
         )
     }
 }
@@ -472,7 +482,7 @@ private fun ImportRow(onChanged: () -> Unit) {
         }
     }
     // a secondary action: the cards above are the way to get a model
-    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    SettingsGroup(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         SettingsRow(
             title = if (importing) stringResource(R.string.assist_importing) else stringResource(R.string.assist_import_model),
             subtitle = stringResource(R.string.assist_import_model_summary),

@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import helium314.keyboard.latin.R
+import helium314.keyboard.settings.dialogs.ConfirmationDialog
 
 /** What a model card shows: the states a model has on the phone, without the details of how it got there. */
 sealed interface ModelCardState {
@@ -81,10 +82,12 @@ fun ModelCard(
     badgeIsWarning: Boolean = false,
 ) {
     val installed = state is ModelCardState.Installed
+    // a custom model has no download label: it never gets an empty Download button
+    val canDownload = downloadLabel.isNotEmpty()
     // a long label ("Get Clackatoo Models") would squeeze the name, so it goes below the text instead of beside it
-    val buttonBelow = downloadLabel.length > SHORT_LABEL
+    val buttonBelow = canDownload && downloadLabel.length > SHORT_LABEL
     val select = if (installed && selectable) Modifier.clickable(role = Role.RadioButton, onClick = onSelect) else Modifier
-    SettingsPanel(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+    SettingsPanel(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(
             Modifier.fillMaxWidth().then(select).padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -139,12 +142,13 @@ fun ModelCard(
             }
             when (state) {
                 is ModelCardState.NotInstalled, is ModelCardState.Failed ->
-                    if (!buttonBelow) FilledTonalButton(onClick = onDownload) { Text(downloadLabel) }
+                    if (!canDownload) ModelMenu(fullName, onDelete)
+                    else if (!buttonBelow) FilledTonalButton(onClick = onDownload) { Text(downloadLabel) }
                 is ModelCardState.Downloading -> TextButton(onClick = onCancel) { Text(stringResource(R.string.models_cancel)) }
                 is ModelCardState.Installed -> {
                     if (selectable) RadioButton(selected = selected, onClick = onSelect)
                     else Text(stringResource(R.string.models_ready), style = MaterialTheme.typography.labelLarge)
-                    ModelMenu(onDelete)
+                    ModelMenu(fullName, onDelete)
                 }
                 is ModelCardState.Unsupported -> Text(
                     stringResource(R.string.models_not_on_this_phone),
@@ -177,8 +181,9 @@ internal fun DownloadProgress(state: ModelCardState.Downloading) {
 }
 
 @Composable
-private fun ModelMenu(onDelete: () -> Unit) {
+private fun ModelMenu(name: String, onDelete: () -> Unit) {
     var open by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
             Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.model_card_more))
@@ -186,8 +191,16 @@ private fun ModelMenu(onDelete: () -> Unit) {
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.models_delete)) },
-                onClick = { open = false; onDelete() },
+                onClick = { open = false; confirm = true },
             )
         }
     }
+    if (confirm)
+        ConfirmationDialog(
+            onDismissRequest = { confirm = false },
+            onConfirmed = onDelete,
+            title = { Text(stringResource(R.string.custom_delete_title)) },
+            content = { Text(name) },
+            confirmButtonText = stringResource(R.string.models_delete),
+        )
 }
