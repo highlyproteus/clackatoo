@@ -9,6 +9,8 @@
     <string name="settings_screen_terminal">Terminal</string>
     <string name="terminal_keys">Terminal keys</string>
     <string name="terminal_keys_summary">In terminal and SSH apps, show Esc, Tab, Ctrl and arrow keys above the keyboard. Tap Ctrl, then a letter, for Ctrl+C and the like. Nothing is suggested or corrected while they show.</string>
+    <string name="terminal_bottom_row">Slash and dash keys</string>
+    <string name="terminal_bottom_row_summary">In terminals, / and - take the place of the comma and emoji keys. Hold them for | ~ ` and _ = +, and hold . for the comma.</string>
     <string name="terminal_swipe">Swipe typing in terminals</string>
     <string name="terminal_swipe_summary">Off: sliding over the keys never types a word in a terminal.</string>
 </resources>

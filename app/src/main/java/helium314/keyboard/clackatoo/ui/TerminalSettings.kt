@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import helium314.keyboard.clackatoo.TerminalKeys
+import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.latin.R
 import helium314.keyboard.settings.SearchSettingsScreen
 import helium314.keyboard.settings.Setting
@@ -15,6 +16,9 @@ import helium314.keyboard.settings.preferences.SwitchPreference
 fun createTerminalSettings(context: Context) = listOf(
     Setting(context, TerminalKeys.PREF_TERMINAL_KEYS, R.string.terminal_keys, R.string.terminal_keys_summary) {
         SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_KEYS)
+    },
+    Setting(context, TerminalKeys.PREF_TERMINAL_BOTTOM_ROW, R.string.terminal_bottom_row, R.string.terminal_bottom_row_summary) {
+        SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_BOTTOM_ROW) { KeyboardSwitcher.getInstance().reloadKeyboard() }
     },
     Setting(context, TerminalKeys.PREF_TERMINAL_SWIPE, R.string.terminal_swipe, R.string.terminal_swipe_summary) {
         SwitchPreference(it, TerminalKeys.DEFAULT_TERMINAL_SWIPE)
@@ -26,6 +30,6 @@ fun TerminalScreen(onClickBack: () -> Unit) {
     SearchSettingsScreen(
         onClickBack = onClickBack,
         title = stringResource(R.string.settings_screen_terminal),
-        settings = listOf(TerminalKeys.PREF_TERMINAL_KEYS, TerminalKeys.PREF_TERMINAL_SWIPE),
+        settings = listOf(TerminalKeys.PREF_TERMINAL_KEYS, TerminalKeys.PREF_TERMINAL_BOTTOM_ROW, TerminalKeys.PREF_TERMINAL_SWIPE),
     )
 }

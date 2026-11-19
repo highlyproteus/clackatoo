@@ -10,6 +10,7 @@ import helium314.keyboard.keyboard.Keyboard
 import helium314.keyboard.keyboard.KeyboardElement
 import helium314.keyboard.keyboard.KeyboardId
 import helium314.keyboard.keyboard.KeyboardLayoutSet
+import helium314.keyboard.keyboard.KeyboardMode
 import helium314.keyboard.keyboard.internal.KeySpecParser.KeySpecParserError
 import helium314.keyboard.keyboard.internal.KeyboardBuilder
 import helium314.keyboard.keyboard.internal.KeyboardParams
@@ -579,8 +580,10 @@ f""", // no newline at the end
         }
     }
 
-    private fun buildKeyboard(editorInfo: EditorInfo, subtype: InputMethodSubtype, element: KeyboardElement): Pair<Keyboard, List<List<KeyParams>>> {
+    private fun buildKeyboard(editorInfo: EditorInfo, subtype: InputMethodSubtype, element: KeyboardElement,
+                              mode: KeyboardMode = KeyboardMode.TEXT): Pair<Keyboard, List<List<KeyParams>>> {
         val layoutParams = KeyboardLayoutSet.Params()
+        layoutParams.mode = mode
         val editorInfoField = KeyboardLayoutSet.Params::class.java.getDeclaredField("editorInfo").apply { isAccessible = true }
         editorInfoField.set(layoutParams, editorInfo)
         val subtypeField = KeyboardLayoutSet.Params::class.java.getDeclaredField("subtype").apply { isAccessible = true }
@@ -597,6 +600,21 @@ f""", // no newline at the end
         builder.load(id)
         @Suppress("UNCHECKED_CAST")
         return builder.build() to keysInRowsField.get(builder) as ArrayList<ArrayList<KeyParams>>
+    }
+
+    // Clackatoo: the bottom row of a terminal (TerminalKeys)
+    @Test fun `terminal mode has slash and dash in the bottom row`() {
+        val subtype = SubtypeUtilsAdditional.createEmojiCapableAdditionalSubtype(Locale.ENGLISH, "qwerty", true)
+        val (_, keys) = buildKeyboard(EditorInfo(), subtype, KeyboardElement.ALPHABET, KeyboardMode.TERMINAL)
+        val codes = keys.last().map { it.mCode }
+        assertTrue('/'.code in codes && '-'.code in codes, "codes $codes")
+        assertTrue(','.code !in codes, "codes $codes")
+        val slash = keys.last().first { it.mCode == '/'.code }
+        assertEquals(listOf("|", "~", "`"), slash.mPopupKeys?.map { it.mLabel })
+        val (_, symbols) = buildKeyboard(EditorInfo(), subtype, KeyboardElement.SYMBOLS, KeyboardMode.TERMINAL)
+        assertTrue(','.code in symbols.last().map { it.mCode })
+        val (_, text) = buildKeyboard(EditorInfo(), subtype, KeyboardElement.ALPHABET)
+        assertTrue(','.code in text.last().map { it.mCode })
     }
 
     @Test fun placeholderAsOnlyPopup() { // https://github.com/HeliBorg/HeliBoard/issues/1324

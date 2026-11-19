@@ -4,9 +4,11 @@ package helium314.keyboard.keyboard.internal.keyboard_parser
 import android.content.Context
 import android.content.res.Configuration
 import helium314.keyboard.latin.utils.Log
+import helium314.keyboard.clackatoo.TerminalKeys
 import helium314.keyboard.keyboard.Key
 import helium314.keyboard.keyboard.Key.KeyParams
 import helium314.keyboard.keyboard.KeyboardElement
+import helium314.keyboard.keyboard.KeyboardMode
 import helium314.keyboard.keyboard.internal.KeyboardParams
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyData
@@ -255,6 +257,9 @@ class KeyboardParser(private val params: KeyboardParams, private val context: Co
                 functionalKeysBottom.add(spaceIndex + 1, TextKeyData(label = KeyLabel.ZWNJ))
             }
         }
+        // Clackatoo: "/" and "-" next to the space bar in a terminal
+        if (params.mId.mode == KeyboardMode.TERMINAL && params.mId.element.isAlphabet)
+            TerminalKeys.adjustBottomRow(functionalKeysBottom)
         baseKeys.add(mutableListOf())
     }
 

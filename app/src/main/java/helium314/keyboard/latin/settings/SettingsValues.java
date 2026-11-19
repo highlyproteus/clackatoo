@@ -171,9 +171,11 @@ public class SettingsValues {
     public final int mScoreLimitForAutocorrect;
     public final SettingsValuesForSuggestion mSettingsValuesForSuggestion;
     public final boolean mIsLocked;
-    // Clackatoo: the field is a terminal (TerminalKeys), and whether the strip shows the terminal keys there
+    // Clackatoo: the field is a terminal (TerminalKeys); whether the strip shows the terminal keys there, and whether
+    // "/" and "-" sit next to the space bar
     public final boolean mIsTerminal;
     public final boolean mTerminalKeys;
+    public final boolean mTerminalBottomRow;
 
     // User-defined colors
     public final Colors mColors;
@@ -192,6 +194,8 @@ public class SettingsValues {
         mIsTerminal = inputAttributes.mTargetApplicationPackageName != null
                 && TerminalKeys.INSTANCE.isTerminal(inputAttributes.mInputType, inputAttributes.mTargetApplicationPackageName);
         mTerminalKeys = mIsTerminal && TerminalKeys.INSTANCE.enabled(prefs);
+        mTerminalBottomRow = mIsTerminal
+                && prefs.getBoolean(TerminalKeys.PREF_TERMINAL_BOTTOM_ROW, TerminalKeys.DEFAULT_TERMINAL_BOTTOM_ROW);
 
         // Get the settings preferences
         mIsLocked = IsLockedCompatKt.isDeviceLocked(context);

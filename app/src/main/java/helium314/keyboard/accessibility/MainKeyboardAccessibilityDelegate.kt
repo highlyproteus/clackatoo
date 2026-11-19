@@ -246,6 +246,7 @@ class MainKeyboardAccessibilityDelegate(
             KeyboardMode.TEXT to R.string.keyboard_mode_text,
             KeyboardMode.TIME to R.string.keyboard_mode_time,
             KeyboardMode.URL to R.string.keyboard_mode_url,
+            KeyboardMode.TERMINAL to R.string.keyboard_mode_text, // Clackatoo
         )
     }
 }

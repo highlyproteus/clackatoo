@@ -132,6 +132,8 @@ class KeyboardLayoutSet internal constructor(private val mContext: Context, priv
         init {
             val editorInfo = ei ?: EMPTY_EDITOR_INFO
             params.mode = getKeyboardMode(editorInfo)
+            // Clackatoo: a terminal gets "/" and "-" next to the space bar
+            if (params.mode == KeyboardMode.TEXT && settingsValues?.mTerminalBottomRow == true) params.mode = KeyboardMode.TERMINAL
             // TODO: Consolidate those with {@link InputAttributes}.
             params.editorInfo = editorInfo
             params.settingsValues = settingsValues

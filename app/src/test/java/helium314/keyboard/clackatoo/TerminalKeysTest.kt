@@ -5,9 +5,13 @@ import android.content.Context
 import android.text.InputType
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
+import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyData
+import helium314.keyboard.keyboard.internal.keyboard_parser.floris.SimplePopups
+import helium314.keyboard.keyboard.internal.keyboard_parser.floris.TextKeyData
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -50,5 +54,27 @@ class TerminalKeysTest {
         assertFalse(TerminalKeys.swipeAllowed(prefs, terminal = true))
         prefs.edit { putBoolean(TerminalKeys.PREF_TERMINAL_SWIPE, true) }
         assertTrue(TerminalKeys.swipeAllowed(prefs, terminal = true))
+    }
+
+    private fun row(vararg labels: String): MutableList<KeyData> = labels.mapTo(mutableListOf()) { TextKeyData(label = it) }
+
+    @Test fun `slash and dash take the place of the comma and the emoji key`() {
+        val row = row("symbol_alpha", "comma", "emoji", "space", "period", "action")
+        TerminalKeys.adjustBottomRow(row)
+        assertEquals(listOf("symbol_alpha", "/", "-", "space", "period", "action"), row.map { it.label })
+        assertEquals(TerminalKeys.SLASH_POPUPS, (row[1].popup as SimplePopups).popupKeys)
+        assertEquals(TerminalKeys.DASH_POPUPS, (row[2].popup as SimplePopups).popupKeys)
+    }
+
+    @Test fun `without an emoji key the dash goes before the space bar`() {
+        val row = row("symbol_alpha", "comma", "language_switch", "space", "period", "action")
+        TerminalKeys.adjustBottomRow(row)
+        assertEquals(listOf("symbol_alpha", "/", "language_switch", "-", "space", "period", "action"), row.map { it.label })
+    }
+
+    @Test fun `a bottom row without a comma key stays as it is`() {
+        val row = row("symbol_alpha", "emoji", "space", "period", "action")
+        TerminalKeys.adjustBottomRow(row)
+        assertEquals(listOf("symbol_alpha", "emoji", "space", "period", "action"), row.map { it.label })
     }
 }

@@ -282,6 +282,12 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   terminal that asks for a text field (`SettingsValues.mTerminalKeys`); swipe
   typing is off in terminals unless Settings > Terminal > "Swipe typing in
   terminals" is on (`TerminalKeys.swipeAllowed`).
+- 2026-11-19: terminal bottom row. In a terminal the letters' bottom row has "/"
+  and "-" in the place of the comma and the emoji key (long press: | ~ ` and
+  _ = +; the comma is the first long-press key of "."), behind Settings >
+  Terminal > "Slash and dash keys", on by default. `KeyboardMode.TERMINAL`,
+  `TerminalKeys.adjustBottomRow`, one hook each in `KeyboardLayoutSet` and
+  `KeyboardParser`.
 
 Upstream copyright
 ------------------

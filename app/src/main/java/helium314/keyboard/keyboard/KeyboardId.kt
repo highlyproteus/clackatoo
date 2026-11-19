@@ -137,4 +137,5 @@ enum class KeyboardElement(val descriptionResId: Int) {
     }
 }
 
-enum class KeyboardMode { TEXT, URL, EMAIL, IM, PHONE, NUMBER, DATE, TIME, DATETIME }
+enum class KeyboardMode { TEXT, URL, EMAIL, IM, PHONE, NUMBER, DATE, TIME, DATETIME,
+    TERMINAL } // Clackatoo: a text keyboard with "/" and "-" next to the space bar (TerminalKeys)
