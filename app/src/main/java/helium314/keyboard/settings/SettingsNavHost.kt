@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import helium314.keyboard.clackatoo.ui.TerminalScreen
 import helium314.keyboard.latin.common.LocaleUtils.constructLocale
 import helium314.keyboard.latin.settings.SettingsSubtype.Companion.toSettingsSubtype
 import helium314.keyboard.latin.settings.getTransitionAnimationScale
@@ -93,6 +94,7 @@ fun SettingsNavHost(
                 onClickDictionaries = { navController.navigate(SettingsDestination.Dictionaries) },
                 onClickVoiceTyping = { navController.navigate(SettingsDestination.VoiceTyping) },
                 onClickGrammarCheck = { navController.navigate(SettingsDestination.GrammarCheck) },
+                onClickTerminal = { navController.navigate(SettingsDestination.Terminal) },
                 onClickSetUp = onClickSetUp,
                 onClickBack = ::goBack,
             )
@@ -114,6 +116,9 @@ fun SettingsNavHost(
         }
         composable(SettingsDestination.Toolbar) {
             ToolbarScreen(onClickBack = ::goBack)
+        }
+        composable(SettingsDestination.Terminal) {
+            TerminalScreen(onClickBack = ::goBack)
         }
         composable(SettingsDestination.GestureTyping) {
             GestureTypingScreen(onClickBack = ::goBack)
@@ -174,6 +179,7 @@ object SettingsDestination {
     const val About = "about"
     const val TextCorrection = "text_correction"
     const val Preferences = "preferences"
+    const val Terminal = "terminal"
     const val Toolbar = "toolbar"
     const val GestureTyping = "gesture_typing"
     const val DataGathering = "data_gathering" // remove when data gathering phase is done (end of 2026 latest)

@@ -5,7 +5,8 @@
     <string name="escape" tools:keep="@string/escape">Esc</string>
     <string name="tab" tools:keep="@string/tab">Tab</string>
     <string name="ctrl" tools:keep="@string/ctrl">Ctrl</string>
-    <!-- Settings > Toolbar -->
+    <!-- Settings > Terminal -->
+    <string name="settings_screen_terminal">Terminal</string>
     <string name="terminal_keys">Terminal keys</string>
     <string name="terminal_keys_summary">In terminal and SSH apps, show Esc, Tab, Ctrl and arrow keys above the keyboard. Tap Ctrl, then a letter, for Ctrl+C and the like.</string>
 </resources>

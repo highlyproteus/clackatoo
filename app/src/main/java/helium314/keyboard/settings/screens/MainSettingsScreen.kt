@@ -28,6 +28,7 @@ fun MainSettingsScreen(
     onClickTextCorrection: () -> Unit,
     onClickPreferences: () -> Unit,
     onClickToolbar: () -> Unit,
+    onClickTerminal: () -> Unit,
     onClickGestureTyping: () -> Unit,
     onClickDataGathering: () -> Unit,
     onClickAdvanced: () -> Unit,
@@ -64,6 +65,7 @@ fun MainSettingsScreen(
                         onTheme = onClickTheme,
                         onAppearance = onClickAppearance,
                         onToolbar = onClickToolbar,
+                        onTerminal = onClickTerminal,
                         onAdvanced = onClickAdvanced,
                         onAbout = onClickAbout,
                     )
@@ -79,7 +81,7 @@ private fun PreviewScreen() {
     initPreview(LocalContext.current)
     Theme(previewDark) {
         Surface {
-            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

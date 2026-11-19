@@ -272,6 +272,11 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   number, phone and date fields of terminal apps are no longer treated as
   terminals; Termux's "enforce char based input" type (a variation without a
   class) still is (`TerminalKeys.isTerminal`).
+- 2026-11-19: a Terminal settings screen (Settings > Terminal), which now holds
+  the "Terminal keys" switch that was under Toolbar; every row of the home
+  screen's "More settings" has a summary line. New files:
+  `clackatoo/ui/TerminalSettings.kt`, `ic_settings_terminal.xml` (Material
+  "terminal" icon, Apache-2.0).
 
 Upstream copyright
 ------------------

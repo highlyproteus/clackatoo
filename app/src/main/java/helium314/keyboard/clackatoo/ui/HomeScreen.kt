@@ -79,6 +79,7 @@ class HomeActions(
     val onTheme: () -> Unit,
     val onAppearance: () -> Unit,
     val onToolbar: () -> Unit,
+    val onTerminal: () -> Unit,
     val onAdvanced: () -> Unit,
     val onAbout: () -> Unit,
 )
@@ -115,15 +116,22 @@ fun HomeContent(actions: HomeActions) {
                 stringResource(R.string.home_preferences_summary))
             HomeRow(R.string.settings_screen_correction, actions.onTextCorrection, R.drawable.ic_settings_correction,
                 stringResource(R.string.home_correction_summary))
-            HomeRow(R.string.settings_screen_secondary_layouts, actions.onLayouts, R.drawable.ic_settings_layout)
-            HomeRow(R.string.dictionary_settings_category, actions.onDictionaries, R.drawable.ic_dictionary)
-            HomeRow(R.string.settings_screen_appearance, actions.onAppearance, R.drawable.ic_settings_layout)
-            HomeRow(R.string.settings_screen_toolbar, actions.onToolbar, R.drawable.ic_settings_toolbar)
+            HomeRow(R.string.settings_screen_secondary_layouts, actions.onLayouts, R.drawable.ic_settings_layout,
+                stringResource(R.string.home_layouts_summary))
+            HomeRow(R.string.dictionary_settings_category, actions.onDictionaries, R.drawable.ic_dictionary,
+                stringResource(R.string.home_dictionaries_summary))
+            HomeRow(R.string.settings_screen_appearance, actions.onAppearance, R.drawable.ic_settings_layout,
+                stringResource(R.string.home_appearance_summary))
+            HomeRow(R.string.settings_screen_toolbar, actions.onToolbar, R.drawable.ic_settings_toolbar,
+                stringResource(R.string.home_toolbar_summary))
+            HomeRow(R.string.settings_screen_terminal, actions.onTerminal, R.drawable.ic_settings_terminal,
+                stringResource(R.string.home_terminal_summary))
             // we don't even show the menu if data gathering phase ended more than 2 weeks ago
             if (helium314.keyboard.clackatoo.GestureDataPolicy.GATHERING_ALLOWED
                 && JniUtils.sHaveGestureLib && System.currentTimeMillis() < END_DATE_EPOCH_MILLIS + TWO_WEEKS_IN_MILLIS)
                 HomeRow(R.string.gesture_data_screen, actions.onDataGathering, R.drawable.ic_settings_gesture)
-            HomeRow(R.string.settings_screen_advanced, actions.onAdvanced, R.drawable.ic_settings_advanced)
+            HomeRow(R.string.settings_screen_advanced, actions.onAdvanced, R.drawable.ic_settings_advanced,
+                stringResource(R.string.home_advanced_summary))
             HomeRow(R.string.settings_screen_about, actions.onAbout, R.drawable.ic_settings_about,
                 stringResource(R.string.version_text, BuildConfig.VERSION_NAME))
         }

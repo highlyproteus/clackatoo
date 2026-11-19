@@ -28,6 +28,12 @@
     <string name="home_state_off">Off</string>
     <string name="home_preferences_summary">Keys, popups, sound, clipboard</string>
     <string name="home_correction_summary">Autocorrect, suggestions</string>
+    <string name="home_layouts_summary">Symbols, numbers, number row, bottom row</string>
+    <string name="home_dictionaries_summary">Built-in and added dictionaries</string>
+    <string name="home_appearance_summary">Style, sizes, split keyboard, font</string>
+    <string name="home_toolbar_summary">Toolbar keys, pinned keys</string>
+    <string name="home_terminal_summary">Keys and typing in terminal and SSH apps</string>
+    <string name="home_advanced_summary">Long press, space bar swipes, backup</string>
     <string name="home_voice_ready">Ready · %1$s</string>
     <string name="home_voice_live">Parakeet live text</string>
     <string name="home_voice_whisper">Whisper</string>
