@@ -47,11 +47,18 @@ object TerminalKeys {
         TextKeyData(type = KeyType.FUNCTION, label = label, popup = SimplePopups(popups), width = width)
 
     private const val TERMUX = "com.termux"
+    private const val CONNECTBOT = "org.connectbot"
+
+    /**
+     * Apps whose terminal view never asks for a text field (measured: Termux sends TYPE_NULL or 0x00080090, ConnectBot
+     * 1.11 sends 0x00080090), so a text field of theirs is one of the app's own forms or Termux's text box.
+     */
+    private val RAW_KEY_TERMINALS = setOf(TERMUX, CONNECTBOT)
 
     /** Terminal and SSH apps whose terminal view may ask for something else than raw key events (Termux with char-based input, web terminals). */
     private val TERMINAL_PACKAGES = setOf(
         TERMUX,
-        "org.connectbot",
+        CONNECTBOT,
         "com.sonelli.juicessh",
         "com.server.auditor.ssh.client", // Termius
         "com.android.virtualization.terminal", // Android's Linux terminal
@@ -69,8 +76,9 @@ object TerminalKeys {
         if (inputType == InputType.TYPE_NULL) return true
         if (packageName !in TERMINAL_PACKAGES) return false
         return when (inputType and InputType.TYPE_MASK_CLASS) {
-            0 -> true // Termux with "enforce char based input": a variation and flags without a class (0x00080090)
-            InputType.TYPE_CLASS_TEXT -> packageName != TERMUX // Termux's own text field is its text box, which wants suggestions
+            0 -> true // Termux with "enforce char based input", ConnectBot: a variation and flags without a class (0x00080090)
+            // Termux's own text field is its text box and ConnectBot's are its forms: they want suggestions
+            InputType.TYPE_CLASS_TEXT -> packageName !in RAW_KEY_TERMINALS
             else -> false // number, phone and date fields are never the terminal
         }
     }

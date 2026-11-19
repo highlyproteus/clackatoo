@@ -24,16 +24,22 @@ class TerminalKeysTest {
         assertTrue(TerminalKeys.isTerminal(InputType.TYPE_NULL, null))
     }
 
-    @Test fun `Termux with char-based input sends a variation without a class and still is a terminal`() {
-        val charBased = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+    @Test fun `Termux and ConnectBot send a variation without a class for the terminal`() {
+        val charBased = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS // 0x00080090
         assertTrue(TerminalKeys.isTerminal(charBased, "com.termux"))
-        assertTrue(TerminalKeys.isTerminal(text, "com.android.virtualization.terminal"))
-        assertTrue(TerminalKeys.isTerminal(InputType.TYPE_CLASS_TEXT, "org.connectbot"))
+        assertTrue(TerminalKeys.isTerminal(charBased, "org.connectbot"))
     }
 
-    @Test fun `Termux's text box is not the terminal`() {
+    @Test fun `a terminal app that asks for a text field is a terminal`() {
+        assertTrue(TerminalKeys.isTerminal(text, "com.android.virtualization.terminal"))
+        assertTrue(TerminalKeys.isTerminal(InputType.TYPE_CLASS_TEXT, "com.sonelli.juicessh"))
+    }
+
+    @Test fun `Termux's text box and ConnectBot's forms are not the terminal`() {
         assertFalse(TerminalKeys.isTerminal(InputType.TYPE_CLASS_TEXT, "com.termux"))
         assertFalse(TerminalKeys.isTerminal(text, "com.termux"))
+        // the Nickname field of ConnectBot 1.11's "Add host"
+        assertFalse(TerminalKeys.isTerminal(0x208001, "org.connectbot"))
     }
 
     @Test fun `number and phone fields of a terminal app are not terminals`() {
