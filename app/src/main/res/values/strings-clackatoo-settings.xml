@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
-<resources>
+<!-- tools:ignore="MissingTranslation" on a string: Clackatoo's own strings are English only so far (lint otherwise
+     reports each as untranslated in every upstream locale); remove it when the string gets translations. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="clackatoo_privacy_policy">Privacy policy</string>
     <string name="clackatoo_privacy_policy_summary">How Clackatoo and Clackatoo Models handle data (opens your browser)</string>
     <!-- home screen -->
@@ -21,8 +23,8 @@
     <string name="home_setup_enable">Turn it on and choose it as your keyboard.</string>
     <string name="home_setup_select">Choose it as your keyboard to start typing with it.</string>
     <string name="home_setup_action">Set up</string>
-    <string name="setup_step_count">Step %1$d of %2$d</string>
-    <string name="setup_not_now">Not now</string>
+    <string name="setup_step_count" tools:ignore="MissingTranslation">Step %1$d of %2$d</string>
+    <string name="setup_not_now" tools:ignore="MissingTranslation">Not now</string>
     <string name="home_group_more">More settings</string>
     <string name="home_see_all_themes">See all themes</string>
     <string name="home_group_look_feel">Look &amp; feel</string>
@@ -30,12 +32,12 @@
     <string name="home_state_off">Off</string>
     <string name="home_preferences_summary">Keys, popups, sound, clipboard</string>
     <string name="home_correction_summary">Autocorrect, suggestions</string>
-    <string name="home_layouts_summary">Symbols, numbers, number row, bottom row</string>
-    <string name="home_dictionaries_summary">Built-in and added dictionaries</string>
-    <string name="home_appearance_summary">Style, sizes, split keyboard, font</string>
-    <string name="home_toolbar_summary">Toolbar keys, pinned keys</string>
-    <string name="home_terminal_summary">Keys and typing in terminal and SSH apps</string>
-    <string name="home_advanced_summary">Long press, space bar swipes, backup</string>
+    <string name="home_layouts_summary" tools:ignore="MissingTranslation">Symbols, numbers, number row, bottom row</string>
+    <string name="home_dictionaries_summary" tools:ignore="MissingTranslation">Built-in and added dictionaries</string>
+    <string name="home_appearance_summary" tools:ignore="MissingTranslation">Style, sizes, split keyboard, font</string>
+    <string name="home_toolbar_summary" tools:ignore="MissingTranslation">Toolbar keys, pinned keys</string>
+    <string name="home_terminal_summary" tools:ignore="MissingTranslation">Keys and typing in terminal and SSH apps</string>
+    <string name="home_advanced_summary" tools:ignore="MissingTranslation">Long press, space bar swipes, backup</string>
     <string name="home_voice_ready">Ready · %1$s</string>
     <string name="home_voice_live">Parakeet live text</string>
     <string name="home_voice_whisper">Whisper</string>
@@ -53,11 +55,11 @@
     <string name="assist_speech_models">Speech models</string>
     <string name="assist_cleanup_models">Clean-up</string>
     <string name="assist_grammar_models">Grammar models</string>
-    <string name="assist_import_header">Import and licences</string>
+    <string name="assist_import_header" tools:ignore="MissingTranslation">Import and licences</string>
     <string name="models_more">More models (%1$d)</string>
-    <string name="content_show_more">Show more</string>
-    <string name="content_show_less">Show less</string>
-    <string name="content_edit">Edit</string>
+    <string name="content_show_more" tools:ignore="MissingTranslation">Show more</string>
+    <string name="content_show_less" tools:ignore="MissingTranslation">Show less</string>
+    <string name="content_edit" tools:ignore="MissingTranslation">Edit</string>
     <string name="model_facts_live">Live text</string>
     <string name="model_facts_live_fast">Live text, fast</string>
     <string name="model_facts_speech">After Stop</string>
@@ -68,7 +70,7 @@
     <string name="model_lang_count">%1$d languages</string>
 
     <!-- crash reports found at start -->
-    <string name="crash_reports_found">Crash reports found</string>
-    <string name="crash_reports_ignore">Ignore</string>
-    <string name="crash_reports_save">Save</string>
+    <string name="crash_reports_found" tools:ignore="MissingTranslation">Crash reports found</string>
+    <string name="crash_reports_ignore" tools:ignore="MissingTranslation">Ignore</string>
+    <string name="crash_reports_save" tools:ignore="MissingTranslation">Save</string>
 </resources>

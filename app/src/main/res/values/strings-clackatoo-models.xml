@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- downloads through the Clackatoo Models companion app -->
     <string name="models_download">Download</string>
     <string name="models_get_companion">Get Clackatoo Models</string>
@@ -67,6 +67,6 @@
     <string name="custom_reject_load">Clackatoo could not load this model. The model process refused it or ran out of memory, so it was removed.</string>
     <string name="custom_reject_too_many">You already have %1$d custom models. Delete one first.</string>
     <string name="custom_delete_title">Delete this model?</string>
-    <string name="custom_model_broken_status">Could not be loaded. Delete it and import it again.</string>
+    <string name="custom_model_broken_status" tools:ignore="MissingTranslation">Could not be loaded. Delete it and import it again.</string>
     <string name="custom_clean_up_note">Results depend on the model: the keyboard uses the chat template stored in the model file.</string>
 </resources>
