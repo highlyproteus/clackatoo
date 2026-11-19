@@ -3,15 +3,18 @@
 package helium314.keyboard.clackatoo.assist
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.StaticLayout
 import android.text.TextUtils
+import android.text.method.ScrollingMovementMethod
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
@@ -120,6 +123,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         body.addView(progress, LayoutParams(-1, dp(6), Gravity.CENTER_VERTICAL))
         message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         message.gravity = Gravity.CENTER_VERTICAL
+        message.movementMethod = ScrollingMovementMethod() // a long message scrolls instead of being cut
         body.addView(message, LayoutParams(-1, -1))
         preview.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         preview.setTextIsSelectable(false)
@@ -201,14 +205,20 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         b.isClickable = true
         b.isFocusable = false
         b.contentDescription = label
+        b.maxLines = 2
+        b.ellipsize = TextUtils.TruncateAt.END
         // the main button looks like the Enter key, the others like letter keys
         b.setTextColor(if (primary) colors.get(ColorType.ACTION_KEY_ICON) else textColor)
         val actionFill = colors.get(ColorType.ACTION_KEY_BACKGROUND)
-        b.background = GradientDrawable().apply {
+        val shape = GradientDrawable().apply {
             cornerRadius = radius
             setColor(if (primary) actionFill else keyColor)
             setStroke(ClackatooStyle.BORDER_WIDTH_PX.toInt(), if (primary) accent else borderColor)
         }
+        // the ripple shows a press; the shape stays reachable through the tag for setCleanUp's border
+        b.background = RippleDrawable(ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 0x33)), shape, null)
+        b.tag = shape
+        b.setPadding(dp(8), 0, dp(8), 0)
         b.typeface = KeyboardTypeface.resolve(label, Typeface.DEFAULT)
         b.setOnClickListener { onClick() }
         return b
@@ -266,7 +276,7 @@ class AssistPanelView(context: Context) : FrameLayout(context) {
         toggle.text = label
         toggle.contentDescription = label
         toggle.isSelected = on
-        (toggle.background as? GradientDrawable)?.setStroke(ClackatooStyle.BORDER_WIDTH_PX.toInt(), if (on) accent else borderColor)
+        (toggle.tag as? GradientDrawable)?.setStroke(ClackatooStyle.BORDER_WIDTH_PX.toInt(), if (on) accent else borderColor)
     }
 
     fun setLevel(level: Float) = meter.push(level)

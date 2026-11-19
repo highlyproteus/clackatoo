@@ -32,7 +32,6 @@
     <string name="models_sheet_not_now">Not now</string>
     <string name="models_sheet_get_companion">Get Clackatoo Models</string>
     <string name="models_sheet_companion_hint">Models are downloaded by the separate app Clackatoo Models, so this keyboard never needs the internet.</string>
-    <string name="models_sheet_progress">Downloading, %1$s of %2$s</string>
     <string name="models_sheet_done">Ready. Tap the key again.</string>
     <string name="models_sheet_choose_one">Choose at least one model.</string>
     <string name="models_sheet_item">%1$s \u2022 %2$s</string>
@@ -41,12 +40,10 @@
     <string name="models_label_clean_up">Clean-up</string>
     <string name="models_label_grammar">Grammar model</string>
     <string name="models_label_other">Model</string>
-    <string name="models_choose_model">Use this model</string>
 
     <!-- suggested for this phone -->
     <string name="models_suggested">Suggested for this phone</string>
     <string name="models_may_be_slow">May be slow on this phone</string>
-    <string name="models_sheet_suggested_hint">These are the models that suit this phone. You can pick another one in Settings.</string>
 
     <!-- experimental custom models -->
     <string name="models_experimental">Experimental \u00b7 not verified</string>

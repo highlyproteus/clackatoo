@@ -37,21 +37,19 @@
     <string name="assist_model_broken">A model file could not be loaded. Import it again in Settings.</string>
     <string name="assist_vad_unavailable">The voice detection model could not be set up.</string>
     <string name="assist_failed">Something went wrong: %1$s</string>
+    <string name="assist_failed_generic">Something went wrong. Try again.</string>
     <string name="assist_check_none">No mistakes found.</string>
     <string name="assist_check_empty">There is no text to check.</string>
     <string name="assist_check_too_long">This is too long to check. Select a part of it.</string>
     <string name="assist_check_private">Check is off in password and private fields.</string>
     <string name="assist_check_changed">The text changed while checking. Press Check again.</string>
     <string name="assist_check_unreadable">This field does not let the keyboard read its text, so it cannot be checked.</string>
-    <string name="assist_panel_hidden">Voice typing needs the keyboard keys to be showing. Turn off "show only toolbar" and try again.</string>
+    <string name="assist_panel_hidden">Voice typing and Check need the keyboard keys to be showing. Turn off "show only toolbar" and try again.</string>
     <string name="assist_check_unreliable">Could not check this text. Try a shorter piece.</string>
 
     <!-- settings -->
     <string name="settings_screen_voice_typing">Voice typing</string>
     <string name="settings_screen_grammar_check">Grammar check</string>
-    <string name="assist_settings_models">Models</string>
-    <string name="assist_model_installed">Installed, %1$s</string>
-    <string name="assist_model_missing">Not installed</string>
     <string name="assist_model_broken_status">Could not be loaded. Download it again.</string>
     <string name="assist_import_model">Import model file</string>
     <string name="assist_import_model_summary">Choose a model file from your storage. The file is copied into the keyboard and checked against the exact reference file; no permission is needed.</string>
@@ -71,7 +69,6 @@
     <string name="assist_s1_mini_summary">Removes fillers and fixes self-corrections, punctuation and numbers.</string>
     <string name="assist_s1_mini_off_summary">Off: voice typing inserts the plain transcript.</string>
     <string name="assist_s1_mini_credit">The English clean-up uses S1-mini by Superwhisper.</string>
-    <string name="assist_parakeet_live_hint">Shows your words while you speak. Whisper is used when Parakeet is not installed.</string>
     <string name="assist_parakeet_credit">Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0.</string>
     <string name="assist_s1_styling">Writing style</string>
     <string name="assist_style_casual">Casual</string>

@@ -460,7 +460,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                 if (mySession == session && !e.cancelled) message(R.string.assist_voice_title, failureText(e), settings = e.modelFailedWhileLoading)
             } catch (e: Exception) {
                 Log.w(TAG, "voice typing failed: ${e.javaClass.simpleName}")
-                if (mySession == session) message(R.string.assist_voice_title, ime.getString(R.string.assist_failed, e.javaClass.simpleName))
+                if (mySession == session) message(R.string.assist_voice_title, ime.getString(R.string.assist_failed_generic))
             }
         }
     }
@@ -689,7 +689,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
                 if (mySession == session && !e.cancelled) message(R.string.assist_check_title, failureText(e), settings = e.modelFailedWhileLoading)
             } catch (e: Exception) {
                 Log.w(TAG, "check failed: ${e.javaClass.simpleName}")
-                if (mySession == session) message(R.string.assist_check_title, ime.getString(R.string.assist_failed, e.javaClass.simpleName))
+                if (mySession == session) message(R.string.assist_check_title, ime.getString(R.string.assist_failed_generic))
             }
         }
     }
@@ -873,7 +873,7 @@ class AssistController(private val ime: LatinIME) : AssistPanelView.Listener {
 
     private fun failureText(e: MlException): String =
         if (e.modelFailedWhileLoading) ime.getString(R.string.assist_model_broken)
-        else ime.getString(R.string.assist_failed, e.message ?: "unknown")
+        else e.message?.let { ime.getString(R.string.assist_failed, it) } ?: ime.getString(R.string.assist_failed_generic)
 
     companion object {
         /** How long a start waits for its panel to be on screen before it is cancelled (the slowest first sighting measured was about 100 ms). */
