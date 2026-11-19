@@ -295,6 +295,10 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   `ic_key_tab.xml` (Inter Medium glyph outlines). Alt keys (toolbar and
   layouts) send the left-Alt meta state, as a hardware Alt does, so that Termux
   takes them as Alt (`KeyboardActionListenerImpl`).
+- 2026-11-19: Clackatoo style chrome. The dividers between suggestions are the
+  keys' hairline (the stock dark grey line did not show on a dark strip; new
+  `suggestions_strip_divider_clackatoo.xml`), and clipboard history rows are
+  drawn as keys (8dp, hairline) instead of the Rounded style's bevelled key.
 
 Upstream copyright
 ------------------

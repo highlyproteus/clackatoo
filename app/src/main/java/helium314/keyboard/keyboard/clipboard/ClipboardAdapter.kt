@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import helium314.keyboard.clackatoo.ClackatooStyle
 import helium314.keyboard.latin.ClipboardHistoryEntry
 import helium314.keyboard.latin.ClipboardHistoryManager
 import helium314.keyboard.latin.R
@@ -58,7 +59,10 @@ class ClipboardAdapter(
                 setOnClickListener(this@ViewHolder)
                 setOnTouchListener(this@ViewHolder)
                 setOnLongClickListener(this@ViewHolder)
-                setBackgroundResource(itemBackgroundId)
+                // Clackatoo style: a clip looks like a key (8dp corners, hairline), not like the Rounded style's bevelled key
+                background = ClackatooStyle.keyBackground(resources, Settings.getValues().mColors, ColorType.KEY_BACKGROUND)
+                    ?.takeIf { ClackatooStyle.isActive(context) }
+                if (background == null) setBackgroundResource(itemBackgroundId)
                 isHapticFeedbackEnabled = false
             }
             Settings.getValues().mColors.setBackground(view, ColorType.KEY_BACKGROUND)

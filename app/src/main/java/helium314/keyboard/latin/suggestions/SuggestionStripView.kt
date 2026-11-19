@@ -110,6 +110,11 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             wordViews.add(word)
             val divider = inflater.inflate(R.layout.suggestion_divider, null)
             if (colors.translucentWindow) (divider as ImageView).setImageDrawable(null) // glass: the gap between the backings divides
+            // Clackatoo style: the keys' hairline, which also shows on a dark strip (the stock divider is a fixed dark grey)
+            else ClackatooStyle.squareDrawable(context, R.drawable.suggestions_strip_divider_clackatoo)?.mutate()?.let {
+                it.setTint(colors.keyBorder)
+                (divider as ImageView).setImageDrawable(it)
+            }
             dividerViews.add(divider)
             val info = TextView(context, null, R.attr.suggestionWordStyle)
             info.setTextColor(colors.get(ColorType.KEY_TEXT))
