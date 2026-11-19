@@ -57,4 +57,16 @@ class ToolbarCheckKeyTest {
         assertTrue(getPinnedToolbarKeys(prefs).isEmpty())
         assertTrue(prefs.getString(Settings.PREF_PINNED_TOOLBAR_KEYS, "")!!.contains("CHECK${Separators.KV}false"))
     }
+
+    @Test fun `existing installs get the Alt key switched off`() {
+        val withoutAlt = ToolbarKey.entries.filter { it != ToolbarKey.ALT && it != ToolbarKey.CLOSE_HISTORY }
+            .joinToString(Separators.ENTRY) { it.name + Separators.KV + (it == ToolbarKey.VOICE) }
+        prefs.edit {
+            clear()
+            putString(Settings.PREF_TOOLBAR_KEYS, withoutAlt)
+        }
+        upgradeToolbarPrefs(prefs)
+        assertTrue(prefs.getString(Settings.PREF_TOOLBAR_KEYS, "")!!.contains("ALT${Separators.KV}false"))
+        assertFalse(ToolbarKey.ALT in getEnabledToolbarKeys(prefs))
+    }
 }

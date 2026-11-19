@@ -12,10 +12,10 @@ import helium314.keyboard.latin.utils.ToolbarKey
 import helium314.keyboard.latin.utils.toolbarKeyStrings
 
 /**
- * Terminal keys: in a terminal the suggestion strip shows Esc, Tab, Ctrl and the arrow keys instead of suggestions
- * (terminals have none). The keys are toolbar keys, so they send the same key events; Ctrl is one-shot like a Ctrl key
- * on the keyboard: it stays on until the next key, so Ctrl then c sends Ctrl+C. In a terminal the letters' bottom row has
- * "/" and "-", the two characters a command line needs most, in the place of the comma and the emoji key.
+ * Terminal keys: in a terminal the suggestion strip shows Esc, Tab, Ctrl, Alt and the arrow keys instead of suggestions
+ * (terminals have none). The keys are toolbar keys, so they send the same key events; Ctrl and Alt are one-shot like a
+ * modifier key on the keyboard: they stay on until the next key, so Ctrl then c sends Ctrl+C. In a terminal the letters'
+ * bottom row has "/" and "-", the two characters a command line needs most, in the place of the comma and the emoji key.
  */
 object TerminalKeys {
     const val PREF_TERMINAL_KEYS = "terminal_keys"
@@ -25,7 +25,8 @@ object TerminalKeys {
     const val PREF_TERMINAL_BOTTOM_ROW = "terminal_bottom_row"
     const val DEFAULT_TERMINAL_BOTTOM_ROW = true
 
-    val KEYS = listOf(ToolbarKey.ESCAPE, ToolbarKey.TAB, ToolbarKey.CTRL, ToolbarKey.LEFT, ToolbarKey.UP, ToolbarKey.DOWN, ToolbarKey.RIGHT)
+    val KEYS = listOf(ToolbarKey.ESCAPE, ToolbarKey.TAB, ToolbarKey.CTRL, ToolbarKey.ALT,
+        ToolbarKey.LEFT, ToolbarKey.UP, ToolbarKey.DOWN, ToolbarKey.RIGHT)
 
     /** What a long press on "/" and on "-" offers; the first is the key's hint. */
     val SLASH_POPUPS = listOf("|", "~", "`")

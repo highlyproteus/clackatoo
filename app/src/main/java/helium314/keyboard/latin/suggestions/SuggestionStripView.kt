@@ -17,6 +17,7 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -271,13 +272,15 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         updateKeys()
     }
 
-    /** Clackatoo: a Ctrl that is on (it stays on until the next key) looks like a pinned key. */
-    fun setCtrlActive(active: Boolean) {
-        if (active == ctrlActive) return
-        ctrlActive = active
-        toolbar.findViewWithTag<View>(ToolbarKey.CTRL)?.let { setCtrlBackground(it) }
-        pinnedKeys.findViewWithTag<View>(ToolbarKey.CTRL)?.let { setCtrlBackground(it) }
-        terminalKeyViews?.forEach { if (it.tag == ToolbarKey.CTRL) setCtrlBackground(it) }
+    /** Clackatoo: a Ctrl or Alt that is on (it stays on until the next key) looks like a pinned key. */
+    fun setActiveModifiers(metaState: Int) {
+        if (metaState == activeModifiers) return
+        activeModifiers = metaState
+        for (modifier in MODIFIER_KEYS) {
+            toolbar.findViewWithTag<View>(modifier)?.let { setModifierBackground(it) }
+            pinnedKeys.findViewWithTag<View>(modifier)?.let { setModifierBackground(it) }
+        }
+        terminalKeyViews?.forEach { if (it.tag in MODIFIER_KEYS) setModifierBackground(it) }
     }
 
     fun setExternalSuggestionView(view: View?, addCloseButton: Boolean) {
@@ -583,7 +586,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     }
 
     private var terminalKeyViews: List<ImageButton>? = null
-    private var ctrlActive = false
+    private var activeModifiers = 0 // the meta state, as in KeyEvent
 
     private fun showsTerminalKeys(): Boolean = Settings.getValues().mTerminalKeys
 
@@ -591,14 +594,19 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         createToolbarKey(context, key).also {
             it.layoutParams = toolbarKeyLayoutParams
             setupKey(it, Settings.getValues().mColors)
-            if (key == ToolbarKey.CTRL) setCtrlBackground(it)
+            if (key in MODIFIER_KEYS) setModifierBackground(it)
         }
     }.also { terminalKeyViews = it }
 
-    private fun setCtrlBackground(key: View) {
+    private fun setModifierBackground(key: View) {
+        val on = when (key.tag) {
+            ToolbarKey.CTRL -> activeModifiers and KeyEvent.META_CTRL_MASK != 0
+            ToolbarKey.ALT -> activeModifiers and KeyEvent.META_ALT_MASK != 0
+            else -> false
+        }
         val quickPinned = key.parent === toolbar && Settings.getValues().mQuickPinToolbarKeys
-                && pinnedKeys.findViewWithTag<View>(ToolbarKey.CTRL) != null
-        key.background = if (ctrlActive || quickPinned) pinnedKeyBackground()
+                && pinnedKeys.findViewWithTag<View>(key.tag) != null
+        key.background = if (on || quickPinned) pinnedKeyBackground()
             else GlassBacking.chip(resources, Settings.getValues().mColors)
                 ?: defaultToolbarBackground.constantState?.newDrawable(resources)
     }
@@ -608,5 +616,6 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         var DEBUG_SUGGESTIONS = false
         private const val DEBUG_INFO_TEXT_SIZE_IN_DIP = 6.5f
         private val TAG = SuggestionStripView::class.java.simpleName
+        private val MODIFIER_KEYS = setOf(ToolbarKey.CTRL, ToolbarKey.ALT) // Clackatoo: keys that stay on for the next key
     }
 }

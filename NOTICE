@@ -288,6 +288,11 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   Terminal > "Slash and dash keys", on by default. `KeyboardMode.TERMINAL`,
   `TerminalKeys.adjustBottomRow`, one hook each in `KeyboardLayoutSet` and
   `KeyboardParser`.
+- 2026-11-19: Alt. The terminal keys are now Esc, Tab, Ctrl, Alt and the
+  arrows; Alt is a new toolbar key and, like Ctrl, stays on for the next key
+  and is highlighted while on (`SuggestionStripView.setActiveModifiers`). The
+  Tab toolbar key shows the word "Tab". New files `ic_key_alt.xml` and
+  `ic_key_tab.xml` (Inter Medium glyph outlines).
 
 Upstream copyright
 ------------------

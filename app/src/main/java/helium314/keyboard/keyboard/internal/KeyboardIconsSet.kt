@@ -159,8 +159,9 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.SPLIT -> R.drawable.ic_ime_switcher
                     ToolbarKey.BACKGROUND_GATHERING -> R.drawable.ic_settings_gesture
                     ToolbarKey.ESCAPE -> R.drawable.ic_key_esc
-                    ToolbarKey.TAB -> R.drawable.sym_keyboard_tab_holo
+                    ToolbarKey.TAB -> R.drawable.ic_key_tab
                     ToolbarKey.CTRL -> R.drawable.ic_key_ctrl
+                    ToolbarKey.ALT -> R.drawable.ic_key_alt
                 })
             }
         } }
@@ -227,8 +228,9 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.SPLIT -> R.drawable.ic_ime_switcher
                     ToolbarKey.BACKGROUND_GATHERING -> R.drawable.ic_settings_gesture
                     ToolbarKey.ESCAPE -> R.drawable.ic_key_esc
-                    ToolbarKey.TAB -> R.drawable.sym_keyboard_tab_lxx
+                    ToolbarKey.TAB -> R.drawable.ic_key_tab
                     ToolbarKey.CTRL -> R.drawable.ic_key_ctrl
+                    ToolbarKey.ALT -> R.drawable.ic_key_alt
                 })
             }
         } }
@@ -295,8 +297,9 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.SPLIT -> R.drawable.ic_ime_switcher
                     ToolbarKey.BACKGROUND_GATHERING -> R.drawable.ic_settings_gesture
                     ToolbarKey.ESCAPE -> R.drawable.ic_key_esc
-                    ToolbarKey.TAB -> R.drawable.sym_keyboard_tab_rounded
+                    ToolbarKey.TAB -> R.drawable.ic_key_tab
                     ToolbarKey.CTRL -> R.drawable.ic_key_ctrl
+                    ToolbarKey.ALT -> R.drawable.ic_key_alt
                 })
             }
         } }

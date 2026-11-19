@@ -47,9 +47,11 @@ The keyboard has no internet access. Only the optional companion connects to Hug
   applied only when accepted.
 - **Emoji key.** An emoji key next to the space bar opens the emoji keyboard (Settings > Preferences > Show emoji key).
 - **Terminal keys.** In terminal and SSH apps (Termux, ConnectBot, JuiceSSH, Termius, Android's Linux terminal and any
-  field that asks for raw key events) the suggestion strip shows Esc, Tab, Ctrl and the arrow keys. Ctrl stays on for
-  the next key, so Ctrl then c sends Ctrl+C; Up recalls the shell's previous command. Settings > Terminal > Terminal keys;
-  Esc, Tab and Ctrl can also be added to the toolbar.
+  field that asks for raw key events) the suggestion strip shows Esc, Tab, Ctrl, Alt and the arrow keys. Ctrl and Alt
+  stay on for the next key, so Ctrl then c sends Ctrl+C; Up recalls the shell's previous command. Next to the space bar
+  sit `/` and `-` instead of the comma and the emoji key (hold them for `|` `~` `` ` `` and `_` `=` `+`, hold `.` for the
+  comma). Nothing is suggested or auto-corrected there, and swipe typing is off unless you turn it on. Settings >
+  Terminal has a switch for each; Esc, Tab, Ctrl and Alt can also be added to the toolbar.
 - **Everything from HeliBoard.** Layouts, dictionaries, clipboard history, colour themes and the Material, Holo and
   Rounded styles.
 
