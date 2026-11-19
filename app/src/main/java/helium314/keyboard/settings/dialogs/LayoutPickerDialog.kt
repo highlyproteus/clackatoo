@@ -172,7 +172,7 @@ private fun LayoutItemRow(
                 KeyboardSwitcher.getInstance().setThemeNeedsReload()
             }
             .padding(start = 6.dp)
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
     ) {
         RadioButton(
             selected = isSelected,

@@ -199,7 +199,7 @@ fun <T: Any?> SearchScreen(
                                 var showMenu by remember { mutableStateOf(false) }
                                 IconButton(
                                     onClick = { showMenu = true }
-                                ) { Icon(painterResource(R.drawable.ic_arrow_left), "menu", Modifier.rotate(-90f)) }
+                                ) { Icon(painterResource(R.drawable.ic_arrow_left), stringResource(R.string.model_card_more), Modifier.rotate(-90f)) }
                                 DropdownMenu(
                                     expanded = showMenu,
                                     onDismissRequest = { showMenu = false }

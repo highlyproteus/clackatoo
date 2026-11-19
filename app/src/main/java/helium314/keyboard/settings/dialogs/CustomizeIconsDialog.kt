@@ -156,7 +156,7 @@ fun CustomizeIconsDialog(
                             LocalContentColor provides color
                         ) {
                             Box(
-                                Modifier.size(40.dp).clickable { selectedIcon = resId },
+                                Modifier.size(48.dp).clickable { selectedIcon = resId },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(painterResourceCompat(resId), null, Modifier.fillMaxSize(0.8f))

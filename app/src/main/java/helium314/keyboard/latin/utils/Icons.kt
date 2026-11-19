@@ -28,7 +28,7 @@ fun NextScreenIcon() {
 
 @Composable
 fun EditButton(enabled: Boolean = true, onClick: () -> Unit) {
-    IconButton(onClick, enabled = enabled)  { Icon(painterResource(R.drawable.ic_edit), "edit") }
+    IconButton(onClick, enabled = enabled)  { Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.content_edit)) }
 }
 
 @Composable
@@ -49,7 +49,7 @@ fun CloseIcon(@StringRes resId: Int) {
 @Composable
 fun DefaultButton(isDefault: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = !isDefault) {
-        Icon(painterResource(R.drawable.ic_settings_default), "default")
+        Icon(painterResource(R.drawable.ic_settings_default), stringResource(R.string.button_default))
     }
 }
 
@@ -58,7 +58,7 @@ fun ExpandButton(enabled: Boolean = true, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled) {
         Icon(
             painterResource(R.drawable.ic_arrow_left),
-            "expand",
+            stringResource(R.string.content_show_more),
             Modifier.rotate(-90f)
         )
     }

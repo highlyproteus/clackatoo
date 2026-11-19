@@ -61,7 +61,7 @@ fun <T: Any> MultiListPickerDialog(
                                     selected = if (item in selected) selected - item else selected + item
                                 }
                                 .padding(horizontal = 16.dp)
-                                .heightIn(min = 40.dp)
+                                .heightIn(min = 48.dp)
                         ) {
                             Text(
                                 text = getItemName(item),

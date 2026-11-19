@@ -154,18 +154,18 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                         } else if (crashReports.isNotEmpty()) {
                             val ctx = LocalContext.current
                             ConfirmationDialog(
-                                cancelButtonText = "ignore",
+                                cancelButtonText = stringResource(R.string.crash_reports_ignore),
                                 onDismissRequest = { crashReportFiles.value = emptyList() },
-                                neutralButtonText = "delete",
+                                neutralButtonText = stringResource(R.string.delete),
                                 onNeutral = { crashReports.forEach { it.delete() }; crashReportFiles.value = emptyList() },
-                                confirmButtonText = "get",
+                                confirmButtonText = stringResource(R.string.crash_reports_save),
                                 onConfirmed = {
                                     val intent = IntentUtils.getResolvableTypeIntent(ctx, "application/zip")
                                         .setAction(Intent.ACTION_CREATE_DOCUMENT)
                                         .putExtra(Intent.EXTRA_TITLE, "crash_reports.zip")
                                     crashFilePicker.launch(intent)
                                 },
-                                content = { Text("Crash report files found") },
+                                content = { Text(stringResource(R.string.crash_reports_found)) },
                             )
                         } else if (helium314.keyboard.clackatoo.GestureDataPolicy.GATHERING_ALLOWED
                             && JniUtils.sHaveGestureLib && System.currentTimeMillis() < END_DATE_EPOCH_MILLIS + TWO_WEEKS_IN_MILLIS) {

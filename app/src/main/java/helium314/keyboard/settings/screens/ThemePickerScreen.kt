@@ -47,6 +47,7 @@ import helium314.keyboard.clackatoo.ui.SettingsHint
 import helium314.keyboard.clackatoo.ThemeSelection
 import helium314.keyboard.clackatoo.ui.SettingsRow
 import helium314.keyboard.clackatoo.ui.SettingsSectionHeader
+import helium314.keyboard.clackatoo.ui.frostedBacking
 import helium314.keyboard.clackatoo.ui.MiniKeyboard
 import helium314.keyboard.clackatoo.ui.settingsPanelColor
 import helium314.keyboard.keyboard.KeyboardSwitcher
@@ -143,7 +144,8 @@ fun ThemePickerScreen(onClickBack: () -> Unit) {
                         }
                     }
                     if (group == ThemeGroup.CUSTOM) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // text never sits on the clear window
+                        Row(Modifier.frostedBacking(MaterialTheme.shapes.medium), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { newCustomTheme(prefs, prefKey, editsNight) }) { Text(stringResource(R.string.theme_picker_new_custom)) }
                             // adding, loading from a file or the clipboard, renaming and deleting stay where they were
                             TextButton(onClick = { showManageDialog = true }) { Text(stringResource(R.string.load)) }

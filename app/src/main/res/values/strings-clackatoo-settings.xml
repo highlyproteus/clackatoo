@@ -57,6 +57,7 @@
     <string name="models_more">More models (%1$d)</string>
     <string name="content_show_more">Show more</string>
     <string name="content_show_less">Show less</string>
+    <string name="content_edit">Edit</string>
     <string name="model_facts_live">Live text</string>
     <string name="model_facts_live_fast">Live text, fast</string>
     <string name="model_facts_speech">After Stop</string>
@@ -65,4 +66,9 @@
     <string name="model_lang_english">English only</string>
     <string name="model_lang_multilingual">Multilingual</string>
     <string name="model_lang_count">%1$d languages</string>
+
+    <!-- crash reports found at start -->
+    <string name="crash_reports_found">Crash reports found</string>
+    <string name="crash_reports_ignore">Ignore</string>
+    <string name="crash_reports_save">Save</string>
 </resources>

@@ -73,7 +73,7 @@ fun <T: Any> ReorderDialog(
                             Row(
                                 modifier = Modifier
                                     .longPressDraggableHandle()
-                                    .heightIn(min = 36.dp),
+                                    .heightIn(min = 48.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
