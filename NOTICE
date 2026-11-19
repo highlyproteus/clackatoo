@@ -268,6 +268,10 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   `ic_key_ctrl.xml`; hooks in `ToolbarUtils`, `KeyboardIconsSet`,
   `SuggestionStripView`, `KeyboardActionListenerImpl`, `LatinIME` and the
   toolbar settings screen.
+- 2026-11-19: terminal detection. Termux's text box (a plain text field) and the
+  number, phone and date fields of terminal apps are no longer treated as
+  terminals; Termux's "enforce char based input" type (a variation without a
+  class) still is (`TerminalKeys.isTerminal`).
 
 Upstream copyright
 ------------------

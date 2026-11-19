@@ -16,9 +16,11 @@ object TerminalKeys {
 
     val KEYS = listOf(ToolbarKey.ESCAPE, ToolbarKey.TAB, ToolbarKey.CTRL, ToolbarKey.LEFT, ToolbarKey.UP, ToolbarKey.DOWN, ToolbarKey.RIGHT)
 
-    /** Terminal and SSH apps whose terminal view asks for a text field type (Termux with char-based input, web terminals). */
+    private const val TERMUX = "com.termux"
+
+    /** Terminal and SSH apps whose terminal view may ask for something else than raw key events (Termux with char-based input, web terminals). */
     private val TERMINAL_PACKAGES = setOf(
-        "com.termux",
+        TERMUX,
         "org.connectbot",
         "com.sonelli.juicessh",
         "com.server.auditor.ssh.client", // Termius
@@ -30,11 +32,18 @@ object TerminalKeys {
     )
 
     /**
-     * Whether a field is a terminal: it asks for raw key events (TYPE_NULL, as Termux and ConnectBot do) or belongs to a
-     * known terminal app.
+     * Whether a field is a terminal: it asks for raw key events (TYPE_NULL, as Termux and ConnectBot do), or it belongs to a
+     * known terminal app and is not one of that app's other fields.
      */
-    fun isTerminal(inputType: Int, packageName: String?): Boolean =
-        inputType == InputType.TYPE_NULL || packageName in TERMINAL_PACKAGES
+    fun isTerminal(inputType: Int, packageName: String?): Boolean {
+        if (inputType == InputType.TYPE_NULL) return true
+        if (packageName !in TERMINAL_PACKAGES) return false
+        return when (inputType and InputType.TYPE_MASK_CLASS) {
+            0 -> true // Termux with "enforce char based input": a variation and flags without a class (0x00080090)
+            InputType.TYPE_CLASS_TEXT -> packageName != TERMUX // Termux's own text field is its text box, which wants suggestions
+            else -> false // number, phone and date fields are never the terminal
+        }
+    }
 
     fun enabled(prefs: SharedPreferences) = prefs.getBoolean(PREF_TERMINAL_KEYS, DEFAULT_TERMINAL_KEYS)
 }
