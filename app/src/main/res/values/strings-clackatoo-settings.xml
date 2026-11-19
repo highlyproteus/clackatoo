@@ -21,6 +21,8 @@
     <string name="home_setup_enable">Turn it on and choose it as your keyboard.</string>
     <string name="home_setup_select">Choose it as your keyboard to start typing with it.</string>
     <string name="home_setup_action">Set up</string>
+    <string name="setup_step_count">Step %1$d of %2$d</string>
+    <string name="setup_not_now">Not now</string>
     <string name="home_group_more">More settings</string>
     <string name="home_see_all_themes">See all themes</string>
     <string name="home_group_look_feel">Look &amp; feel</string>

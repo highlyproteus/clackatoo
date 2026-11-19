@@ -7,28 +7,29 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,12 +43,13 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import helium314.keyboard.clackatoo.ui.settingsPanelColor
+import helium314.keyboard.clackatoo.ui.AppIcon
+import helium314.keyboard.clackatoo.ui.SettingsPanel
 import helium314.keyboard.latin.R
-import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.Theme
 import helium314.keyboard.latin.utils.UncachedInputMethodManagerUtils
 import helium314.keyboard.latin.utils.previewDark
@@ -79,171 +81,106 @@ fun WelcomeWizard(
             }
     }
     val useWideLayout = isWideScreen()
-    // Material 3 colours and panels like the rest of the settings; the wizard covers the screen, so it is opaque even with glass
-    val stepBackgroundColor = settingsPanelColor()
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val textColorDim = MaterialTheme.colorScheme.onSurfaceVariant
-    val titleColor = MaterialTheme.colorScheme.onSurface
-    val panelShape = MaterialTheme.shapes.medium
     val appName = stringResource(ctx.applicationInfo.labelRes)
-    @Composable fun bigText() {
-        val resource = if (step == 0) R.string.setup_welcome_title else R.string.setup_steps_title
-        Column(Modifier.padding(bottom = 36.dp)) {
+    @Composable fun header() {
+        Column(Modifier.fillMaxWidth().padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            AppIcon(72.dp, Modifier.clip(MaterialTheme.shapes.medium))
+            val resource = if (step == 0) R.string.setup_welcome_title else R.string.setup_steps_title
             Text(
                 stringResource(resource, appName),
-                style = MaterialTheme.typography.displayMedium,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Medium),
                 textAlign = TextAlign.Center,
-                color = titleColor,
+                modifier = Modifier.padding(top = 16.dp),
             )
-            if (JniUtils.sHaveGestureLib)
-                Text(
-                    stringResource(R.string.setup_welcome_additional_description),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.End,
-                    color = titleColor,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Text(
+                stringResource(R.string.home_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
-    @Composable
-    fun ColumnScope.Step(step: Int, title: String, instruction: String, actionText: String, icon: Painter, action: () -> Unit) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("1", color = if (step == 1) titleColor else textColorDim)
-            Text("2", color = if (step == 2) titleColor else textColorDim)
-            Text("3", color = if (step == 3) titleColor else textColorDim)
+    @Composable fun StepPanel(number: Int, title: String, instruction: String) {
+        Text(
+            stringResource(R.string.setup_step_count, number, 3),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        SettingsPanel {
+            Column(Modifier.padding(16.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    instruction,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
-        Column(Modifier
-            .clip(panelShape)
-            .background(color = stepBackgroundColor)
-            .padding(16.dp)
-        ) {
-            Text(title)
-            Text(instruction, style = MaterialTheme.typography.bodyLarge.merge(color = textColor))
+    }
+    @Composable fun PrimaryAction(text: String, icon: Painter, onClick: () -> Unit) {
+        Button(onClick, Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 48.dp)) {
+            Icon(icon, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(text)
         }
-        Spacer(Modifier.height(4.dp))
-        Row(
-            Modifier.clip(panelShape).clickable { action() }
-                .background(color = stepBackgroundColor)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, Modifier.padding(end = 6.dp).size(32.dp), tint = textColor)
-            Text(actionText, Modifier.weight(1f))
-        }
+    }
+    @Composable fun SecondaryAction(text: String, onClick: () -> Unit) {
+        TextButton(onClick, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(text) }
     }
     @Composable fun steps() {
-        if (step == 0)
-            Step0 { step = 1 }
-        else
-            Column {
-                val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-                    step = determineStep()
-                }
-                if (step == 1) {
-                    Step(
-                        step,
-                        stringResource(R.string.setup_step1_title, appName),
-                        stringResource(R.string.setup_step1_instruction, appName),
-                        stringResource(R.string.setup_step1_action),
-                        painterResource(R.drawable.ic_setup_key)
-                    ) {
-                        val intent = Intent()
-                        intent.action = Settings.ACTION_INPUT_METHOD_SETTINGS
-                        intent.addCategory(Intent.CATEGORY_DEFAULT)
-                        launcher.launch(intent)
-                    }
-                } else if (step == 2) {
-                    Step(
-                        step,
-                        stringResource(R.string.setup_step2_title, appName),
-                        stringResource(R.string.setup_step2_instruction, appName),
-                        stringResource(R.string.setup_step2_action),
-                        painterResource(R.drawable.ic_setup_select),
-                        imm::showInputMethodPicker
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        Modifier.clip(panelShape).clickable { close() }
-                            .background(color = stepBackgroundColor)
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.sym_keyboard_language_switch),
-                            null,
-                            Modifier.padding(end = 6.dp).size(32.dp),
-                            tint = textColor
-                        )
-                        Text(stringResource(R.string.setup_step3_action), Modifier.weight(1f))
-                    }
-                } else { // step 3
-                    Step(
-                        step,
-                        stringResource(R.string.setup_step3_title),
-                        stringResource(R.string.setup_step3_instruction, appName),
-                        stringResource(R.string.setup_step3_action),
-                        painterResource(R.drawable.sym_keyboard_language_switch),
-                        close
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        Modifier.clip(panelShape).clickable { finish() }
-                            .background(color = stepBackgroundColor)
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_setup_check),
-                            null,
-                            Modifier.padding(end = 6.dp).size(32.dp),
-                            tint = textColor
-                        )
-                        Text(stringResource(R.string.setup_finish_action), Modifier.weight(1f))
-                    }
-                }
+        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            step = determineStep()
+        }
+        when (step) {
+            0 -> {
+                PrimaryAction(stringResource(R.string.setup_start_action), painterResource(R.drawable.ic_setup_key)) { step = 1 }
+                SecondaryAction(stringResource(R.string.setup_not_now), close)
             }
-    }
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        CompositionLocalProvider(
-            LocalContentColor provides textColor,
-            LocalTextStyle provides MaterialTheme.typography.titleLarge.merge(color = textColor),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (useWideLayout)
-                    Row {
-                        Box(Modifier.weight(0.4f)) {
-                            bigText()
-                        }
-                        Box(Modifier.weight(0.6f)) {
-                            steps()
-                        }
-                    }
-                else
-                    Column {
-                        bigText()
-                        steps()
-                    }
+            1 -> {
+                StepPanel(1, stringResource(R.string.setup_step1_title, appName), stringResource(R.string.setup_step1_instruction, appName))
+                PrimaryAction(stringResource(R.string.setup_step1_action), painterResource(R.drawable.ic_setup_key)) {
+                    val intent = Intent()
+                    intent.action = Settings.ACTION_INPUT_METHOD_SETTINGS
+                    intent.addCategory(Intent.CATEGORY_DEFAULT)
+                    launcher.launch(intent)
+                }
+                SecondaryAction(stringResource(R.string.setup_not_now), close)
+            }
+            2 -> {
+                StepPanel(2, stringResource(R.string.setup_step2_title, appName), stringResource(R.string.setup_step2_instruction, appName))
+                PrimaryAction(stringResource(R.string.setup_step2_action), painterResource(R.drawable.ic_setup_select), imm::showInputMethodPicker)
+                SecondaryAction(stringResource(R.string.setup_not_now), close)
+            }
+            else -> { // step 3
+                StepPanel(3, stringResource(R.string.setup_step3_title), stringResource(R.string.setup_step3_instruction, appName))
+                PrimaryAction(stringResource(R.string.setup_step3_action), painterResource(R.drawable.sym_keyboard_language_switch), close)
+                SecondaryAction(stringResource(R.string.setup_finish_action), finish)
             }
         }
     }
-}
-
-@Composable
-fun Step0(onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painterResource(R.drawable.setup_welcome_image), null)
-        Row(Modifier.clickable { onClick() }
-            .padding(top = 4.dp, start = 4.dp, end = 4.dp)
-            //.background(color = MaterialTheme.colorScheme.primary)
+    // the wizard covers the screen, so it is opaque even with glass
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Box(
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Spacer(Modifier.weight(1f))
-            Text(
-                stringResource(R.string.setup_start_action),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            if (useWideLayout)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(0.4f)) {
+                        header()
+                    }
+                    Column(Modifier.weight(0.6f)) {
+                        steps()
+                    }
+                }
+            else
+                Column(Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                    header()
+                    steps()
+                }
         }
     }
 }
