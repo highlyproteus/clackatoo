@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
 import helium314.keyboard.clackatoo.catalog.ModelsProtocol
+import helium314.keyboard.clackatoo.ui.SettingsRow
 import helium314.keyboard.latin.BuildConfig
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.common.Links
@@ -49,15 +50,17 @@ import androidx.core.content.edit
 import helium314.keyboard.latin.utils.IntentUtils
 import java.util.Locale
 
-internal fun openPrivacyPolicy(context: Context) {
+internal fun openLink(context: Context, url: String) {
     try {
         context.startActivity(
-            Intent(Intent.ACTION_VIEW, ModelsProtocol.PRIVACY_URL.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(context, R.string.models_no_browser, Toast.LENGTH_LONG).show()
     }
 }
+
+internal fun openPrivacyPolicy(context: Context) = openLink(context, ModelsProtocol.PRIVACY_URL)
 
 @Composable
 fun AboutScreen(
@@ -69,8 +72,6 @@ fun AboutScreen(
         SettingsWithoutKey.LICENSE,
         SettingsWithoutKey.PRIVACY_POLICY,
         SettingsWithoutKey.HIDDEN_FEATURES,
-        SettingsWithoutKey.GITHUB_WIKI,
-        SettingsWithoutKey.COMMUNITY_LINKS,
         SettingsWithoutKey.GITHUB,
         SettingsWithoutKey.SAVE_LOG,
     )
@@ -82,13 +83,8 @@ fun AboutScreen(
 }
 
 fun createAboutSettings(context: Context) = listOf(
-    Setting(context, SettingsWithoutKey.APP, R.string.english_ime_name, R.string.app_slogan) {
-        Preference(
-            name = it.title,
-            description = it.description,
-            onClick = { },
-            icon = R.mipmap.ic_launcher_round
-        )
+    Setting(context, SettingsWithoutKey.APP, R.string.english_ime_name, R.string.home_subtitle) {
+        SettingsRow(title = it.title, subtitle = it.description, icon = R.mipmap.ic_launcher_round)
     },
     Setting(context, SettingsWithoutKey.VERSION, R.string.version) {
         var count by rememberSaveable { mutableIntStateOf(0) }
@@ -113,12 +109,7 @@ fun createAboutSettings(context: Context) = listOf(
         Preference(
             name = it.title,
             description = it.description,
-            onClick = {
-                val intent = Intent()
-                intent.data = Links.LICENSE.toUri()
-                intent.action = Intent.ACTION_VIEW
-                ctx.startActivity(intent)
-            },
+            onClick = { openLink(ctx, Links.LICENSE) },
             icon = R.drawable.ic_settings_about_license
         )
     },
@@ -155,45 +146,12 @@ fun createAboutSettings(context: Context) = listOf(
             icon = R.drawable.ic_settings_about_hidden_features
         )
     },
-    Setting(context, SettingsWithoutKey.GITHUB_WIKI, R.string.about_wiki_link, R.string.about_wiki_link_description) {
-        val ctx = LocalContext.current
-        Preference(
-            name = it.title,
-            description = it.description,
-            onClick = {
-                val intent = Intent()
-                intent.data = Links.WIKI_URL.toUri()
-                intent.action = Intent.ACTION_VIEW
-                ctx.startActivity(intent)
-            },
-            icon = R.drawable.ic_settings_about_wiki
-        )
-    },
-    Setting(context, SettingsWithoutKey.COMMUNITY_LINKS, R.string.about_community_links, R.string.about_community_links_description) {
-        val ctx = LocalContext.current
-        Preference(
-            name = it.title,
-            description = it.description,
-            onClick = {
-                val intent = Intent()
-                intent.data = Links.COMMUNITY_LINKS.toUri()
-                intent.action = Intent.ACTION_VIEW
-                ctx.startActivity(intent)
-            },
-            icon = R.drawable.ic_settings_about_community
-        )
-     },
     Setting(context, SettingsWithoutKey.GITHUB, R.string.about_github_link) {
         val ctx = LocalContext.current
         Preference(
             name = it.title,
             description = it.description,
-            onClick = {
-                val intent = Intent()
-                intent.data = Links.SOURCE.toUri()
-                intent.action = Intent.ACTION_VIEW
-                ctx.startActivity(intent)
-            },
+            onClick = { openLink(ctx, Links.SOURCE) },
             icon = R.drawable.ic_settings_about_github
         )
     },
