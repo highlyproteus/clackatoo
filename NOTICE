@@ -299,6 +299,31 @@ top of the upstream tag v4.2 (`git diff v4.2 main`). In summary:
   keys' hairline (the stock dark grey line did not show on a dark strip; new
   `suggestions_strip_divider_clackatoo.xml`), and clipboard history rows are
   drawn as keys (8dp, hairline) instead of the Rounded style's bevelled key.
+- 2026-11-19: Onboarding. The first-run wizard shows the app icon, a "Step n
+  of 3" label over a settings panel, a Material 3 button for the step's action
+  and "Not now" (`WelcomeWizard`); HeliBoard's welcome screenshot is removed.
+  The steps themselves are unchanged.
+- 2026-11-19: About. The app row shows Clackatoo's subtitle instead of
+  upstream's slogan, and the rows that opened HeliBoard's wiki and community
+  list are removed (`AboutScreen`).
+- 2026-11-19: Voice typing and Grammar check settings. Even gaps between model
+  cards, an "Import and licences" header, the licences, experimental-notice and
+  rejection dialogs use `ThreeButtonAlertDialog`, deleting a model asks first,
+  and a custom model card no longer draws an empty button (`AssistScreens`,
+  `ModelCard`).
+- 2026-11-19: Voice and Check panel looks and wording. Buttons show a press,
+  take two lines at most, a long message scrolls, and unexpected errors read
+  "Something went wrong. Try again." instead of an exception class name
+  (`AssistPanelView`, `AssistController`). When the panel shows, and when the
+  microphone opens and closes, is unchanged.
+- 2026-11-19: Settings pickers. Rows of the list, layout, colour and reorder
+  pickers are at least 48dp high, icons are described from string resources,
+  and the theme screen's "New custom theme" and "Load" buttons have a frosted
+  backing.
+- 2026-11-19: Clackatoo Models looks like the keyboard's settings: the phone's
+  Material 3 colours, 12dp panels with rows, a filled and text buttons
+  (`Ui.kt`). Its actions, permissions and the link to the keyboard are
+  unchanged.
 
 Upstream copyright
 ------------------
